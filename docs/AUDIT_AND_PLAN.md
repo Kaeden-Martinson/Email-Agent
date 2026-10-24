@@ -159,3 +159,13 @@
   - Generated icon; electron-builder NSIS config (per-user, keeps data on uninstall).
 - **Verified:** 153 tests pass. Store tested on a copy of the real data: migrate, encrypt, reopen, corrupt and restore from backup, encryption off. The packaged `Inbox Pilot.exe` ran in demo mode (version 0.9.0, packaged true, synced, encrypted data). Package contents checked (app, UI, dependencies and oauth-clients.json included; no source or tests). The installer `release/Inbox Pilot Setup 0.9.0.exe` was built. **Not run:** installing changes your system, so that's left for you. The real app migrated to encrypted storage with all 28 emails, and its backup is encrypted.
 - **Not done (needs you):** code signing requires buying a certificate; publishing releases and an update feed requires choosing hosting (for example GitHub Releases).
+
+**2026-10-24 (overnight): stage 10 (Outlook and provider hardening)**
+
+- **Least privilege:**
+  - `core/access.ts` defines the OAuth scopes per connection mode. Full: `gmail.modify`, or Graph `Mail.ReadWrite` + `Mail.Send`; never `https://mail.google.com/` (permanent delete). **Read-only**: `gmail.readonly`, or Graph `Mail.Read`.
+  - You choose the mode at sign-in. Read-only mailboxes have every write permission forced off, `updateAccount` refuses to enable them, and `perform`, mailto-unsubscribe and "Draft a nudge" all check `accessBlocker` before touching the mailbox. A "Reconnect with full access" button upgrades a mailbox later.
+- **Pagination:** Gmail `nextPageToken` and Graph `@odata.nextLink` up to a cap (200 on a mailbox's first sync, 100 after), so busy inboxes aren't cut off at 50.
+- Provider behavior stays behind the shared `MailProvider` interface, with no Gmail/Outlook conditionals in the engine. Rate limits, transient errors, token refresh and revoked sessions are handled in the shared OAuth layer (see the reliability notes above).
+- **Verified:** 158 tests pass (scope selection and access guards). In the demo, a read-only mailbox shows the banner with write controls disabled, and direct API attempts to enable archive or auto-send are refused.
+- **Blocked (needs you):** a live Outlook test needs an Azure app registration on a personal Microsoft account (the school account has no access). Once the Application (client) ID is in `oauth-clients.json`, Outlook works through the same code paths. To use read-only Gmail in Testing mode, also add `gmail.readonly` under Google Auth Platform → Data Access.

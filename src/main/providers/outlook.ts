@@ -1,5 +1,6 @@
 import type { Address, Category, EmailMessage, Settings } from '../../shared/types';
 import { oauthClients } from '../clients';
+import { scopesFor, type Access } from '../core/access';
 import type { OAuthConfig } from '../oauth';
 import { OAuthProvider, type MailProvider } from './base';
 import { cleanBody, htmlToText, isBulkMail, LABEL_NAMES, parseListUnsubscribe } from './mime';
@@ -28,7 +29,7 @@ interface GraphMessage {
   internetMessageHeaders?: { name: string; value: string }[];
 }
 
-export function microsoftOAuth(s: Settings, loginHint?: string): OAuthConfig {
+export function microsoftOAuth(s: Settings, loginHint?: string, access: Access = 'full'): OAuthConfig {
   const { microsoft } = oauthClients(s);
   if (!microsoft.clientId) {
     throw new Error('Microsoft sign-in is not set up in this copy of Inbox Pilot yet (oauth-clients.json is missing a Microsoft client).');
@@ -37,7 +38,7 @@ export function microsoftOAuth(s: Settings, loginHint?: string): OAuthConfig {
     authUrl: `https://login.microsoftonline.com/${microsoft.tenant}/oauth2/v2.0/authorize`,
     tokenUrl: `https://login.microsoftonline.com/${microsoft.tenant}/oauth2/v2.0/token`,
     clientId: microsoft.clientId,
-    scopes: ['offline_access', 'User.Read', 'Mail.ReadWrite', 'Mail.Send'],
+    scopes: scopesFor('outlook', access),
     redirectHost: 'localhost',
     extraAuthParams: loginHint ? { login_hint: loginHint } : { prompt: 'select_account' },
   };
@@ -70,10 +71,21 @@ export class OutlookProvider extends OAuthProvider implements MailProvider {
       $top: String(max),
       $select: SELECT,
     });
-    const res = await this.api<{ value: GraphMessage[] }>(`${GRAPH}/mailFolders/inbox/messages?${params}`, {
-      headers: { Prefer: 'outlook.body-content-type="text"' },
-    });
-    return res.value.map((m) => this.parse(m));
+    return (await this.pages(`${GRAPH}/mailFolders/inbox/messages?${params}`, max)).map((m) => this.parse(m));
+  }
+
+  /** Follows @odata.nextLink until `max` messages, so busy folders aren't cut off at one page. */
+  private async pages(first: string, max: number): Promise<GraphMessage[]> {
+    const out: GraphMessage[] = [];
+    let url: string | undefined = first;
+    while (url && out.length < max) {
+      const res: { value: GraphMessage[]; '@odata.nextLink'?: string } = await this.api(url, {
+        headers: { Prefer: 'outlook.body-content-type="text"' },
+      });
+      out.push(...res.value);
+      url = res['@odata.nextLink'];
+    }
+    return out.slice(0, max);
   }
 
   async fetchSent(sinceMs: number, max: number): Promise<EmailMessage[]> {
@@ -83,10 +95,7 @@ export class OutlookProvider extends OAuthProvider implements MailProvider {
       $top: String(max),
       $select: SELECT,
     });
-    const res = await this.api<{ value: GraphMessage[] }>(`${GRAPH}/mailFolders/sentitems/messages?${params}`, {
-      headers: { Prefer: 'outlook.body-content-type="text"' },
-    });
-    return res.value.map((m) => this.parse(m));
+    return (await this.pages(`${GRAPH}/mailFolders/sentitems/messages?${params}`, max)).map((m) => this.parse(m));
   }
 
   /** /me/messages spans every folder, so this includes your replies in Sent Items. */

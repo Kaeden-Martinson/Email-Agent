@@ -1,5 +1,6 @@
 import type { Category, EmailMessage, Settings } from '../../shared/types';
 import { oauthClients } from '../clients';
+import { scopesFor, type Access } from '../core/access';
 import type { OAuthConfig } from '../oauth';
 import { OAuthProvider, type MailProvider } from './base';
 import {
@@ -38,7 +39,7 @@ interface GmailMessage {
   payload?: GmailPart;
 }
 
-export function googleOAuth(s: Settings, loginHint?: string): OAuthConfig {
+export function googleOAuth(s: Settings, loginHint?: string, access: Access = 'full'): OAuthConfig {
   const { google } = oauthClients(s);
   if (!google.clientId) {
     throw new Error('Google sign-in is not set up in this copy of Inbox Pilot yet (oauth-clients.json is missing a Google client).');
@@ -48,8 +49,7 @@ export function googleOAuth(s: Settings, loginHint?: string): OAuthConfig {
     tokenUrl: 'https://oauth2.googleapis.com/token',
     clientId: google.clientId,
     clientSecret: google.clientSecret || undefined,
-    // gmail.modify covers read, label/archive, drafts and send.
-    scopes: ['https://www.googleapis.com/auth/gmail.modify'],
+    scopes: scopesFor('gmail', access),
     redirectHost: '127.0.0.1',
     extraAuthParams: { access_type: 'offline', prompt: 'consent', ...(loginHint ? { login_hint: loginHint } : {}) },
   };
@@ -82,11 +82,17 @@ export class GmailProvider extends OAuthProvider implements MailProvider {
   }
 
   private async search(q: string, max: number): Promise<EmailMessage[]> {
-    const list = await this.api<{ messages?: { id: string }[] }>(
-      `${BASE}/messages?${new URLSearchParams({ q, maxResults: String(max) })}`,
-    );
+    // Page through results up to `max`, so a busy inbox isn't cut off at the first page.
+    const ids: string[] = [];
+    let pageToken: string | undefined;
+    do {
+      const params = new URLSearchParams({ q, maxResults: String(Math.min(100, max - ids.length)) });
+      if (pageToken) params.set('pageToken', pageToken);
+      const list = await this.api<{ messages?: { id: string }[]; nextPageToken?: string }>(`${BASE}/messages?${params}`);
+      ids.push(...(list.messages ?? []).map((m) => m.id));
+      pageToken = list.nextPageToken;
+    } while (pageToken && ids.length < max);
     // A few requests at a time: much faster than one by one, gentle on Gmail's rate limits.
-    const ids = (list.messages ?? []).map((m) => m.id);
     const out: EmailMessage[] = new Array(ids.length);
     let next = 0;
     const worker = async () => {

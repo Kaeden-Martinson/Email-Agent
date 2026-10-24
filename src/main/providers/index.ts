@@ -15,12 +15,13 @@ export async function signIn(
   kind: 'gmail' | 'outlook',
   s: Settings,
   loginHint?: string,
+  access: 'full' | 'readonly' = 'full',
 ): Promise<{ email: string; tokenSet: TokenSet }> {
   if (kind === 'gmail') {
-    const tokenSet = await authorize(googleOAuth(s, loginHint));
+    const tokenSet = await authorize(googleOAuth(s, loginHint, access));
     return { email: await gmailProfileEmail(tokenSet.accessToken), tokenSet };
   }
-  const tokenSet = await authorize(microsoftOAuth(s, loginHint));
+  const tokenSet = await authorize(microsoftOAuth(s, loginHint, access));
   return { email: await outlookProfileEmail(tokenSet.accessToken), tokenSet };
 }
 
@@ -28,9 +29,9 @@ export function createProvider(account: Account, s: Settings): MailProvider {
   if (account.id.startsWith('demo')) return new DemoProvider(account);
   switch (account.kind) {
     case 'gmail':
-      return new GmailProvider(account, googleOAuth(s));
+      return new GmailProvider(account, googleOAuth(s, undefined, account.access ?? 'full'));
     case 'outlook':
-      return new OutlookProvider(account, microsoftOAuth(s));
+      return new OutlookProvider(account, microsoftOAuth(s, undefined, account.access ?? 'full'));
     case 'imap':
       return new ImapProvider(account);
   }

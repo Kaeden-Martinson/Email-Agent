@@ -24,7 +24,8 @@ export function seedDemo(store: Store): void {
       providerName: 'Yahoo Mail',
       addedAt: Date.now(),
       watching: false,
-      permissions: { ...DEFAULT_PERMISSIONS, notify: false },
+      access: 'readonly',
+      permissions: { ...DEFAULT_PERMISSIONS, notify: false, manage: false },
     },
   );
   const now = Date.now();

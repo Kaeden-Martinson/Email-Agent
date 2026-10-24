@@ -57,7 +57,7 @@ const showThread = new Set<string>();
 /** Mailboxes whose permissions panel is expanded. */
 const openPerms = new Set<string>();
 /** The add-mailbox flow in progress, if any. */
-let addFlow: { email: string; busy: string; discovery?: Discovery; password: string } | null = null;
+let addFlow: { email: string; busy: string; discovery?: Discovery; password: string; access?: 'full' | 'readonly' } | null = null;
 let deferredRender = false;
 
 const CAT_LABEL: Record<Category, string> = {
@@ -315,7 +315,7 @@ function renderAddMailbox(onAdded: (id: string) => void, onCancel?: () => void):
     render();
     void run(async () => {
       try {
-        const id = await api.connect({ ...d, password: f.password });
+        const id = await api.connect({ ...d, password: f.password, access: f.access ?? 'full' });
         addFlow = null;
         onAdded(id);
       } finally {
@@ -380,6 +380,14 @@ function renderAddMailbox(onAdded: (id: string) => void, onCancel?: () => void):
         ? h('p', { class: 'hint' }, `Your browser opens a ${brand} sign-in page. Inbox Pilot never sees your password.`)
         : h('p', { class: 'err' },
             `${brand} sign-in isn't set up in this copy of Inbox Pilot yet. The developer needs to add a ${brand} client to oauth-clients.json (see the README).`),
+      h('div', { class: 'field' }, h('label', {}, 'What Pilot may do'),
+        ([
+          ['full', 'Full access (recommended)', 'Read mail, and, only when you allow it per mailbox, archive, label, save drafts or send.'],
+          ['readonly', 'Read-only', 'Summaries, search, deadlines and reminders only. Pilot can never change this mailbox or send from it.'],
+        ] as ['full' | 'readonly', string, string][]).map(([value, label, hint]) =>
+          h('label', { class: 'check' },
+            h('input', { type: 'radio', name: 'access', checked: (f.access ?? 'full') === value, onchange: () => { f.access = value; } }),
+            h('span', {}, h('strong', {}, label), h('div', { class: 'hint' }, hint))))),
       h('div', { class: 'actions' }, btn(`Sign in with ${brand}`, connect, 'primary', !available || !!f.busy)),
       footer);
   }
@@ -457,9 +465,10 @@ function mailboxCard(a: Account): HTMLElement {
 function permissionsPanel(a: Account): HTMLElement {
   const p = a.permissions;
   const set = (perm: Partial<AccountPermissions>) => void run(() => api.updateAccount(a.id, { permissions: perm }));
-  const toggle = (label: string, hint: string, checked: boolean, onchange: (v: boolean) => void) =>
+  const ro = a.access === 'readonly';
+  const toggle = (label: string, hint: string, checked: boolean, onchange: (v: boolean) => void, writes = false) =>
     h('label', { class: 'check' },
-      h('input', { type: 'checkbox', checked, onchange: (e: Event) => onchange((e.target as HTMLInputElement).checked) }),
+      h('input', { type: 'checkbox', checked, disabled: writes && ro, onchange: (e: Event) => onchange((e.target as HTMLInputElement).checked) }),
       h('span', {}, label, h('div', { class: 'hint' }, hint)));
 
   const modes: [ReplyMode, string, string][] = [
@@ -469,15 +478,24 @@ function permissionsPanel(a: Account): HTMLElement {
   ];
 
   return h('div', { class: 'perms' },
+    ro
+      ? h('div', { class: 'banner approve-banner' },
+          h('strong', {}, 'Connected read-only. '),
+          "Pilot can read and summarize this mailbox but can't change it or send from it, so archiving, labels, drafts and replies are off.",
+          a.kind !== 'imap'
+            ? h('div', { class: 'actions' }, btn('Reconnect with full access', () =>
+                void run(() => api.connect({ email: a.email, kind: a.kind, providerName: a.providerName, access: 'full' }), 'Reconnected with full access')))
+            : null)
+      : null,
     h('h4', {}, 'What Pilot may do here'),
     toggle('Read new mail and add it to my updates', 'This is the Start watching / Pause switch.', a.watching,
       (v) => void run(() => api.updateAccount(a.id, { watching: v }))),
     toggle('Alert me about important mail', 'A Windows notification for anything marked "needs you today".', p.notify, (v) => set({ notify: v })),
-    toggle('Archive emails when I ask', 'Lets the Archive button move mail out of the inbox in this mailbox.', p.manage, (v) => set({ manage: v })),
+    toggle('Archive emails when I ask', 'Lets the Archive button move mail out of the inbox in this mailbox.', p.manage, (v) => set({ manage: v }), true),
     h('h4', {}, 'Replies'),
     modes.map(([value, label, hint]) =>
       h('label', { class: 'check' },
-        h('input', { type: 'radio', name: `replies-${a.id}`, value, checked: p.replies === value, onchange: () => set({ replies: value }) }),
+        h('input', { type: 'radio', name: `replies-${a.id}`, value, checked: p.replies === value, disabled: ro && value !== 'off', onchange: () => set({ replies: value }) }),
         h('span', {}, h('strong', {}, label), h('div', { class: 'hint' }, hint)))),
     field('Trusted senders',
       h('textarea', {
@@ -490,7 +508,7 @@ function permissionsPanel(a: Account): HTMLElement {
     field('Signature for this mailbox',
       h('textarea', { rows: 2, value: p.signature, onchange: (e: Event) => set({ signature: valueOf(e) }) })),
     h('h4', {}, 'Autopilot'),
-    toggle('Sort mail with Pilot labels', labelHint(a), p.labels, (v) => set({ labels: v })),
+    toggle('Sort mail with Pilot labels', labelHint(a), p.labels, (v) => set({ labels: v }), true),
     h('div', { class: 'field' },
       h('label', {}, 'Archive automatically once summarized'),
       ([['newsletter', 'Newsletters'], ['promo', 'Promotions'], ['notification', 'Notifications, receipts and alerts']] as [Category, string][]).map(([c, label]) =>
@@ -498,7 +516,7 @@ function permissionsPanel(a: Account): HTMLElement {
           h('input', {
             type: 'checkbox',
             checked: p.autoClean.includes(c),
-            disabled: !p.manage,
+            disabled: !p.manage || ro,
             onchange: (e: Event) => {
               const on = (e.target as HTMLInputElement).checked;
               set({ autoClean: on ? [...p.autoClean, c] : p.autoClean.filter((x) => x !== c) });

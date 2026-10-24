@@ -77,6 +77,8 @@ export interface Account {
   addedAt: number;
   /** The Pilot only reads mailboxes it is watching. */
   watching: boolean;
+  /** "readonly" connections were granted read scopes only; Pilot never writes to them. Missing = full. */
+  access?: 'full' | 'readonly';
   permissions: AccountPermissions;
   imap?: ServerConfig;
   smtp?: ServerConfig;
@@ -105,6 +107,8 @@ export interface Discovery {
 export interface ConnectRequest extends Discovery {
   /** IMAP only. */
   password?: string;
+  /** Google/Microsoft: ask for read-only permission instead of full access. */
+  access?: 'full' | 'readonly';
 }
 
 export interface Address {

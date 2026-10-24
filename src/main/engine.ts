@@ -28,6 +28,7 @@ import { chatJson, listModels, OllamaUnavailableError, pullModel } from './ai/ol
 import { Asker } from './ask';
 import { triage } from './ai/triage';
 import { oauthClients } from './clients';
+import { accessBlocker } from './core/access';
 import { autoUnsubscribeEligible, composeReply, decideAutoReply, shouldAutoArchive } from './core/policy';
 import { mentionsDatesOrMoney } from './core/extract';
 import { prefilter, processingRank } from './core/prefilter';
@@ -186,7 +187,7 @@ export class Engine extends EventEmitter {
       const password = req.password;
       saveSecret = (id) => passwords.set(id, password);
     } else {
-      const result = await signIn(req.kind, this.s, email);
+      const result = await signIn(req.kind, this.s, email, req.access ?? 'full');
       email = result.email.toLowerCase();
       saveSecret = (id) => tokens.set(id, result.tokenSet);
     }
@@ -204,7 +205,13 @@ export class Engine extends EventEmitter {
       };
       this.d.accounts.push(account);
     }
+    const access = req.kind === 'imap' ? 'full' : (req.access ?? 'full');
+    if (access === 'readonly') {
+      // Nothing that writes to the mailbox can be on for a read-only connection.
+      account.permissions = { ...account.permissions, manage: false, labels: false, autoClean: [], replies: 'off' };
+    }
     Object.assign(account, {
+      access,
       imap: req.imap,
       smtp: req.smtp,
       saveSentCopy: req.saveSentCopy,
@@ -220,6 +227,12 @@ export class Engine extends EventEmitter {
   updateAccount(id: string, patch: AccountPatch): void {
     const account = this.d.accounts.find((a) => a.id === id);
     if (!account) throw new Error('That mailbox is no longer connected.');
+    if (account.access === 'readonly' && patch.permissions) {
+      const p = patch.permissions;
+      if (p.manage || p.labels || (p.autoClean && p.autoClean.length) || (p.replies && p.replies !== 'off')) {
+        throw new Error(`${account.email} is connected read-only. Reconnect it with full access to turn this on.`);
+      }
+    }
     const startWatching = patch.watching === true && !account.watching;
     if (patch.watching !== undefined) account.watching = patch.watching;
     if (patch.permissions) account.permissions = { ...account.permissions, ...patch.permissions };
@@ -284,7 +297,8 @@ export class Engine extends EventEmitter {
     // Overlap the previous window a little so late-arriving mail isn't missed; keys dedupe.
     const since = account.lastSyncAt ? account.lastSyncAt - 10 * 60_000 : started - this.s.lookbackHours * 3_600_000;
     try {
-      const messages = await createProvider(account, this.s).fetchSince(since, 50);
+      // First sync looks back further, so allow more; later syncs only see what's new.
+      const messages = await createProvider(account, this.s).fetchSince(since, account.lastSyncAt ? 100 : 200);
       // Outlook and IMAP give a moved message a new id; match by Message-ID so an undone archive isn't duplicated.
       const byHeader = new Map<string, Update>();
       for (const u of Object.values(this.d.updates)) {
@@ -587,6 +601,8 @@ export class Engine extends EventEmitter {
     const u = e.key ? this.d.updates[e.key] : undefined;
     try {
       if (!account) throw new Error('That mailbox is no longer connected.');
+      const blocked = e.action !== 'unsubscribe' ? accessBlocker(account, e.action) : undefined;
+      if (blocked) throw new Error(blocked);
       const provider = createProvider(account, this.s);
       switch (e.action) {
         case 'archive': {
@@ -771,6 +787,8 @@ export class Engine extends EventEmitter {
     }
     if (automatic) throw new Error(`${name} has no one-click unsubscribe, so Pilot won't do it automatically.`);
     if (u.mailto) {
+      const blocked = accessBlocker(account, 'unsubscribe-email');
+      if (blocked) throw new Error(blocked);
       const target = new URL(u.mailto);
       const to = decodeURIComponent(target.pathname);
       if (!/^[^@\s,<>]+@[^@\s,<>]+$/.test(to)) throw new Error(`${name}'s unsubscribe address looks invalid.`);
@@ -1055,6 +1073,8 @@ export class Engine extends EventEmitter {
     const f = this.d.followUps.find((x) => x.id === id);
     const account = f && this.accountOf(f.accountId);
     if (!f || !account) throw new Error('That follow-up no longer exists.');
+    const blocked = accessBlocker(account, 'draft');
+    if (blocked) throw new Error(blocked);
     const text = this.tracker.nudgeText(f, account.permissions.signature);
     const e = this.entry(undefined, account, 'draft', 'user', 'You asked for a follow-up draft', {
       subject: f.subject,
