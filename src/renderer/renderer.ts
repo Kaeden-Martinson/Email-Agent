@@ -447,6 +447,10 @@ function mailboxCard(a: Account): HTMLElement {
         h('div', {}, h('strong', {}, a.email), ` · ${a.providerName}`,
           h('span', { class: `pill ${a.watching ? 'on' : 'off'}` }, a.watching ? 'Watching' : 'Paused')),
         status),
+      a.needsReconnect && a.kind !== 'imap'
+        ? btn('Reconnect', () =>
+            void run(() => api.connect({ email: a.email, kind: a.kind, providerName: a.providerName, access: a.access ?? 'full' }), 'Reconnected. Checking mail…'), 'primary')
+        : null,
       a.watching
         ? btn('Pause', () => update({ watching: false }, `Paused ${a.email}`))
         : btn('Start watching', () => update({ watching: true }, `Pilot is now watching ${a.email}`), 'primary'),
@@ -1298,6 +1302,12 @@ function renderToday(): HTMLElement {
   const waitingOn = state.followUps.filter((f) => f.status === 'waiting');
   const proposed = state.activity.filter((a) => a.status === 'proposed').length;
 
+  for (const a of state.accounts.filter((x) => x.needsReconnect && x.kind !== 'imap')) {
+    wrap.append(h('div', { class: 'banner approve-banner' },
+      h('strong', {}, `${a.email} needs to be reconnected. `), 'The sign-in expired (Google does this weekly while the app is in Testing). Your data is kept.',
+      h('div', { class: 'actions' }, btn('Reconnect', () =>
+        void run(() => api.connect({ email: a.email, kind: a.kind, providerName: a.providerName, access: a.access ?? 'full' }), 'Reconnected. Checking mail…'), 'primary'))));
+  }
   const up = state.app.update;
   if (up?.available && up.url) {
     wrap.append(h('div', { class: 'banner approve-banner' },

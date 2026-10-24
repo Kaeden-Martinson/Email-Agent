@@ -211,6 +211,7 @@ export class Engine extends EventEmitter {
       account.permissions = { ...account.permissions, manage: false, labels: false, autoClean: [], replies: 'off' };
     }
     Object.assign(account, {
+      needsReconnect: undefined,
       access,
       imap: req.imap,
       smtp: req.smtp,
@@ -316,9 +317,20 @@ export class Engine extends EventEmitter {
       }
       account.lastSyncAt = started;
       account.lastError = undefined;
+      account.needsReconnect = undefined;
     } catch (e) {
       account.lastError = errorText(e);
       log.warn('fetch.failed', { account: account.id, kind: account.kind, error: e });
+      if (/Reconnect/.test(account.lastError) && account.kind !== 'imap') {
+        account.needsReconnect = true;
+        // At most one alert per mailbox per day.
+        void this.notifier.notify({
+          event: 'reminder',
+          key: `reconnect:${account.id}:${new Date().toDateString()}`,
+          subject: `Reconnect ${account.email} in Pilot`,
+          detail: 'The sign-in expired. Open Mailboxes and press Reconnect; nothing is lost.',
+        });
+      }
     }
     this.changed();
   }

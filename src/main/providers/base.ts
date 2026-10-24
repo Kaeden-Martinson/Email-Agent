@@ -37,9 +37,9 @@ export abstract class OAuthProvider {
 
   protected async token(force = false): Promise<string> {
     const t = tokens.get(this.account.id);
-    if (!t) throw new Error('Not signed in. Remove and reconnect this account.');
+    if (!t) throw new Error('Not signed in. Use Reconnect on the Mailboxes page.');
     if (!force && t.expiresAt - 60_000 >= Date.now()) return t.accessToken;
-    if (!t.refreshToken) throw new Error('Session expired. Remove and reconnect this account.');
+    if (!t.refreshToken) throw new Error('Session expired. Use Reconnect on the Mailboxes page.');
     let pending = refreshing.get(this.account.id);
     if (!pending) {
       pending = refresh(this.oauth, t.refreshToken)
@@ -51,8 +51,8 @@ export abstract class OAuthProvider {
           if (/invalid_grant|expired|revoked/i.test(e.message)) {
             throw new Error(
               this.account.kind === 'gmail'
-                ? 'Google ended this sign-in (while the app is in Testing, Google does this every 7 days). Remove and reconnect the mailbox.'
-                : 'The sign-in for this mailbox expired or was revoked. Remove and reconnect the mailbox.',
+                ? 'Google ended this sign-in (while the app is in Testing, Google does this every 7 days). Use Reconnect on the Mailboxes page; nothing is lost.'
+                : 'The sign-in for this mailbox expired or was revoked. Use Reconnect on the Mailboxes page; nothing is lost.',
             );
           }
           throw e;

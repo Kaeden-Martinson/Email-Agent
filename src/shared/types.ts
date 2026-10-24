@@ -88,6 +88,8 @@ export interface Account {
   lastSyncAt?: number;
   lastSentScanAt?: number;
   lastError?: string;
+  /** The sign-in expired or was revoked; the mailbox needs Reconnect (data is kept). */
+  needsReconnect?: boolean;
 }
 
 /** What the Pilot worked out from an email address. */
