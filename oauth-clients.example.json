@@ -1,0 +1,10 @@
+{
+  "google": {
+    "clientId": "1234567890-abc123.apps.googleusercontent.com",
+    "clientSecret": "GOCSPX-..."
+  },
+  "microsoft": {
+    "clientId": "00000000-0000-0000-0000-000000000000",
+    "tenant": "common"
+  }
+}

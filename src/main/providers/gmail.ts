@@ -1,0 +1,168 @@
+import type { Category, EmailMessage, Settings } from '../../shared/types';
+import { oauthClients } from '../clients';
+import type { OAuthConfig } from '../oauth';
+import { OAuthProvider, type MailProvider } from './base';
+import {
+  buildReplyMime,
+  cleanBody,
+  decodeEntities,
+  formatAddress,
+  htmlToText,
+  isBulkMail,
+  LABEL_NAMES,
+  parseAddress,
+  parseListUnsubscribe,
+  reSubject,
+  splitAddresses,
+} from './mime';
+
+const BASE = 'https://gmail.googleapis.com/gmail/v1/users/me';
+
+/** Label name -> id, per account, so labels are looked up once per session. */
+const labelIds = new Map<string, Map<string, string>>();
+
+interface GmailPart {
+  mimeType?: string;
+  filename?: string;
+  headers?: { name: string; value: string }[];
+  body?: { data?: string };
+  parts?: GmailPart[];
+}
+
+interface GmailMessage {
+  id: string;
+  threadId: string;
+  snippet?: string;
+  internalDate?: string;
+  payload?: GmailPart;
+}
+
+export function googleOAuth(s: Settings, loginHint?: string): OAuthConfig {
+  const { google } = oauthClients(s);
+  if (!google.clientId) {
+    throw new Error('Google sign-in is not set up in this copy of Inbox Pilot yet (oauth-clients.json is missing a Google client).');
+  }
+  return {
+    authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+    tokenUrl: 'https://oauth2.googleapis.com/token',
+    clientId: google.clientId,
+    clientSecret: google.clientSecret || undefined,
+    // gmail.modify covers read, label/archive, drafts and send.
+    scopes: ['https://www.googleapis.com/auth/gmail.modify'],
+    redirectHost: '127.0.0.1',
+    extraAuthParams: { access_type: 'offline', prompt: 'consent', ...(loginHint ? { login_hint: loginHint } : {}) },
+  };
+}
+
+export async function gmailProfileEmail(accessToken: string): Promise<string> {
+  const res = await fetch(`${BASE}/profile`, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!res.ok) throw new Error(`Gmail profile request failed (${res.status}). Is the Gmail API enabled?`);
+  return ((await res.json()) as { emailAddress: string }).emailAddress;
+}
+
+function findBody(part: GmailPart, mimeType: string): string | undefined {
+  if (part.mimeType === mimeType && part.body?.data && !part.filename) {
+    return Buffer.from(part.body.data, 'base64url').toString('utf8');
+  }
+  for (const p of part.parts ?? []) {
+    const found = findBody(p, mimeType);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+export class GmailProvider extends OAuthProvider implements MailProvider {
+  async fetchSince(sinceMs: number, max: number): Promise<EmailMessage[]> {
+    const q = `in:inbox after:${Math.floor(sinceMs / 1000)}`;
+    const list = await this.api<{ messages?: { id: string }[] }>(
+      `${BASE}/messages?${new URLSearchParams({ q, maxResults: String(max) })}`,
+    );
+    const out: EmailMessage[] = [];
+    for (const { id } of list.messages ?? []) {
+      out.push(this.parse(await this.api<GmailMessage>(`${BASE}/messages/${id}?format=full`)));
+    }
+    return out;
+  }
+
+  private parse(m: GmailMessage): EmailMessage {
+    const headers = m.payload?.headers ?? [];
+    const h = (name: string) => headers.find((x) => x.name.toLowerCase() === name)?.value;
+    const plain = m.payload && findBody(m.payload, 'text/plain');
+    const html = !plain && m.payload ? findBody(m.payload, 'text/html') : undefined;
+    const replyTo = h('reply-to');
+    return {
+      id: m.id,
+      accountId: this.account.id,
+      threadId: m.threadId,
+      from: parseAddress(h('from') ?? ''),
+      replyTo: replyTo ? parseAddress(replyTo) : undefined,
+      to: splitAddresses(h('to') ?? ''),
+      subject: h('subject') ?? '',
+      snippet: decodeEntities(m.snippet ?? ''),
+      body: cleanBody(plain ?? (html ? htmlToText(html) : decodeEntities(m.snippet ?? ''))),
+      receivedAt: Number(m.internalDate) || Date.now(),
+      webLink: `https://mail.google.com/mail/?authuser=${encodeURIComponent(this.account.email)}#all/${m.id}`,
+      messageIdHeader: h('message-id'),
+      references: h('references'),
+      isBulk: isBulkMail(h('list-unsubscribe'), h('precedence'), h('auto-submitted')),
+      unsubscribe: parseListUnsubscribe(h('list-unsubscribe'), h('list-unsubscribe-post')),
+    };
+  }
+
+  async reply(msg: EmailMessage, text: string, send: boolean): Promise<void> {
+    const raw = buildReplyMime({
+      from: this.account.email,
+      to: formatAddress(msg.replyTo ?? msg.from),
+      subject: reSubject(msg.subject),
+      inReplyTo: msg.messageIdHeader,
+      references: [msg.references, msg.messageIdHeader].filter(Boolean).join(' ') || undefined,
+      text,
+    });
+    const message = { raw, threadId: msg.threadId };
+    if (send) {
+      await this.api(`${BASE}/messages/send`, { method: 'POST', body: JSON.stringify(message) });
+    } else {
+      await this.api(`${BASE}/drafts`, { method: 'POST', body: JSON.stringify({ message }) });
+    }
+  }
+
+  async archive(msg: EmailMessage): Promise<void> {
+    await this.modify(msg.id, ['INBOX']);
+  }
+
+  async markRead(msg: EmailMessage): Promise<void> {
+    await this.modify(msg.id, ['UNREAD']);
+  }
+
+  async label(msg: EmailMessage, category: Category): Promise<void> {
+    const id = await this.labelId(`Pilot/${LABEL_NAMES[category]}`);
+    await this.api(`${BASE}/messages/${msg.id}/modify`, { method: 'POST', body: JSON.stringify({ addLabelIds: [id] }) });
+  }
+
+  private async labelId(name: string): Promise<string> {
+    let cache = labelIds.get(this.account.id);
+    if (!cache) {
+      const { labels } = await this.api<{ labels?: { id: string; name: string }[] }>(`${BASE}/labels`);
+      cache = new Map((labels ?? []).map((l) => [l.name, l.id]));
+      labelIds.set(this.account.id, cache);
+    }
+    let id = cache.get(name);
+    if (!id) {
+      ({ id } = await this.api<{ id: string }>(`${BASE}/labels`, {
+        method: 'POST',
+        body: JSON.stringify({ name, labelListVisibility: 'labelShow', messageListVisibility: 'show' }),
+      }));
+      cache.set(name, id);
+    }
+    return id;
+  }
+
+  async send(to: string, subject: string, text: string): Promise<void> {
+    const raw = buildReplyMime({ from: this.account.email, to, subject, text });
+    await this.api(`${BASE}/messages/send`, { method: 'POST', body: JSON.stringify({ raw }) });
+  }
+
+  private async modify(id: string, removeLabelIds: string[]): Promise<void> {
+    await this.api(`${BASE}/messages/${id}/modify`, { method: 'POST', body: JSON.stringify({ removeLabelIds }) });
+  }
+}
