@@ -177,3 +177,10 @@
 - **Design consequence:** phone notifications at Sender or Full would transmit email subjects through ntfy.sh or Telegram. They stay **Minimal by default**, and the Notifications page now shows a clear warning when a phone channel is set above Minimal.
 - Wrote `docs/VERIFICATION.md` (checklist with sources and what's blocked), `docs/PRIVACY_POLICY.md` (draft with placeholders, including the Limited Use statement), `docs/SECURITY.md` (every data flow, storage, safety controls, limitations) and `docs/site/index.html` (homepage template).
 - **Not done (needs you):** a domain and hosting, filling in the contact details, a legal review, recording the demo video, submitting to Google, and the Azure and publisher verification.
+
+**2026-10-24 (overnight): stage 12 (final quality pass)**
+
+- **New unit tests** for the notification hub (de-duplication, toggles, minimal-level privacy on phone, quiet-hours hold and summary, urgent bypass, rate limit, failure recording) and the tracker (item filing and merging, receipt filtering, all-day deadlines, owed replies, promise capture, reminder firing, unless-replied skipping, unparseable phrases). **173 tests pass.**
+- **Bug found by the new tests:** merged items could point back at an older email when the newer one wasn't in the store. The newest-mention time is now kept on the item.
+- **Final regression in the app (demo):** every page opens, Show email loads bodies on demand, and the new Settings sections render. The installer was rebuilt from the final code. The real app restarted on the final build: synced, 0 errors in the log, data encrypted.
+- Status report: `docs/STATUS.md`.

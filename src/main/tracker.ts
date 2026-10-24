@@ -140,7 +140,8 @@ export class Tracker {
       );
       if (same) {
         if (!same.sourceKeys.includes(u.key)) same.sourceKeys.push(u.key);
-        if (u.message.receivedAt >= (this.d.updates[same.key]?.message.receivedAt ?? 0)) same.key = u.key;
+        // Point at the newest email that mentions it (dates kept on the item, not looked up).
+        if (u.message.receivedAt >= (same.lastAt ?? 0)) Object.assign(same, { key: u.key, lastAt: u.message.receivedAt });
         // Keep the more certain reading.
         if (rank[v.confidence] > rank[same.confidence]) {
           Object.assign(same, { confidence: v.confidence, explicit: v.explicit, evidence: v.evidence, notes: v.notes });
@@ -155,6 +156,7 @@ export class Tracker {
         subject: u.message.subject,
         ...v,
         sourceKeys: [u.key],
+        lastAt: u.message.receivedAt,
         createdAt: Date.now(),
         status: 'open',
       });

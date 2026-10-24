@@ -1,9 +1,15 @@
 # Inbox Pilot
 
-A desktop email assistant. Each PC has **one Pilot**, and it works for one person. You add your mailboxes (Gmail, Outlook, Yahoo, iCloud, a work or custom domain), decide what the Pilot may do in each one, and press **Start watching**. From then on it reads new mail with a **local AI model (Ollama)** and keeps a short list of what needs you, what's worth a look and what's safe to ignore. In the mailboxes where you allow it, it also drafts or sends replies.
+A desktop email assistant. Each PC has **one Pilot**, and it works for one person. You add your mailboxes (Gmail, Outlook, Yahoo, iCloud, a work or custom domain), decide what the Pilot may do in each one, and press **Start watching**.
 
-Email content never leaves the PC. The AI runs in Ollama on this machine, and the app talks only to your mail providers and your local Ollama.
+From then on it reads new mail with a **local AI model (Ollama)** and helps you:
+- **understand what matters:** the Today screen, priorities with reasons, whole-conversation summaries
+- **decide what to do next:** open questions, reply drafts, deadlines and bills checked against the email
+- **remember commitments:** follow-ups, promises and plain-English reminders
+- **find anything:** Ask my inbox, with cited answers
+- **automate safely:** rules you teach it, and a preview mode with approvals, an activity log and undo
 
+Your email is processed on your PC; Pilot has no server. Its data and sign-ins are stored encrypted with Windows. See `docs/STATUS.md` for what's done and what's left, `docs/SECURITY.md` for every data flow, and `docs/VERIFICATION.md` for production readiness.
 ## How it works for the person using it
 
 1. **First launch**: the Pilot asks your name, then asks for your first email address.

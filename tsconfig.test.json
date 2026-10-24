@@ -8,7 +8,19 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["test/**/*", "src/main/core/**/*", "src/main/ai/triage.ts", "src/main/ai/ollama.ts", "src/main/providers/mime.ts", "src/shared/**/*"]
+  "include": [
+    "test/**/*",
+    "src/main/core/**/*",
+    "src/main/ai/triage.ts",
+    "src/main/ai/ollama.ts",
+    "src/main/providers/mime.ts",
+    "src/shared/**/*",
+    "src/main/notifier.ts",
+    "src/main/tracker.ts",
+    "src/main/store.ts"
+  ]
 }

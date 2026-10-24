@@ -265,6 +265,8 @@ export interface KeyItem {
   notes: string[];
   /** Every email that mentioned this same item (duplicates are merged). */
   sourceKeys: string[];
+  /** Received time of the newest email mentioning it. */
+  lastAt?: number;
   createdAt: number;
   status: 'open' | 'done' | 'dismissed';
 }
