@@ -33,6 +33,19 @@ Every email shows a **Why:** line with its reason, its stage and how long it too
 
 Personal email is read together with its whole conversation, up to the last 8 messages, with quoted history stripped. Each email shows what's **still waiting on you** and what **you promised** earlier, and a **Conversation** panel shows the messages, highlighting the ones the summary is based on. If you've already replied after a message, Pilot checks that directly in your mailbox and won't draft another reply.
 
+### Today
+
+**Today** is the home screen. It shows five tiles (need you today, overdue, replies you owe, waiting on others, awaiting approval), the morning briefing, what needs you now, and one 7-day timeline. The timeline merges bills, deadlines, appointments, your promises, follow-ups and reminders, with overdue items first.
+
+### Deadlines & bills
+
+Pilot pulls bills (amount and due date), deadlines, appointments, events and deliveries out of your email. Each item is **checked against the email text**:
+- **Stated in the email:** the date and amount appear word for word in the quoted sentence.
+- **Check the details:** something was ambiguous or conflicting. For example, "11/05" is read in US month/day order, or the email mentions several amounts. Each note says exactly what to check.
+- **AI guess:** the model's quote wasn't found in the email.
+
+If the AI and the email disagree, the email wins. Amounts the email doesn't contain are dropped. Times given in another time zone are converted to yours. Several emails about the same bill are merged into one item. **Show source** displays the exact sentence. Pilot never pays bills or moves money.
+
 ### Follow-ups
 
 The **Follow-ups** page tracks:

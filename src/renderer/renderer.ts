@@ -5,6 +5,8 @@ import type {
   Commitment,
   CorrectionKind,
   FollowUp,
+  KeyItem,
+  KeyItemKind,
   OwedReply,
   Reminder,
   ReminderTarget,
@@ -31,12 +33,12 @@ declare global {
   }
 }
 
-type View = 'updates' | 'followups' | 'mailboxes' | 'subscriptions' | 'activity' | 'sorting' | 'rules' | 'settings';
+type View = 'today' | 'updates' | 'deadlines' | 'followups' | 'mailboxes' | 'subscriptions' | 'activity' | 'sorting' | 'rules' | 'settings';
 
 const api = window.api;
 const root = document.getElementById('app')!;
 let state: AppState;
-let view: View = 'updates';
+let view: View = 'today';
 let tab: 'open' | 'done' = 'open';
 let onboardStep: 'name' | 'mail' = 'name';
 /** Reply text being edited, by update key. Survives re-renders. */
@@ -175,7 +177,9 @@ function renderNav(): HTMLElement {
     {},
     h('div', { class: 'brand' }, 'Inbox Pilot',
       h('small', {}, state.status.demo ? 'Demo mode' : state.settings.userName ? `${state.settings.userName}'s Pilot` : 'Your email Pilot')),
+    item('today', 'Today'),
     item('updates', 'Updates', open ? String(open) : undefined),
+    item('deadlines', 'Deadlines', itemsDueSoon() ? `${itemsDueSoon()} soon` : undefined),
     item('followups', 'Follow-ups', dueCount() ? `${dueCount()} due` : undefined),
     item('mailboxes', 'Mailboxes', state.accounts.length ? `${watching}/${state.accounts.length}` : undefined),
     item('subscriptions', 'Subscriptions', suggestions ? String(suggestions) : undefined),
@@ -188,7 +192,9 @@ function renderNav(): HTMLElement {
 
 function renderHeader(): HTMLElement {
   const titles: Record<View, string> = {
+    today: 'Today',
     updates: 'Updates',
+    deadlines: 'Deadlines & bills',
     followups: 'Follow-ups',
     mailboxes: 'Mailboxes',
     subscriptions: 'Subscriptions',
@@ -210,7 +216,9 @@ function renderHeader(): HTMLElement {
 
 function renderView(): HTMLElement {
   switch (view) {
+    case 'today': return renderToday();
     case 'updates': return renderUpdates();
+    case 'deadlines': return renderDeadlines();
     case 'followups': return renderFollowUps();
     case 'mailboxes': return renderMailboxes();
     case 'subscriptions': return renderSubscriptions();
@@ -694,6 +702,7 @@ function card(u: Update): HTMLElement {
       ? h('div', { class: 'thread-facts' }, h('strong', {}, 'Still waiting on you: '), t.openQuestions.join(' · '))
       : null,
     t?.userPromises?.length ? h('div', { class: 'thread-facts' }, h('strong', {}, 'You promised: '), t.userPromises.join(' · ')) : null,
+    keyDates(u),
     t ? whyLine(u) : null,
     u.reply ? replyLine(u.reply) : null,
     autoLine(u),
@@ -779,6 +788,216 @@ function proposalsFor(u: Update): HTMLElement | null {
       h('span', {}, h('strong', {}, `Pilot proposes: ${ACTION_LABEL[a.action]}${a.category ? ` as ${CAT_LABEL[a.category]}` : ''}`), ` · ${a.reason}`),
       btn(a.action === 'send' ? 'Approve and send' : 'Approve', () => void run(() => api.approve(a.id), 'Done'), 'primary tiny'),
       btn('Reject', () => void run(() => api.reject(a.id)), 'tiny'))));
+}
+
+// ---- deadlines, bills and key dates ----
+
+const KIND_LABEL: Record<KeyItemKind, string> = {
+  bill: 'Bill',
+  deadline: 'Deadline',
+  appointment: 'Appointment',
+  event: 'Event',
+  delivery: 'Delivery',
+  other: 'Date',
+};
+
+const fmtMoney = (i: Pick<KeyItem, 'amount' | 'currency'>) =>
+  i.amount === undefined ? '' : new Intl.NumberFormat(undefined, { style: 'currency', currency: i.currency || 'USD' }).format(i.amount);
+
+function fmtWhen(i: Pick<KeyItem, 'at' | 'allDay'>): string {
+  if (i.at === undefined) return 'No date';
+  const d = new Date(i.at);
+  const date = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: d.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined });
+  return i.allDay ? date : `${date}, ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+}
+
+/** End of day for all-day items, so "due today" isn't overdue until tonight. */
+function deadlineOf(i: KeyItem): number {
+  if (i.at === undefined) return Infinity;
+  if (!i.allDay) return i.at;
+  const d = new Date(i.at);
+  d.setHours(23, 59, 59, 999);
+  return d.getTime();
+}
+
+function itemsDueSoon(): number {
+  const soon = Date.now() + 3 * 86_400_000;
+  return state.items.filter((i) => i.status === 'open' && i.at !== undefined && i.at <= soon).length;
+}
+
+const CONFIDENCE: Record<KeyItem['confidence'], [string, string]> = {
+  high: ['Stated in the email', 'on'],
+  medium: ['Check the details', 'warn'],
+  low: ['AI guess', 'bad'],
+};
+
+function keyDates(u: Update): HTMLElement | null {
+  const items = state.items.filter((i) => i.status === 'open' && i.sourceKeys.includes(u.key));
+  if (!items.length) return null;
+  return h('div', { class: 'key-dates' }, items.map((i) =>
+    h('span', { class: `key-chip c-${i.confidence}`, title: i.notes.join(' ') || CONFIDENCE[i.confidence][0] },
+      `${KIND_LABEL[i.kind]}: ${i.title} · ${fmtWhen(i)}${i.amount !== undefined ? ` · ${fmtMoney(i)}` : ''}`)));
+}
+
+let deadlineKind: KeyItemKind | 'all' = 'all';
+const showEvidence = new Set<string>();
+
+function renderDeadlines(): HTMLElement {
+  const wrap = h('div');
+  const now = Date.now();
+  const week = now + 7 * 86_400_000;
+  const open = state.items.filter((i) => i.status === 'open' && (deadlineKind === 'all' || i.kind === deadlineKind));
+  wrap.append(h('p', { class: 'hint' },
+    'Dates and amounts Pilot found in your email. Each one is checked against the email text: "Stated in the email" means the date and amount appear word for word; anything else is marked so you can check it. Pilot never pays bills or moves money.'));
+  const kinds = ['all', ...new Set(state.items.filter((i) => i.status === 'open').map((i) => i.kind))] as (KeyItemKind | 'all')[];
+  wrap.append(h('div', { class: 'tabs' }, kinds.map((k) =>
+    h('button', { class: deadlineKind === k ? 'active' : '', onclick: () => { deadlineKind = k; render(); } }, k === 'all' ? 'All' : `${KIND_LABEL[k]}s`))));
+
+  const groups: [string, KeyItem[]][] = [
+    ['Overdue', open.filter((i) => deadlineOf(i) < now)],
+    ['Next 7 days', open.filter((i) => deadlineOf(i) >= now && (i.at ?? Infinity) <= week)],
+    ['Later', open.filter((i) => i.at !== undefined && i.at > week)],
+    ['No date', open.filter((i) => i.at === undefined)],
+  ];
+  if (!open.length) wrap.append(h('div', { class: 'empty' }, 'No bills, deadlines or appointments found yet.'));
+  for (const [title, items] of groups) {
+    if (!items.length) continue;
+    wrap.append(h('h3', { class: 'section' }, `${title} (${items.length})`));
+    for (const i of items.sort((a, b) => (a.at ?? Infinity) - (b.at ?? Infinity))) wrap.append(itemRow(i, title === 'Overdue'));
+  }
+  const done = state.items.filter((i) => i.status === 'done');
+  if (done.length) {
+    wrap.append(h('details', { class: 'group' }, h('summary', {}, `Done (${done.length})`),
+      done.map((i) => h('div', { class: 'hint resolved' }, `${KIND_LABEL[i.kind]}: ${i.title} · ${fmtWhen(i)}`))));
+  }
+  return wrap;
+}
+
+function itemRow(i: KeyItem, overdue: boolean): HTMLElement {
+  const [confLabel, confClass] = CONFIDENCE[i.confidence];
+  const open = showEvidence.has(i.id);
+  return h('div', { class: `banner fu-row ${overdue ? 'overdue' : ''}` },
+    h('div', { class: 'grow' },
+      h('div', {},
+        h('span', { class: 'chip' }, KIND_LABEL[i.kind]), ' ',
+        h('strong', {}, i.title),
+        i.amount !== undefined ? h('span', { class: 'amount' }, ` ${fmtMoney(i)}`) : null,
+        h('span', { class: `pill ${confClass}` }, confLabel),
+        overdue ? h('span', { class: 'pill bad' }, 'Overdue') : null),
+      h('div', { class: 'hint' }, `${fmtWhen(i)} · from ${i.sender}${i.sourceKeys.length > 1 ? ` · mentioned in ${i.sourceKeys.length} emails` : ''}`),
+      i.notes.length ? h('ul', { class: 'item-notes' }, i.notes.map((n) => h('li', {}, n))) : null,
+      open ? h('blockquote', { class: 'evidence' }, i.evidence ? `“${i.evidence}”` : 'No quote available.', h('div', { class: 'hint' }, `From "${i.subject}"`)) : null,
+      remindFor === `i:${i.id}` ? remindBox({ kind: 'item', id: i.id }) : null),
+    h('div', { class: 'row' },
+      btn('Done', () => void run(() => api.setItem(i.id, 'done')), 'primary'),
+      btn('Remind me…', () => openRemind(`i:${i.id}`)),
+      btn(open ? 'Hide source' : 'Show source', () => { if (!showEvidence.delete(i.id)) showEvidence.add(i.id); render(); }, 'ghost'),
+      btn('Open email', () => void run(() => api.open(i.key)), 'ghost'),
+      btn('Not relevant', () => void run(() => api.setItem(i.id, 'dismissed')), 'ghost')));
+}
+
+// ---- today: the command center ----
+
+function greeting(): string {
+  const h = new Date().getHours();
+  const part = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+  return state.settings.userName ? `${part}, ${state.settings.userName}` : part;
+}
+
+interface Agenda {
+  at: number;
+  allDay: boolean;
+  label: string;
+  title: string;
+  detail: string;
+  overdue: boolean;
+  go: View;
+}
+
+/** Everything with a date in the next 7 days, plus anything overdue, on one timeline. */
+function agenda(): Agenda[] {
+  const now = Date.now();
+  const until = now + 7 * 86_400_000;
+  const out: Agenda[] = [];
+  for (const i of state.items.filter((x) => x.status === 'open' && x.at !== undefined && x.at <= until)) {
+    out.push({ at: i.at!, allDay: i.allDay, label: KIND_LABEL[i.kind], title: `${i.title}${i.amount !== undefined ? ` · ${fmtMoney(i)}` : ''}`, detail: i.sender, overdue: deadlineOf(i) < now, go: 'deadlines' });
+  }
+  for (const c of state.commitments.filter((x) => x.status === 'open' && x.dueAt && x.dueAt <= until)) {
+    out.push({ at: c.dueAt!, allDay: false, label: 'You promised', title: c.text, detail: c.withWhom ?? '', overdue: c.dueAt! < now, go: 'followups' });
+  }
+  for (const f of state.followUps.filter((x) => x.status === 'waiting' && x.dueAt <= until)) {
+    out.push({ at: f.dueAt, allDay: false, label: 'Follow up', title: f.subject || '(no subject)', detail: f.to.email, overdue: f.dueAt < now, go: 'followups' });
+  }
+  for (const r of state.reminders.filter((x) => (x.status === 'pending' && x.at <= until) || x.status === 'due')) {
+    out.push({ at: r.at, allDay: false, label: 'Reminder', title: r.title, detail: `"${r.phrase}"`, overdue: r.status === 'due', go: 'followups' });
+  }
+  return out.sort((a, b) => Number(b.overdue) - Number(a.overdue) || a.at - b.at);
+}
+
+function tile(value: number, label: string, target: View, warn = false): HTMLElement {
+  return h('button', { class: `tile ${warn && value ? 'warn' : ''}`, type: 'button', onclick: () => go(target) },
+    h('div', { class: 'tile-value' }, String(value)),
+    h('div', { class: 'tile-label' }, label));
+}
+
+function renderToday(): HTMLElement {
+  const wrap = h('div', { class: 'today' });
+  const open = state.updates.filter((u) => u.status === 'new');
+  const needYou = open.filter((u) => u.triage?.priority === 1);
+  const items = agenda();
+  const waitingOn = state.followUps.filter((f) => f.status === 'waiting');
+  const proposed = state.activity.filter((a) => a.status === 'proposed').length;
+
+  wrap.append(h('div', { class: 'today-head' },
+    h('h2', {}, greeting()),
+    h('div', { class: 'hint' }, new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }))));
+
+  if (!state.accounts.some((a) => a.watching)) {
+    wrap.append(h('div', { class: 'banner' }, h('strong', {}, "Pilot isn't watching any mailbox yet. "),
+      h('div', { class: 'actions' }, btn('Go to Mailboxes', () => go('mailboxes'), 'primary'))));
+    return wrap;
+  }
+
+  wrap.append(h('div', { class: 'tiles' },
+    tile(needYou.length, 'need you today', 'updates', true),
+    tile(items.filter((a) => a.overdue).length, 'overdue', 'deadlines', true),
+    tile(state.owed.length, 'replies you owe', 'followups'),
+    tile(waitingOn.length, 'waiting on others', 'followups'),
+    tile(proposed, 'awaiting approval', 'activity', true)));
+
+  wrap.append(renderBriefing());
+
+  wrap.append(h('h3', { class: 'section' }, 'Needs you now'));
+  if (!needYou.length) wrap.append(h('div', { class: 'empty small' }, 'Nothing urgent.'));
+  for (const u of needYou.slice(0, 5)) {
+    wrap.append(h('button', { class: 'today-row', type: 'button', onclick: () => { tab = 'open'; go('updates'); } },
+      h('span', { class: 'today-when' }, relTime(u.message.receivedAt)),
+      h('span', { class: 'grow' }, h('strong', {}, u.message.from.name || u.message.from.email), ` · ${u.triage!.summary}`)));
+  }
+
+  wrap.append(h('h3', { class: 'section' }, 'Coming up (next 7 days)'));
+  if (!items.length) wrap.append(h('div', { class: 'empty small' }, 'Nothing scheduled. Bills, deadlines, appointments, promises and follow-ups will appear here.'));
+  for (const a of items) {
+    wrap.append(h('button', { class: `today-row ${a.overdue ? 'overdue' : ''}`, type: 'button', onclick: () => go(a.go) },
+      h('span', { class: 'today-when' }, a.overdue ? 'Overdue' : fmtWhen({ at: a.at, allDay: a.allDay })),
+      h('span', { class: 'chip' }, a.label),
+      h('span', { class: 'grow' }, h('strong', {}, a.title), a.detail ? h('span', { class: 'hint' }, ` · ${a.detail}`) : null)));
+  }
+
+  if (state.owed.length || waitingOn.length) {
+    wrap.append(h('h3', { class: 'section' }, 'Conversations'));
+    for (const o of state.owed.slice(0, 3)) {
+      wrap.append(h('button', { class: 'today-row', type: 'button', onclick: () => go('followups') },
+        h('span', { class: 'today-when' }, relTime(o.receivedAt)), h('span', { class: 'chip' }, 'You owe'),
+        h('span', { class: 'grow' }, h('strong', {}, o.from.name || o.from.email), ` · ${o.subject}`)));
+    }
+    for (const f of waitingOn.slice(0, 3)) {
+      wrap.append(h('button', { class: 'today-row', type: 'button', onclick: () => go('followups') },
+        h('span', { class: 'today-when' }, relTime(f.sentAt)), h('span', { class: 'chip' }, 'Waiting on'),
+        h('span', { class: 'grow' }, h('strong', {}, f.to.email), ` · ${f.subject}`)));
+    }
+  }
+  return wrap;
 }
 
 // ---- follow-ups ----

@@ -7,6 +7,7 @@ import type {
   ConnectRequest,
   CorrectionKind,
   FollowUp,
+  KeyItem,
   Reminder,
   ReminderTarget,
   Settings,
@@ -128,7 +129,7 @@ function registerIpc(engine: Engine): void {
   ipcMain.handle('undo', (_e, id: string) => engine.undo(String(id)));
   ipcMain.handle('previewWhen', (_e, phrase: string) => engine.previewWhen(String(phrase)));
   ipcMain.handle('remind', (_e, target: ReminderTarget, phrase: string) => {
-    if (!target || !['update', 'followup', 'commitment'].includes(target.kind)) throw new Error('Invalid reminder target');
+    if (!target || !['update', 'followup', 'commitment', 'item'].includes(target.kind)) throw new Error('Invalid reminder target');
     return engine.remind(target, String(phrase));
   });
   ipcMain.handle('cancelReminder', (_e, id: string) => engine.cancelReminder(String(id)));
@@ -141,6 +142,10 @@ function registerIpc(engine: Engine): void {
     return engine.setCommitment(String(id), status);
   });
   ipcMain.handle('draftNudge', (_e, id: string) => engine.draftNudge(String(id)));
+  ipcMain.handle('setItem', (_e, id: string, status: KeyItem['status']) => {
+    if (!['open', 'done', 'dismissed'].includes(status)) throw new Error('Invalid status');
+    return engine.setItem(String(id), status);
+  });
   ipcMain.handle('saveSettings', (_e, patch: Partial<Settings>) => engine.saveSettings(patch));
   ipcMain.handle('listModels', () => engine.listModels());
 }

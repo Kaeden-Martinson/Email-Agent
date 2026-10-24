@@ -140,6 +140,18 @@ describe('normalizeTriage (guard rails on model output)', () => {
     assert.deepEqual(t.openQuestions, ['a', 'b', 'c', 'd', 'e']);
     assert.deepEqual(t.userPromises, []);
   });
+  it('sanitizes extracted key items', () => {
+    const t = normalizeTriage(
+      { keyItems: [{ kind: 'bill', title: ' Pay card ', amount: 35, evidence: 'due Nov 14' }, { kind: 'weird' as never, title: 'X', amount: -4 }, { title: '' }] as never },
+      message(),
+      'm',
+      'full',
+    );
+    assert.equal(t.keyItems!.length, 2);
+    assert.equal(t.keyItems![0].title, 'Pay card');
+    assert.equal(t.keyItems![1].kind, 'other');
+    assert.equal(t.keyItems![1].amount, undefined);
+  });
   it('light reads never produce drafts', () => {
     const t = normalizeTriage({ category: 'reply', needsReply: true, draftReply: 'x' }, message(), 'm', 'light');
     assert.equal(t.needsReply, false);

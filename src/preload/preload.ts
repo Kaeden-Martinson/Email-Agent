@@ -28,6 +28,7 @@ const api: Api = {
   setFollowUp: (id, status) => ipcRenderer.invoke('setFollowUp', id, status),
   setCommitment: (id, status) => ipcRenderer.invoke('setCommitment', id, status),
   draftNudge: (id) => ipcRenderer.invoke('draftNudge', id),
+  setItem: (id, status) => ipcRenderer.invoke('setItem', id, status),
   saveSettings: (patch) => ipcRenderer.invoke('saveSettings', patch),
   listModels: () => ipcRenderer.invoke('listModels'),
   onState: (cb) => {

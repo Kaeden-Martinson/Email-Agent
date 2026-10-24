@@ -132,6 +132,26 @@ export function seedDemo(store: Store): void {
     { id: 'r2', target: { kind: 'followup', id: 'f2' }, title: 'Follow up with jsilverman@tntech.edu: Campus visit', phrase: 'Monday if no reply', at: now + 3 * 86_400_000, unlessReplied: true, createdAt: now, status: 'pending' },
     { id: 'r3', target: { kind: 'followup', id: 'f3' }, title: 'Follow up with marcus@gmail.com: Dinner Saturday?', phrase: "this morning if they haven't replied", at: now - 120_000, unlessReplied: true, createdAt: now - 86_400_000, status: 'pending' },
   );
+  // Bills, deadlines and events, as verified extraction would file them.
+  const day = (n: number, h?: number) => {
+    const x = new Date(now + n * 86_400_000);
+    x.setHours(h ?? 0, 0, 0, 0);
+    return x.getTime();
+  };
+  const item = (id: string, key: string, sender: string, subject: string, kind: 'bill' | 'deadline' | 'event', title: string, at: number, allDay: boolean, confidence: 'high' | 'medium' | 'low', evidence: string, notes: string[], amount?: number) => ({
+    id, accountId: 'demo-gmail', key, sender, subject, kind, title, at, allDay, amount, currency: amount ? 'USD' : undefined,
+    evidence, explicit: confidence === 'high', confidence, notes, sourceKeys: [key], createdAt: now, status: 'open' as const,
+  });
+  d.items.push(
+    item('i1', 'demo-gmail:3', 'no-reply@alerts.chase.com', 'Your statement is ready', 'bill', 'Chase card payment', day(2), true, 'high',
+      'A minimum payment of $35.00 is due Oct 26.', [], 35),
+    item('i2', 'demo-gmail:1', 'priya@acme.co', 'Contract redlines due Friday', 'deadline', 'Sign off on contract redlines', day(1, 17), false, 'high',
+      'We need your sign-off by Friday 5pm.', []),
+    item('i3', 'demo-gmail:3', 'billing@verizon.example', 'Your Verizon bill is ready', 'bill', 'Verizon payment', day(-1), true, 'medium',
+      'Please pay $84.50 by 10/22 to avoid a late fee.', ['"10/22" read as October 22 (US month/day order)', 'The email mentions several amounts ($142.18, $84.50). Check which one you owe.'], 84.5),
+    item('i4', 'demo-gmail:2', 'jsilverman@tntech.edu', 'Tennessee Tech is in Mt. Juliet Thursday', 'event', 'Tech to You info session', day(5, 17) + 30 * 60_000, false, 'high',
+      'Thursday, Oct. 29 | 5:30--7 p.m. CT', []),
+  );
   const t = new Date(now);
   d.lastBriefingDay = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
   store.save();

@@ -9,6 +9,7 @@ import {
   type Commitment,
   type Correction,
   type FollowUp,
+  type KeyItem,
   type Reminder,
   type Rule,
   type Settings,
@@ -55,6 +56,7 @@ interface Persisted {
   followUps: FollowUp[];
   commitments: Commitment[];
   reminders: Reminder[];
+  items: KeyItem[];
   /** When each owed reply's conversation was last checked for your reply. */
   owedCheckedAt: Record<string, number>;
 }
@@ -113,6 +115,7 @@ export class Store {
       followUps: [],
       commitments: [],
       reminders: [],
+      items: [],
       owedCheckedAt: {},
     };
     try {

@@ -11,6 +11,7 @@ import {
   type CorrectionKind,
   type Discovery,
   type FollowUp,
+  type KeyItem,
   type Commitment,
   type Reminder,
   type ReminderTarget,
@@ -26,6 +27,7 @@ import { chatJson, listModels, OllamaUnavailableError } from './ai/ollama';
 import { triage } from './ai/triage';
 import { oauthClients } from './clients';
 import { autoUnsubscribeEligible, composeReply, decideAutoReply, shouldAutoArchive } from './core/policy';
+import { mentionsDatesOrMoney } from './core/extract';
 import { prefilter, processingRank } from './core/prefilter';
 import {
   applyRule,
@@ -139,6 +141,7 @@ export class Engine extends EventEmitter {
       commitments: this.d.commitments.filter((c) => c.status === 'open' || c.at > Date.now() - 14 * DAY),
       reminders: this.d.reminders.filter((r) => r.status !== 'cancelled'),
       owed: this.tracker.owed(),
+      items: this.d.items.filter((i) => i.status === 'open' || (i.at ?? i.createdAt) > Date.now() - 14 * DAY),
       signIn: { gmail: !!clients.google.clientId, outlook: !!clients.microsoft.clientId },
     };
   }
@@ -237,6 +240,7 @@ export class Engine extends EventEmitter {
       }
       await this.ensureModel();
       await this.triagePending();
+      await this.backfillItems();
       this.prune();
       if (this.status.message?.startsWith('Reading') || this.status.message === 'Checking mail…' || this.status.message === 'Checking follow-ups…') {
         this.status.message = undefined;
@@ -312,10 +316,50 @@ export class Engine extends EventEmitter {
         continue;
       }
       this.tracker.noteConversationPromises(u);
+      this.tracker.ingestItems(u);
       this.changed();
       if (u.triage!.priority === 1 && account.permissions.notify && u.status === 'new') this.emit('notify', u);
       await this.autopilot(u, account);
     }
+  }
+
+  /**
+   * Emails read before key-item extraction existed get their dates and amounts filled in a few at a time.
+   * Only recent, non-bulk mail that mentions dates or money is looked at, and nothing else about it changes.
+   */
+  private async backfillItems(): Promise<void> {
+    const watched = new Map(this.watched().map((a) => [a.id, a]));
+    const since = Date.now() - 30 * DAY;
+    let budget = 3;
+    for (const u of Object.values(this.d.updates)) {
+      const t = u.triage;
+      if (!t || t.keyItems !== undefined || u.status === 'done' || u.message.receivedAt < since) continue;
+      const account = watched.get(u.message.accountId);
+      if (!account) continue;
+      const skip =
+        t.source === 'fast' ||
+        t.source === 'rule' ||
+        prefilter(u.message).route === 'fast' ||
+        !mentionsDatesOrMoney(`${u.message.subject}\n${u.message.body}`, new Date(u.message.receivedAt));
+      if (skip) {
+        t.keyItems = []; // nothing to extract; don't look again
+        continue;
+      }
+      if (budget-- <= 0) break;
+      this.status.message = 'Finding dates and bills in earlier mail…';
+      this.emit('changed');
+      try {
+        // Only the dates and amounts are taken; the existing summary, category and priority stay as they are.
+        const fresh = await triage(u.message, account, this.s, 'light');
+        t.keyItems = fresh.keyItems ?? [];
+        this.tracker.ingestItems(u);
+      } catch (e) {
+        if (e instanceof OllamaUnavailableError) return;
+        if (u.triage) u.triage.keyItems = [];
+      }
+      this.changed();
+    }
+    if (this.status.message === 'Finding dates and bills in earlier mail…') this.status.message = undefined;
   }
 
   /** The classification pipeline. Explicit rules always win over the model. */
@@ -815,6 +859,9 @@ export class Engine extends EventEmitter {
     const overdue = this.tracker.overdueCount();
     let text = templateBriefing(needYou, worth, drafts);
     if (overdue) text += ` ${overdue} follow-up${overdue === 1 ? ' is' : 's are'} due.`;
+    const soon = this.tracker.upcomingItems(3).length;
+    const soonText = soon ? ` ${soon} bill${soon === 1 ? ' or deadline is' : 's or deadlines are'} due in the next 3 days.` : '';
+    text += soonText;
     const items = [...needYou, ...worth].slice(0, 15);
     if (items.length) {
       try {
@@ -833,7 +880,7 @@ export class Engine extends EventEmitter {
             .join('\n'),
           { type: 'object', properties: { briefing: { type: 'string' } }, required: ['briefing'] },
         );
-        if (r.briefing?.trim()) text = r.briefing.trim() + (overdue ? ` ${overdue} follow-up${overdue === 1 ? ' is' : 's are'} due.` : '');
+        if (r.briefing?.trim()) text = r.briefing.trim() + (overdue ? ` ${overdue} follow-up${overdue === 1 ? ' is' : 's are'} due.` : '') + soonText;
       } catch {
         // The template briefing is fine.
       }
@@ -899,6 +946,7 @@ export class Engine extends EventEmitter {
     u.triageError = undefined;
     try {
       await this.classify(u, account, true);
+      this.tracker.ingestItems(u);
     } catch (e) {
       u.triageError = errorText(e);
       throw e;
@@ -927,6 +975,10 @@ export class Engine extends EventEmitter {
 
   setCommitment(id: string, status: Commitment['status']): void {
     this.tracker.setCommitment(id, status);
+  }
+
+  setItem(id: string, status: KeyItem['status']): void {
+    this.tracker.setItem(id, status);
   }
 
   /** Saves a follow-up to everyone on your original email as a draft in your mailbox. Never sends. */

@@ -169,6 +169,52 @@ export interface Triage {
   sources?: number[];
   /** The user already replied after this message, so no reply is needed. */
   repliedAlready?: boolean;
+  /** Raw model extraction; verified copies live in AppState.items. */
+  keyItems?: KeyItemDraft[];
+}
+
+export type KeyItemKind = 'bill' | 'deadline' | 'appointment' | 'event' | 'delivery' | 'other';
+
+export const KEY_ITEM_KINDS: KeyItemKind[] = ['bill', 'deadline', 'appointment', 'event', 'delivery', 'other'];
+
+/** What the model extracts; verified against the email before it's shown (core/extract.ts). */
+export interface KeyItemDraft {
+  kind: KeyItemKind;
+  title: string;
+  /** YYYY-MM-DD or "". */
+  date?: string;
+  /** HH:MM or "". */
+  time?: string;
+  amount?: number;
+  currency?: string;
+  /** Sentence copied word for word from the email. */
+  evidence?: string;
+}
+
+/** A bill, deadline, appointment, event or delivery, with where it came from and how sure Pilot is. */
+export interface KeyItem {
+  id: string;
+  accountId: string;
+  /** The email it came from (the newest, when several emails mention the same thing). */
+  key: string;
+  sender: string;
+  subject: string;
+  kind: KeyItemKind;
+  title: string;
+  at?: number;
+  allDay: boolean;
+  amount?: number;
+  currency?: string;
+  evidence: string;
+  /** Every fact shown was stated word for word in the email. */
+  explicit: boolean;
+  confidence: 'high' | 'medium' | 'low';
+  /** Ambiguity, time-zone and conflict notes. */
+  notes: string[];
+  /** Every email that mentioned this same item (duplicates are merged). */
+  sourceKeys: string[];
+  createdAt: number;
+  status: 'open' | 'done' | 'dismissed';
 }
 
 /** One message of a conversation, with quoted history stripped. */
@@ -275,6 +321,7 @@ export interface Commitment {
 
 export type ReminderTarget =
   | { kind: 'update'; key: string }
+  | { kind: 'item'; id: string }
   | { kind: 'followup'; id: string }
   | { kind: 'commitment'; id: string };
 
@@ -384,6 +431,7 @@ export interface AppState {
   commitments: Commitment[];
   reminders: Reminder[];
   owed: OwedReply[];
+  items: KeyItem[];
   /** Whether Google / Microsoft sign-in is configured in this build. */
   signIn: { gmail: boolean; outlook: boolean };
 }
@@ -429,6 +477,7 @@ export interface Api {
   setCommitment(id: string, status: Commitment['status']): Promise<void>;
   /** Saves a polite follow-up as a draft in your mailbox. Never sends. */
   draftNudge(followUpId: string): Promise<void>;
+  setItem(id: string, status: KeyItem['status']): Promise<void>;
   saveSettings(patch: Partial<Settings>): Promise<void>;
   listModels(): Promise<string[]>;
   onState(cb: (state: AppState) => void): () => void;

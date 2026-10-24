@@ -4,13 +4,16 @@ import type {
   Commitment,
   EmailMessage,
   FollowUp,
+  KeyItem,
   OwedReply,
   Reminder,
   ReminderTarget,
   Settings,
   Update,
 } from '../shared/types';
+import { verifyItem, worthTracking } from './core/extract';
 import { expectsReply, extractCommitments, followUpDue, isPersonalRecipient, replyArrived } from './core/followups';
+import { domainOf } from './core/rules';
 import { deadlineIn, describeWhen, parseWhen } from './core/when';
 import { createProvider } from './providers';
 import type { Store } from './store';
@@ -112,6 +115,57 @@ export class Tracker {
     }
   }
 
+  /**
+   * Verifies the model's extracted dates and amounts against the email and files them. Several emails
+   * about the same bill or event (same kind, day, amount and sender domain) become one item.
+   */
+  ingestItems(u: Update): void {
+    const text = `${u.message.subject}\n${u.message.body}`;
+    const base = new Date(u.message.receivedAt);
+    const sender = u.message.from.email.toLowerCase();
+    const day = (at?: number) => (at === undefined ? '' : new Date(at).toDateString());
+    const rank = { high: 2, medium: 1, low: 0 };
+    for (const draft of u.triage?.keyItems ?? []) {
+      const v = verifyItem(draft, text, base);
+      if (!v || !worthTracking(v)) continue;
+      const same = this.d.items.find(
+        (i) =>
+          i.status !== 'dismissed' &&
+          i.kind === v.kind &&
+          day(i.at) === day(v.at) &&
+          i.amount === v.amount &&
+          domainOf(i.sender) === domainOf(sender),
+      );
+      if (same) {
+        if (!same.sourceKeys.includes(u.key)) same.sourceKeys.push(u.key);
+        if (u.message.receivedAt >= (this.d.updates[same.key]?.message.receivedAt ?? 0)) same.key = u.key;
+        // Keep the more certain reading.
+        if (rank[v.confidence] > rank[same.confidence]) {
+          Object.assign(same, { confidence: v.confidence, explicit: v.explicit, evidence: v.evidence, notes: v.notes });
+        }
+        continue;
+      }
+      this.d.items.push({
+        id: crypto.randomUUID(),
+        accountId: u.message.accountId,
+        key: u.key,
+        sender,
+        subject: u.message.subject,
+        ...v,
+        sourceKeys: [u.key],
+        createdAt: Date.now(),
+        status: 'open',
+      });
+    }
+  }
+
+  setItem(id: string, status: KeyItem['status']): void {
+    const i = this.d.items.find((x) => x.id === id);
+    if (!i) throw new Error('That item no longer exists.');
+    i.status = status;
+    this.deps.changed();
+  }
+
   private addCommitment(c: Omit<Commitment, 'status'>): void {
     if (this.d.commitments.some((x) => x.id === c.id)) return;
     this.d.commitments.push({ ...c, status: 'open' });
@@ -195,6 +249,7 @@ export class Tracker {
     const old = Date.now() - 45 * DAY;
     this.d.followUps = this.d.followUps.filter((f) => f.sentAt > old || f.status === 'waiting');
     this.d.commitments = this.d.commitments.filter((c) => c.at > old || c.status === 'open');
+    this.d.items = this.d.items.filter((i) => i.status === 'open' || (i.at ?? i.createdAt) > old);
     this.d.reminders = this.d.reminders.filter((r) => r.status === 'pending' || r.status === 'due' || r.at > Date.now() - 14 * DAY);
     for (const key of Object.keys(this.d.owedCheckedAt)) if (!this.d.updates[key]) delete this.d.owedCheckedAt[key];
   }
@@ -233,6 +288,11 @@ export class Tracker {
       const f = this.d.followUps.find((x) => x.id === t.id);
       if (!f) throw new Error('That follow-up no longer exists.');
       return `Follow up with ${f.to.email}: ${f.subject}`;
+    }
+    if (t.kind === 'item') {
+      const i = this.d.items.find((x) => x.id === t.id);
+      if (!i) throw new Error('That item no longer exists.');
+      return i.title;
     }
     const c = this.d.commitments.find((x) => x.id === t.id);
     if (!c) throw new Error('That commitment no longer exists.');
@@ -286,6 +346,10 @@ export class Tracker {
         const mine = replyArrived(await createProvider(account, this.s).fetchThread(u.message), u.message.receivedAt, true, account.email);
         return mine ? 'You already replied' : undefined;
       }
+      if (t.kind === 'item') {
+        const i = this.d.items.find((x) => x.id === t.id);
+        return !i || i.status !== 'open' ? 'You marked it done' : undefined;
+      }
       const c = this.d.commitments.find((x) => x.id === t.id);
       return !c || c.status !== 'open' ? 'You marked it done' : undefined;
     } catch (e) {
@@ -328,7 +392,23 @@ export class Tracker {
       this.owed().filter((o) => o.overdue).length +
       this.d.followUps.filter((f) => f.status === 'waiting' && f.dueAt <= now).length +
       this.d.commitments.filter((c) => c.status === 'open' && c.dueAt && c.dueAt <= now).length +
-      this.d.reminders.filter((r) => r.status === 'due').length
+      this.d.reminders.filter((r) => r.status === 'due').length +
+      this.d.items.filter((i) => i.status === 'open' && i.at !== undefined && itemDeadline(i) <= now).length
     );
   }
+
+  /** Bills, deadlines and events in the next `days` days (and anything overdue). */
+  upcomingItems(days: number): KeyItem[] {
+    const until = Date.now() + days * DAY;
+    return this.d.items.filter((i) => i.status === 'open' && i.at !== undefined && i.at <= until).sort((a, b) => a.at! - b.at!);
+  }
+}
+
+/** An all-day item is due at the end of its day. */
+export function itemDeadline(i: Pick<KeyItem, 'at' | 'allDay'>): number {
+  if (i.at === undefined) return Infinity;
+  if (!i.allDay) return i.at;
+  const d = new Date(i.at);
+  d.setHours(23, 59, 59, 999);
+  return d.getTime();
 }

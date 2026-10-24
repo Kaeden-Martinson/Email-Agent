@@ -1,4 +1,16 @@
-import { CATEGORIES, type Account, type Category, type EmailMessage, type Settings, type ThreadMessage, type Triage } from '../../shared/types';
+import {
+  CATEGORIES,
+  KEY_ITEM_KINDS,
+  type Account,
+  type Category,
+  type EmailMessage,
+  type KeyItemDraft,
+  type KeyItemKind,
+  type Settings,
+  type ThreadMessage,
+  type Triage,
+} from '../../shared/types';
+import { mentionsDatesOrMoney } from '../core/extract';
 import { formatThread, stripQuoted } from '../core/thread';
 import { chatJson } from './ollama';
 
@@ -14,8 +26,24 @@ const SCHEMA = {
     openQuestions: { type: 'array', items: { type: 'string' } },
     userPromises: { type: 'array', items: { type: 'string' } },
     sources: { type: 'array', items: { type: 'integer' } },
+    keyItems: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          kind: { type: 'string', enum: KEY_ITEM_KINDS },
+          title: { type: 'string' },
+          date: { type: 'string' },
+          time: { type: 'string' },
+          amount: { type: 'number' },
+          currency: { type: 'string' },
+          evidence: { type: 'string' },
+        },
+        required: ['kind', 'title', 'date', 'time', 'amount', 'currency', 'evidence'],
+      },
+    },
   },
-  required: ['category', 'priority', 'summary', 'actionItems', 'needsReply', 'draftReply', 'openQuestions', 'userPromises', 'sources'],
+  required: ['category', 'priority', 'summary', 'actionItems', 'needsReply', 'draftReply', 'openQuestions', 'userPromises', 'sources', 'keyItems'],
 };
 
 /** light = short read of automated/bulk mail (smaller context, no draft); full = personal mail. */
@@ -29,7 +57,7 @@ You are given the whole conversation, oldest first, with each message numbered. 
 - sources: the numbers of the messages your summary relies on.
 - draftReply must answer only the open questions, must not repeat what the user already said, and must stay consistent with the user's earlier messages and promises.`;
 
-function systemPrompt(account: Account, s: Settings, mode: TriageMode, hasThread: boolean): string {
+function systemPrompt(account: Account, s: Settings, mode: TriageMode, hasThread: boolean, wantItems: boolean): string {
   const who = s.userName ? `${s.userName} <${account.email}>` : account.email;
   const draft =
     mode === 'light'
@@ -47,8 +75,11 @@ Return JSON with:
 - actionItems: short to-dos for the user, including any deadline mentioned. Empty if there are none.
 - needsReply: true only if a real person expects a written reply from the user.
 ${draft}
-- openQuestions, userPromises: short phrases. sources: message numbers (1 if there is only one message).${hasThread ? CONVERSATION_RULES : ''}`;
+- openQuestions, userPromises: short phrases. sources: message numbers (1 if there is only one message).${hasThread ? CONVERSATION_RULES : ''}
+${wantItems ? KEY_ITEMS_RULE : '- keyItems: always an empty array.'}`;
 }
+
+const KEY_ITEMS_RULE = `- keyItems: things with a date or amount the user must act on or attend: "bill" (payment due: amount and due date), "deadline" (applications, forms, renewals, RSVPs), "appointment", "event", "delivery". For each: a short title; date as YYYY-MM-DD only if the email states it (otherwise ""); time as HH:MM 24-hour or ""; amount as a number only if the email states it (otherwise 0); currency code or ""; evidence = the sentence from the email copied word for word. Never invent dates or amounts. Marketing "sale ends" dates and receipts for payments already made are not key items. Empty array if none.`;
 
 function userPrompt(msg: EmailMessage, mode: TriageMode, thread?: readonly ThreadMessage[]): string {
   const from = msg.from.name ? `${msg.from.name} <${msg.from.email}>` : msg.from.email;
@@ -79,6 +110,23 @@ function userPrompt(msg: EmailMessage, mode: TriageMode, thread?: readonly Threa
 const phrases = (v: unknown) =>
   Array.isArray(v) ? v.map((x) => String(x).trim().slice(0, 200)).filter(Boolean).slice(0, 5) : [];
 
+function keyItems(v: unknown): KeyItemDraft[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
+    .map((x) => ({
+      kind: (KEY_ITEM_KINDS.includes(x.kind as KeyItemKind) ? x.kind : 'other') as KeyItemKind,
+      title: String(x.title ?? '').trim().slice(0, 120),
+      date: String(x.date ?? '').trim(),
+      time: String(x.time ?? '').trim(),
+      amount: typeof x.amount === 'number' && x.amount > 0 ? x.amount : undefined,
+      currency: String(x.currency ?? '').trim().toUpperCase().slice(0, 3),
+      evidence: String(x.evidence ?? '').trim().slice(0, 300),
+    }))
+    .filter((x) => x.title)
+    .slice(0, 5);
+}
+
 export function normalizeTriage(r: Partial<Triage>, msg: EmailMessage, model: string, mode: TriageMode, threadLength = 1): Triage {
   let category: Category = CATEGORIES.includes(r.category as Category) ? (r.category as Category) : 'fyi';
   // Mailing-list mail is never a personal conversation.
@@ -96,6 +144,7 @@ export function normalizeTriage(r: Partial<Triage>, msg: EmailMessage, model: st
     draftReply: needsReply ? String(r.draftReply ?? '').trim() : '',
     model,
     source: mode,
+    keyItems: keyItems(r.keyItems),
     openQuestions: phrases(r.openQuestions),
     userPromises: phrases(r.userPromises),
     // Only message numbers that exist in the conversation shown to the model.
@@ -113,11 +162,14 @@ export async function triage(
   thread?: readonly ThreadMessage[],
 ): Promise<Triage> {
   const hasThread = mode === 'full' && !!thread && thread.length > 1;
+  // Only spend output tokens on key items when the email mentions a date, money or a deadline.
+  const wantItems = mentionsDatesOrMoney(`${msg.subject}
+${stripQuoted(msg.body)}`, new Date(msg.receivedAt));
   const model = mode === 'light' && s.ollama.fastModel ? s.ollama.fastModel : s.ollama.model;
   const r = await chatJson<Partial<Triage>>(
     s.ollama.url,
     model,
-    systemPrompt(account, s, mode, hasThread),
+    systemPrompt(account, s, mode, hasThread, wantItems),
     userPrompt(msg, mode, hasThread ? thread : undefined),
     // Same context size for both modes: changing it makes Ollama reload the model.
     SCHEMA,
