@@ -169,3 +169,11 @@
 - Provider behavior stays behind the shared `MailProvider` interface, with no Gmail/Outlook conditionals in the engine. Rate limits, transient errors, token refresh and revoked sessions are handled in the shared OAuth layer (see the reliability notes above).
 - **Verified:** 158 tests pass (scope selection and access guards). In the demo, a read-only mailbox shows the banner with write controls disabled, and direct API attempts to enable archive or auto-send are refused.
 - **Blocked (needs you):** a live Outlook test needs an Azure app registration on a personal Microsoft account (the school account has no access). Once the Application (client) ID is in `oauth-clients.json`, Outlook works through the same code paths. To use read-only Gmail in Testing mode, also add `gmail.readonly` under Google Auth Platform → Data Access.
+
+**2026-10-24 (overnight): stage 11 (production readiness)**
+
+- Checked the current Google rules (official restricted-scope verification page and the scopes list). `gmail.modify` and `gmail.readonly` are restricted. Verification needs brand verification, a public homepage, a privacy policy on the same domain, Search Console domain verification, an unlisted YouTube demo, scope justification and Limited Use compliance.
+- **CASA:** required when restricted data is accessed "from or through a third-party server" or stored or transmitted on servers. Pilot has no server, so it is **probably exempt, to be confirmed with Google**. Google's wording varies across pages, so this is not claimed as fact.
+- **Design consequence:** phone notifications at Sender or Full would transmit email subjects through ntfy.sh or Telegram. They stay **Minimal by default**, and the Notifications page now shows a clear warning when a phone channel is set above Minimal.
+- Wrote `docs/VERIFICATION.md` (checklist with sources and what's blocked), `docs/PRIVACY_POLICY.md` (draft with placeholders, including the Limited Use statement), `docs/SECURITY.md` (every data flow, storage, safety controls, limitations) and `docs/site/index.html` (homepage template).
+- **Not done (needs you):** a domain and hosting, filling in the contact details, a legal review, recording the demo video, submitting to Google, and the Azure and publisher verification.

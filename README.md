@@ -120,6 +120,8 @@ These checks live in code, so nothing written in an email can talk the model pas
 
 People using the app just click "Sign in with Google/Microsoft". For that to work, the app ships with its own OAuth clients, which **you create once** and put in `oauth-clients.json` next to `package.json`. Copy `oauth-clients.example.json` to start. Yahoo, iCloud and other IMAP mailboxes need no setup.
 
+> For production readiness (verification requirements, privacy policy draft, data flows), see `docs/VERIFICATION.md`, `docs/PRIVACY_POLICY.md` and `docs/SECURITY.md`.
+
 ### Google client (Gmail and Google Workspace)
 
 1. In [Google Cloud Console](https://console.cloud.google.com/), create a project and enable the **Gmail API** (APIs & Services → Library).

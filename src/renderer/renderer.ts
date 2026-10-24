@@ -1156,6 +1156,10 @@ function channelCard(c: NotifyChannel, title: string, intro: HTMLElement | null,
       ...setup,
       field('How much to show', level),
       h('div', { class: 'preview' }, h('span', { class: 'hint' }, 'Example: '), LEVEL_PREVIEW[ch.level]),
+      c !== 'desktop' && ch.level !== 'minimal'
+        ? h('div', { class: 'err' },
+            `At this level, email senders and subjects${ch.level === 'full' ? ' and summaries' : ''} pass through ${c === 'ntfy' ? (ns().ntfy.server.includes('ntfy.sh') ? 'the public ntfy.sh servers' : 'your ntfy server') : "Telegram's servers"}. Everything else in Pilot stays on this PC. Keep "Minimal" unless you're comfortable with that.`)
+        : null,
       h('div', { class: 'field' }, h('label', {}, 'Notify me about'),
         h('div', { class: 'events' }, (Object.keys(EVENT_LABEL) as NotifyEvent[]).map((ev) =>
           toggleRow(EVENT_LABEL[ev], ch.events[ev], (v) => saveChannel(c, { events: { ...ch.events, [ev]: v } }))))),
