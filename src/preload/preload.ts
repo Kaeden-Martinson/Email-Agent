@@ -19,6 +19,7 @@ const api: Api = {
   correct: (key, kind, scope) => ipcRenderer.invoke('correct', key, kind, scope),
   doneMany: (keys) => ipcRenderer.invoke('doneMany', keys),
   dismissSuggestion: (s) => ipcRenderer.invoke('dismissSuggestion', s),
+  parseRule: (text) => ipcRenderer.invoke('parseRule', text),
   saveRule: (rule) => ipcRenderer.invoke('saveRule', rule),
   deleteRule: (id) => ipcRenderer.invoke('deleteRule', id),
   approve: (id) => ipcRenderer.invoke('approve', id),

@@ -22,15 +22,34 @@ export function domainRuleAllowed(domain: string): boolean {
   return !!domain && !PUBLIC_DOMAINS.test(domain.toLowerCase());
 }
 
-/** The most specific enabled rule: an exact sender beats a domain. */
+const subjectHas = (m: EmailMessage, words: string | undefined) => !words || m.subject.toLowerCase().includes(words.toLowerCase());
+
+/**
+ * The most specific enabled rule: an exact sender beats a domain, which beats subject words alone;
+ * at each level, a rule that also checks the subject beats one that doesn't.
+ */
 export function matchRule(m: EmailMessage, rules: readonly Rule[]): Rule | undefined {
   const sender = m.from.email.toLowerCase();
   const domain = domainOf(sender);
-  const enabled = rules.filter((r) => r.enabled);
+  const enabled = rules.filter((r) => r.enabled && subjectHas(m, r.match.subjectContains));
+  const best = (xs: Rule[]) => xs.find((r) => r.match.subjectContains) ?? xs[0];
   return (
-    enabled.find((r) => r.match.sender?.toLowerCase() === sender) ??
-    enabled.find((r) => !!r.match.domain && r.match.domain.toLowerCase() === domain)
+    best(enabled.filter((r) => r.match.sender?.toLowerCase() === sender)) ??
+    best(enabled.filter((r) => !!r.match.domain && r.match.domain.toLowerCase() === domain)) ??
+    enabled.find((r) => !r.match.sender && !r.match.domain && r.match.subjectContains)
   );
+}
+
+/** Same sender/domain/subject means the same rule (a new one replaces it). */
+export function sameMatch(a: Rule['match'], b: Rule['match']): boolean {
+  const n = (x?: string) => x?.toLowerCase() ?? '';
+  return n(a.sender) === n(b.sender) && n(a.domain) === n(b.domain) && n(a.subjectContains) === n(b.subjectContains);
+}
+
+/** "Emails with "invoice" in the subject from anyone at acme.com". */
+export function describeMatch(match: Rule['match']): string {
+  const who = match.sender ?? (match.domain ? `anyone at ${match.domain}` : 'anyone');
+  return match.subjectContains ? `${who}, subject contains "${match.subjectContains}"` : who;
 }
 
 /** Rules that make mail unimportant can skip the model entirely. */
@@ -39,7 +58,7 @@ export function ruleSkipsModel(rule: Rule): boolean {
 }
 
 export function describeRule(rule: Rule): string {
-  const who = rule.match.sender ?? `anyone at ${rule.match.domain}`;
+  const who = describeMatch(rule.match);
   const what = rule.effect.hide
     ? 'hide (mark done)'
     : rule.effect.priority === 1

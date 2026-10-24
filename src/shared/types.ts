@@ -327,12 +327,25 @@ export interface Rule {
   id: string;
   enabled: boolean;
   createdAt: number;
-  /** Exactly one of sender (full address) or domain (example.com). */
-  match: { sender?: string; domain?: string };
+  /**
+   * At most one of sender (full address) or domain (example.com), optionally narrowed by words in the subject.
+   * A subject-only rule applies to any sender.
+   */
+  match: { sender?: string; domain?: string; subjectContains?: string };
   effect: { priority?: Priority; category?: Category; hide?: boolean };
   origin: 'correction' | 'manual' | 'suggestion';
   hits: number;
   lastHitAt?: number;
+}
+
+/** What a rule written in plain English would do, before you save it. */
+export interface RulePreview {
+  match: Rule['match'];
+  effect: Rule['effect'];
+  description: string;
+  /** Emails Pilot has now that the rule would apply to. */
+  count: number;
+  examples: { from: string; subject: string }[];
 }
 
 export type CorrectionKind = 'more' | 'less' | 'junk';
@@ -596,6 +609,7 @@ export interface Api {
   correct(key: string, kind: CorrectionKind, scope: 'once' | 'sender' | 'domain'): Promise<void>;
   dismissSuggestion(s: SuggestedRule): Promise<void>;
   doneMany(keys: string[]): Promise<void>;
+  parseRule(text: string): Promise<RulePreview>;
   saveRule(rule: Omit<Rule, 'id' | 'createdAt' | 'hits'> & { id?: string }): Promise<void>;
   deleteRule(id: string): Promise<void>;
   approve(activityId: string): Promise<void>;

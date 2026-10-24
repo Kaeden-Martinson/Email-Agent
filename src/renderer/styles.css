@@ -332,3 +332,4 @@ div.settings legend { font-weight: 600; padding: 0 6px; }
 .cluster > .similar { margin: -6px 0 12px 18px; padding-left: 10px; border-left: 2px solid var(--line, #ddd); }
 .cluster > .similar > summary { cursor: pointer; font-size: 13px; color: var(--muted, #666); padding: 4px 0; }
 .cluster > .similar[open] > summary { margin-bottom: 8px; }
+.rule-preview { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: var(--chip); }

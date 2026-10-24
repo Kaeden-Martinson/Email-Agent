@@ -142,6 +142,7 @@ function registerIpc(engine: Engine): void {
   });
   ipcMain.handle('doneMany', (_e, keys: string[]) => engine.doneMany(Array.isArray(keys) ? keys.filter((k) => typeof k === 'string') : []));
   ipcMain.handle('dismissSuggestion', (_e, s: Parameters<Engine['dismissSuggestion']>[0]) => engine.dismissSuggestion(s));
+  ipcMain.handle('parseRule', (_e, text: string) => engine.parseRule(String(text ?? '')));
   ipcMain.handle('saveRule', (_e, rule: Parameters<Engine['saveRule']>[0]) => engine.saveRule(rule));
   ipcMain.handle('deleteRule', (_e, id: string) => engine.deleteRule(String(id)));
   ipcMain.handle('approve', (_e, id: string) => engine.approve(String(id)));

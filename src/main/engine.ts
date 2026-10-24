@@ -18,6 +18,7 @@ import {
   type ReminderTarget,
   type PipelineStats,
   type Rule,
+  type RulePreview,
   type SuggestedRule,
   type Settings,
   type Subscription,
@@ -29,6 +30,7 @@ import { chatJson, listModels, ModelLoadError, OllamaUnavailableError, pullModel
 import { pickModel } from './core/models';
 import { Asker } from './ask';
 import { suggestReplies } from './ai/replies';
+import { parseRuleText } from './ai/ruletext';
 import { triage } from './ai/triage';
 import { oauthClients } from './clients';
 import { accessBlocker } from './core/access';
@@ -38,11 +40,13 @@ import { prefilter, processingRank } from './core/prefilter';
 import {
   applyRule,
   correctOnce,
+  describeRule,
   domainOf,
   domainRuleAllowed,
   matchRule,
   ruleEffectFor,
   ruleSkipsModel,
+  sameMatch,
   suggestFromSignals,
   suggestRules,
   type Signal,
@@ -923,21 +927,44 @@ export class Engine extends EventEmitter {
   saveRule(input: Omit<Rule, 'id' | 'createdAt' | 'hits'> & { id?: string }): void {
     const sender = input.match.sender?.trim().toLowerCase();
     const domain = input.match.domain?.trim().toLowerCase().replace(/^@/, '');
-    if (!sender && !domain) throw new Error('A rule needs a sender address or a domain.');
+    const subjectContains = input.match.subjectContains?.trim().replace(/\s+/g, ' ').slice(0, 80) || undefined;
+    if (!sender && !domain && !subjectContains) throw new Error('A rule needs a sender, a domain or words in the subject.');
+    if (subjectContains && subjectContains.length < 3) throw new Error('Use at least 3 characters for subject words.');
     if (sender && !/^[^@\s]+@[^@\s]+$/.test(sender)) throw new Error(`"${sender}" isn't an email address.`);
     if (!sender && domain && !domainRuleAllowed(domain)) throw new Error(`A rule for everyone at ${domain} would catch unrelated people.`);
-    const match = sender ? { sender } : { domain };
+    const match: Rule['match'] = { ...(sender ? { sender } : domain ? { domain } : {}), ...(subjectContains ? { subjectContains } : {}) };
     let rule = input.id ? this.d.rules.find((r) => r.id === input.id) : undefined;
     if (rule) {
       Object.assign(rule, { enabled: input.enabled, match, effect: input.effect });
     } else {
       // One rule per sender/domain: replace instead of stacking contradictory rules.
-      this.d.rules = this.d.rules.filter((r) => r.match.sender !== match.sender || r.match.domain !== match.domain);
+      this.d.rules = this.d.rules.filter((r) => !sameMatch(r.match, match));
       rule = { id: crypto.randomUUID(), createdAt: Date.now(), hits: 0, enabled: input.enabled, match, effect: input.effect, origin: input.origin };
       this.d.rules.push(rule);
     }
     this.reapplyRules();
     this.changed();
+  }
+
+  /** Turns a sentence into a rule and shows which current emails it would change. Saves nothing. */
+  async parseRule(text: string): Promise<RulePreview> {
+    const parsed = await parseRuleText(text, this.s);
+    if ('error' in parsed) throw new Error(parsed.error);
+    return this.previewRule(parsed);
+  }
+
+  previewRule(p: { match: Rule['match']; effect: Rule['effect'] }): RulePreview {
+    const probe: Rule = { id: 'preview', enabled: true, createdAt: 0, hits: 0, origin: 'manual', match: p.match, effect: p.effect };
+    const hits = Object.values(this.d.updates)
+      .filter((u) => matchRule(u.message, [probe]))
+      .sort((a, b) => b.message.receivedAt - a.message.receivedAt);
+    return {
+      match: p.match,
+      effect: p.effect,
+      description: describeRule(probe),
+      count: hits.length,
+      examples: hits.slice(0, 5).map((u) => ({ from: u.message.from.name || u.message.from.email, subject: u.message.subject })),
+    };
   }
 
   deleteRule(id: string): void {
