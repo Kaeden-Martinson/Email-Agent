@@ -104,3 +104,13 @@
 - Verified: 73 tests pass. A real-model run on a 3-message thread flagged only the unanswered question, captured the earlier promise and ignored an injected instruction (about 22 s). Live Gmail `fetchThread` returns real threads (about 100 ms each).
 - Not yet verified: thread-aware triage on a real reply chain in your mailbox, because none exist yet.
 - Follow-up found: Electron 45 deprecates `safeStorage.decryptString`; move `secrets.ts` to the async API before upgrading Electron.
+
+**2026-10-24: stage 5 delivered (follow-ups and commitments)**
+
+- `core/when.ts`: a deterministic natural-language time parser (weekdays, "next Friday", relative times, dates, "end of week", plus "…if they haven't replied" in many phrasings) and deadline extraction ("by Friday" → end of day). It caught a real bug in testing ("end of week" defaulted to 9am).
+- `core/followups.ts`: does your sent email expect a reply (quoted history ignored, acknowledgements excluded), commitments in your sent mail with deadlines, reply detection, and the follow-up date (stated deadline, otherwise N working days, skipping weekends).
+- `tracker.ts`: scans sent mail (Gmail `in:sent`, Outlook Sent Items, IMAP Sent folder), turns stage-4 promises into commitments, and re-checks the real conversations for replies (throttled, 15 per sync). Reminders run every minute and on launch; "unless replied" reminders check the live conversation first, and are skipped and logged as "Resolved automatically" if a reply exists.
+- "Draft a nudge" saves a reply-all follow-up **as a draft only** and logs it in Activity.
+- Follow-ups dashboard: reminders due, you owe a reply, waiting on them, your commitments, scheduled reminders, resolved automatically. "Remind me…" with a live preview on emails and dashboard rows. The briefing mentions follow-ups that are due.
+- Verified: 96 tests pass; demo run (a due reminder fired, an unless-replied reminder was skipped when the reply existed, the preview parsed and the reminder saved). Real Gmail scan: 4 automated sent emails gave 0 follow-ups and 0 commitments, so no false positives.
+- Not yet verified on real data: an actual waiting-on-them item, because your sent mail has no questions yet.

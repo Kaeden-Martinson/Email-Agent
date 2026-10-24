@@ -6,7 +6,10 @@ import {
   type Account,
   type ActivityEntry,
   type Briefing,
+  type Commitment,
   type Correction,
+  type FollowUp,
+  type Reminder,
   type Rule,
   type Settings,
   type Update,
@@ -17,6 +20,7 @@ export const DEFAULT_SETTINGS: Settings = {
   onboarded: false,
   pollMinutes: 5,
   lookbackHours: 48,
+  followUpDays: 3,
   briefing: { enabled: true, time: '08:00' },
   ollama: { url: 'http://127.0.0.1:11434', model: 'llama3.1:8b', fastModel: '' },
   previewMode: true,
@@ -48,6 +52,11 @@ interface Persisted {
   corrections: Correction[];
   /** Newest last. */
   activity: ActivityEntry[];
+  followUps: FollowUp[];
+  commitments: Commitment[];
+  reminders: Reminder[];
+  /** When each owed reply's conversation was last checked for your reply. */
+  owedCheckedAt: Record<string, number>;
 }
 
 export function mergeSettings(base: Settings, patch: Partial<Settings> | undefined): Settings {
@@ -101,6 +110,10 @@ export class Store {
       rules: [],
       corrections: [],
       activity: [],
+      followUps: [],
+      commitments: [],
+      reminders: [],
+      owedCheckedAt: {},
     };
     try {
       const raw = JSON.parse(fs.readFileSync(this.file, 'utf8')) as Partial<Persisted>;

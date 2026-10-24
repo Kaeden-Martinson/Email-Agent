@@ -2,7 +2,12 @@ import type {
   Account,
   AccountPatch,
   ActivityEntry,
+  Commitment,
   CorrectionKind,
+  FollowUp,
+  OwedReply,
+  Reminder,
+  ReminderTarget,
   Priority,
   Rule,
   SuggestedRule,
@@ -26,7 +31,7 @@ declare global {
   }
 }
 
-type View = 'updates' | 'mailboxes' | 'subscriptions' | 'activity' | 'sorting' | 'rules' | 'settings';
+type View = 'updates' | 'followups' | 'mailboxes' | 'subscriptions' | 'activity' | 'sorting' | 'rules' | 'settings';
 
 const api = window.api;
 const root = document.getElementById('app')!;
@@ -171,6 +176,7 @@ function renderNav(): HTMLElement {
     h('div', { class: 'brand' }, 'Inbox Pilot',
       h('small', {}, state.status.demo ? 'Demo mode' : state.settings.userName ? `${state.settings.userName}'s Pilot` : 'Your email Pilot')),
     item('updates', 'Updates', open ? String(open) : undefined),
+    item('followups', 'Follow-ups', dueCount() ? `${dueCount()} due` : undefined),
     item('mailboxes', 'Mailboxes', state.accounts.length ? `${watching}/${state.accounts.length}` : undefined),
     item('subscriptions', 'Subscriptions', suggestions ? String(suggestions) : undefined),
     item('activity', 'Activity', proposed ? String(proposed) : undefined),
@@ -183,6 +189,7 @@ function renderNav(): HTMLElement {
 function renderHeader(): HTMLElement {
   const titles: Record<View, string> = {
     updates: 'Updates',
+    followups: 'Follow-ups',
     mailboxes: 'Mailboxes',
     subscriptions: 'Subscriptions',
     activity: 'Activity',
@@ -204,6 +211,7 @@ function renderHeader(): HTMLElement {
 function renderView(): HTMLElement {
   switch (view) {
     case 'updates': return renderUpdates();
+    case 'followups': return renderFollowUps();
     case 'mailboxes': return renderMailboxes();
     case 'subscriptions': return renderSubscriptions();
     case 'activity': return renderActivity();
@@ -655,6 +663,7 @@ function card(u: Update): HTMLElement {
           ? btn('Snooze till tomorrow', () => void run(() => api.act(u.key, 'snooze')))
           : btn('Unsnooze', () => void run(() => api.act(u.key, 'reopen'))),
         editors.has(u.key) ? null : btn(t?.draftReply ? 'Review reply' : 'Reply', openEditor),
+        t?.needsReply && !t.repliedAlready ? btn('Remind me…', () => openRemind(`u:${u.key}`)) : null,
         canOpen ? btn('Open in mail', () => void run(() => api.open(u.key)), 'ghost') : null,
         u.thread?.length
           ? btn(showThread.has(u.key) ? 'Hide conversation' : `Conversation (${u.thread.length})`, () => {
@@ -692,6 +701,7 @@ function card(u: Update): HTMLElement {
     showThread.has(u.key) && u.thread ? conversation(u) : null,
     showOriginal.has(u.key) ? h('pre', { class: 'original' }, m.body || m.snippet) : null,
     editors.has(u.key) ? replyEditor(u) : null,
+    remindFor === `u:${u.key}` ? remindBox({ kind: 'update', key: u.key }) : null,
     h('div', { class: 'actions' }, actions),
     t && isOpen ? correctionBar(u) : null);
 }
@@ -769,6 +779,167 @@ function proposalsFor(u: Update): HTMLElement | null {
       h('span', {}, h('strong', {}, `Pilot proposes: ${ACTION_LABEL[a.action]}${a.category ? ` as ${CAT_LABEL[a.category]}` : ''}`), ` · ${a.reason}`),
       btn(a.action === 'send' ? 'Approve and send' : 'Approve', () => void run(() => api.approve(a.id), 'Done'), 'primary tiny'),
       btn('Reject', () => void run(() => api.reject(a.id)), 'tiny'))));
+}
+
+// ---- follow-ups ----
+
+/** Which item's "Remind me…" box is open, as "u:<key>", "f:<id>" or "c:<id>". */
+let remindFor: string | null = null;
+let remindText = '';
+let remindPreview = '';
+
+function openRemind(id: string): void {
+  remindFor = remindFor === id ? null : id;
+  remindText = '';
+  remindPreview = '';
+  render();
+  document.querySelector<HTMLInputElement>('.remind-box input')?.focus();
+}
+
+function dueCount(): number {
+  const now = Date.now();
+  return (
+    state.owed.filter((o) => o.overdue).length +
+    state.followUps.filter((f) => f.status === 'waiting' && f.dueAt <= now).length +
+    state.commitments.filter((c) => c.status === 'open' && c.dueAt && c.dueAt <= now).length +
+    state.reminders.filter((r) => r.status === 'due').length
+  );
+}
+
+/** Natural-language reminder input with a live preview of how Pilot read it. */
+function remindBox(target: ReminderTarget): HTMLElement {
+  const preview = h('div', { class: 'hint remind-preview' }, remindPreview || 'Try "Friday", "tomorrow at 3pm", "in 2 days" or "Monday if they haven\'t replied".');
+  let timer: number | undefined;
+  const input = h('input', {
+    type: 'text',
+    value: remindText,
+    placeholder: 'Remind me…',
+    oninput: (e: Event) => {
+      remindText = valueOf(e);
+      clearTimeout(timer);
+      timer = window.setTimeout(async () => {
+        if (!remindText.trim()) return;
+        const r = await api.previewWhen(remindText);
+        remindPreview = 'error' in r ? r.error : `Pilot will remind you ${r.label}.`;
+        preview.textContent = remindPreview;
+        preview.classList.toggle('err', 'error' in r);
+      }, 250);
+    },
+  });
+  return h('form', { class: 'remind-box', onsubmit: (e: Event) => {
+    e.preventDefault();
+    void run(async () => {
+      await api.remind(target, remindText);
+      remindFor = null;
+      render();
+    }, 'Reminder set');
+  } },
+    h('div', { class: 'row' }, input,
+      h('button', { class: 'btn primary', type: 'submit' }, 'Set reminder'),
+      btn('Cancel', () => { remindFor = null; render(); }, 'ghost')),
+    preview);
+}
+
+const dayLabel = (at: number) => new Date(at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+
+function renderFollowUps(): HTMLElement {
+  const wrap = h('div');
+  const now = Date.now();
+  const waiting = state.followUps.filter((f) => f.status === 'waiting');
+  const commitments = state.commitments.filter((c) => c.status === 'open');
+  const dueReminders = state.reminders.filter((r) => r.status === 'due');
+  const pending = state.reminders.filter((r) => r.status === 'pending');
+  const resolved = [
+    ...state.followUps.filter((f) => f.status === 'replied').map((f) => ({ at: f.repliedAt ?? f.sentAt, text: `${f.to.email} replied to "${f.subject}"` })),
+    ...state.reminders.filter((r) => r.status === 'resolved').map((r) => ({ at: r.at, text: `Skipped reminder "${r.title}": ${r.note}` })),
+  ].sort((a, b) => b.at - a.at);
+
+  wrap.append(h('p', { class: 'hint' },
+    `Pilot reads your sent mail for questions you're waiting on and promises you made, and checks the real conversation for replies before anything shows as overdue. Nudge after ${state.settings.followUpDays} working days (change in Settings).`));
+
+  if (dueReminders.length) {
+    wrap.append(h('h3', { class: 'section' }, `Reminders due (${dueReminders.length})`));
+    for (const r of dueReminders) wrap.append(reminderRow(r));
+  }
+
+  const owed = state.owed;
+  wrap.append(h('h3', { class: 'section' }, `You owe a reply (${owed.length})`));
+  if (!owed.length) wrap.append(h('div', { class: 'empty small' }, 'Nobody is waiting on you.'));
+  for (const o of owed) wrap.append(owedRow(o));
+
+  wrap.append(h('h3', { class: 'section' }, `Waiting on them (${waiting.length})`));
+  if (!waiting.length) wrap.append(h('div', { class: 'empty small' }, "You're not waiting on anyone. Emails you send that ask something show up here."));
+  for (const f of waiting.sort((a, b) => a.dueAt - b.dueAt)) wrap.append(followUpRow(f, now));
+
+  wrap.append(h('h3', { class: 'section' }, `Your commitments (${commitments.length})`));
+  if (!commitments.length) wrap.append(h('div', { class: 'empty small' }, 'No open promises. "I\'ll send it Friday" in your mail shows up here.'));
+  for (const c of commitments.sort((a, b) => (a.dueAt ?? Infinity) - (b.dueAt ?? Infinity))) wrap.append(commitmentRow(c, now));
+
+  if (pending.length) {
+    wrap.append(h('h3', { class: 'section' }, `Scheduled reminders (${pending.length})`));
+    for (const r of pending.sort((a, b) => a.at - b.at)) wrap.append(reminderRow(r));
+  }
+
+  if (resolved.length) {
+    wrap.append(h('details', { class: 'group' }, h('summary', {}, `Resolved automatically (${resolved.length})`),
+      resolved.slice(0, 30).map((x) => h('div', { class: 'hint resolved' }, `${relTime(x.at)} · ${x.text}`))));
+  }
+  return wrap;
+}
+
+function owedRow(o: OwedReply): HTMLElement {
+  return h('div', { class: `banner fu-row ${o.overdue ? 'overdue' : ''}` },
+    h('div', { class: 'grow' },
+      h('div', {}, h('strong', {}, o.from.name || o.from.email), ` · ${o.subject || '(no subject)'}`,
+        o.overdue ? h('span', { class: 'pill bad' }, 'Overdue') : null),
+      h('div', { class: 'hint' }, `Received ${relTime(o.receivedAt)}`),
+      o.openQuestions.length ? h('div', { class: 'thread-facts' }, h('strong', {}, 'Still open: '), o.openQuestions.join(' · ')) : null,
+      remindFor === `u:${o.key}` ? remindBox({ kind: 'update', key: o.key }) : null),
+    h('div', { class: 'row' },
+      btn('Reply', () => { tab = 'open'; go('updates'); }),
+      btn('Remind me…', () => openRemind(`u:${o.key}`)),
+      btn('Done', () => void run(() => api.act(o.key, 'done')), 'ghost')));
+}
+
+function followUpRow(f: FollowUp, now: number): HTMLElement {
+  const due = f.dueAt <= now;
+  return h('div', { class: `banner fu-row ${due ? 'overdue' : ''}` },
+    h('div', { class: 'grow' },
+      h('div', {}, h('strong', {}, f.to.email), ` · ${f.subject || '(no subject)'}`,
+        due ? h('span', { class: 'pill bad' }, 'Time to follow up') : null),
+      h('div', { class: 'hint' }, `You asked: "${f.asked}"`),
+      h('div', { class: 'hint' }, `Sent ${relTime(f.sentAt)} · ${due ? 'no reply yet' : `nudge ${dayLabel(f.dueAt)}`} (${f.dueReason})`),
+      remindFor === `f:${f.id}` ? remindBox({ kind: 'followup', id: f.id }) : null),
+    h('div', { class: 'row' },
+      btn('Draft a nudge', () => void run(() => api.draftNudge(f.id), 'Follow-up saved as a draft in your mailbox. Review and send it from there.'), due ? 'primary' : ''),
+      btn('Remind me…', () => openRemind(`f:${f.id}`)),
+      btn('Got it', () => void run(() => api.setFollowUp(f.id, 'done'))),
+      btn('Not needed', () => void run(() => api.setFollowUp(f.id, 'dismissed')), 'ghost')));
+}
+
+function commitmentRow(c: Commitment, now: number): HTMLElement {
+  const due = !!c.dueAt && c.dueAt <= now;
+  return h('div', { class: `banner fu-row ${due ? 'overdue' : ''}` },
+    h('div', { class: 'grow' },
+      h('div', {}, h('strong', {}, c.text), due ? h('span', { class: 'pill bad' }, 'Due') : null),
+      h('div', { class: 'hint' },
+        `${c.source === 'sent' ? 'From your email' : 'From the conversation'} "${c.subject}"${c.withWhom ? ` with ${c.withWhom}` : ''} · ${relTime(c.at)}` +
+          (c.dueAt ? ` · due ${dayLabel(c.dueAt)}` : '')),
+      remindFor === `c:${c.id}` ? remindBox({ kind: 'commitment', id: c.id }) : null),
+    h('div', { class: 'row' },
+      btn('Done', () => void run(() => api.setCommitment(c.id, 'done')), 'primary'),
+      btn('Remind me…', () => openRemind(`c:${c.id}`)),
+      btn('Not a promise', () => void run(() => api.setCommitment(c.id, 'dismissed')), 'ghost')));
+}
+
+function reminderRow(r: Reminder): HTMLElement {
+  return h('div', { class: `banner fu-row ${r.status === 'due' ? 'overdue' : ''}` },
+    h('div', { class: 'grow' },
+      h('div', {}, h('strong', {}, r.title)),
+      h('div', { class: 'hint' },
+        `${r.status === 'due' ? 'Due' : 'Scheduled'} ${dayLabel(r.at)} at ${new Date(r.at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}` +
+          ` · "${r.phrase}"${r.unlessReplied ? ' · skipped if a reply arrives first' : ''}`)),
+    btn(r.status === 'due' ? 'Done' : 'Cancel', () => void run(() => api.cancelReminder(r.id)), r.status === 'due' ? 'primary' : 'ghost'));
 }
 
 // ---- activity ----
@@ -985,6 +1156,7 @@ function renderSettings(): HTMLElement {
   const name = text(s.userName);
   const poll = text(String(s.pollMinutes), 'number');
   const lookback = text(String(s.lookbackHours), 'number');
+  const followUpDays = text(String(s.followUpDays), 'number');
   const [briefingEl, briefingOn] = check('Brief me every morning', s.briefing.enabled,
     'A Windows notification and a summary at the top of Updates: what needs you, deadlines and drafts waiting.');
   const briefingTime = h('input', { type: 'time', value: s.briefing.time });
@@ -1012,6 +1184,7 @@ function renderSettings(): HTMLElement {
       userName: name.value.trim(),
       pollMinutes: Math.max(1, Number(poll.value) || 5),
       lookbackHours: Math.max(1, Number(lookback.value) || 48),
+      followUpDays: Math.min(30, Math.max(1, Number(followUpDays.value) || 3)),
       briefing: { enabled: briefingOn.checked, time: briefingTime.value || '08:00' },
       ollama: { url: ollamaUrl.value.trim(), model: model.value.trim(), fastModel: fastModel.value.trim() },
       previewMode: preview.checked,
@@ -1023,7 +1196,8 @@ function renderSettings(): HTMLElement {
     h('fieldset', {}, h('legend', {}, 'You'),
       field('Your name', name, 'This PC has one Pilot, and it works for you.'),
       field('Check for mail every (minutes)', poll),
-      field('When a mailbox starts being watched, look back (hours)', lookback)),
+      field('When a mailbox starts being watched, look back (hours)', lookback),
+      field('Suggest a follow-up after (working days without a reply)', followUpDays)),
     h('fieldset', {}, h('legend', {}, 'Automation'), previewEl),
     h('fieldset', {}, h('legend', {}, 'Morning briefing'),
       briefingEl,

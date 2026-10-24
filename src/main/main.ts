@@ -1,6 +1,18 @@
 import { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, shell, Tray } from 'electron';
 import * as path from 'node:path';
-import type { AccountPatch, Briefing, ConnectRequest, CorrectionKind, Settings, Update, UpdateAction } from '../shared/types';
+import type {
+  AccountPatch,
+  Briefing,
+  Commitment,
+  ConnectRequest,
+  CorrectionKind,
+  FollowUp,
+  Reminder,
+  ReminderTarget,
+  Settings,
+  Update,
+  UpdateAction,
+} from '../shared/types';
 import { seedDemo } from './demo';
 import { Engine } from './engine';
 import { cancelAuthorize } from './oauth';
@@ -114,6 +126,21 @@ function registerIpc(engine: Engine): void {
   ipcMain.handle('approve', (_e, id: string) => engine.approve(String(id)));
   ipcMain.handle('reject', (_e, id: string) => engine.reject(String(id)));
   ipcMain.handle('undo', (_e, id: string) => engine.undo(String(id)));
+  ipcMain.handle('previewWhen', (_e, phrase: string) => engine.previewWhen(String(phrase)));
+  ipcMain.handle('remind', (_e, target: ReminderTarget, phrase: string) => {
+    if (!target || !['update', 'followup', 'commitment'].includes(target.kind)) throw new Error('Invalid reminder target');
+    return engine.remind(target, String(phrase));
+  });
+  ipcMain.handle('cancelReminder', (_e, id: string) => engine.cancelReminder(String(id)));
+  ipcMain.handle('setFollowUp', (_e, id: string, status: FollowUp['status']) => {
+    if (!['waiting', 'replied', 'done', 'dismissed'].includes(status)) throw new Error('Invalid status');
+    return engine.setFollowUp(String(id), status);
+  });
+  ipcMain.handle('setCommitment', (_e, id: string, status: Commitment['status']) => {
+    if (!['open', 'done', 'dismissed'].includes(status)) throw new Error('Invalid status');
+    return engine.setCommitment(String(id), status);
+  });
+  ipcMain.handle('draftNudge', (_e, id: string) => engine.draftNudge(String(id)));
   ipcMain.handle('saveSettings', (_e, patch: Partial<Settings>) => engine.saveSettings(patch));
   ipcMain.handle('listModels', () => engine.listModels());
 }
@@ -146,6 +173,12 @@ if (!app.requestSingleInstanceLock()) {
       n.show();
     });
 
+    engine.on('reminder', (r: Reminder) => {
+      if (!Notification.isSupported()) return;
+      const n = new Notification({ title: 'Reminder', body: r.title });
+      n.on('click', showWindow);
+      n.show();
+    });
     engine.on('briefing', (b: Briefing) => {
       if (!Notification.isSupported()) return;
       const name = store.data.settings.userName;

@@ -33,6 +33,17 @@ Every email shows a **Why:** line with its reason, its stage and how long it too
 
 Personal email is read together with its whole conversation, up to the last 8 messages, with quoted history stripped. Each email shows what's **still waiting on you** and what **you promised** earlier, and a **Conversation** panel shows the messages, highlighting the ones the summary is based on. If you've already replied after a message, Pilot checks that directly in your mailbox and won't draft another reply.
 
+### Follow-ups
+
+The **Follow-ups** page tracks:
+- emails **you owe a reply**,
+- emails you sent that asked something, where you're **waiting on them**,
+- **commitments** you made ("I'll send it Friday"), from your sent mail and from conversations.
+
+It suggests a nudge after a stated deadline, or after 3 working days by default (Settings). **Draft a nudge** saves a polite follow-up as a draft; it's never sent automatically.
+
+**Remind me…** accepts plain English, such as "Friday", "tomorrow at 3pm", "in 2 days" or "Monday if they haven't replied", and shows exactly when it will fire before you save. "If they haven't replied" reminders check the real conversation first and quietly skip themselves when the reply has arrived.
+
 ### Teaching Pilot
 
 Each email has **More important**, **Less important** and **Junk**. These change *only that email*. To change all future mail, use **Always from this sender…**, which creates a rule for that sender or their company domain. Domain rules for shared webmail such as gmail.com aren't allowed. After two corrections in the same direction for one sender, the **Rules** page suggests a rule; you can edit, switch off or delete any rule there.

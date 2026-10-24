@@ -10,6 +10,10 @@ import {
   type ConnectRequest,
   type CorrectionKind,
   type Discovery,
+  type FollowUp,
+  type Commitment,
+  type Reminder,
+  type ReminderTarget,
   type PipelineStats,
   type Rule,
   type Settings,
@@ -37,6 +41,7 @@ import { buildThread, type ThreadView } from './core/thread';
 import { createProvider, discover, signIn, verifyImap } from './providers';
 import { passwords, tokens } from './secrets';
 import { mergeSettings, type Store } from './store';
+import { Tracker } from './tracker';
 
 const DAY = 24 * 60 * 60_000;
 
@@ -62,6 +67,7 @@ export const IRREVERSIBLE: Record<string, string> = {
  */
 export class Engine extends EventEmitter {
   status: AppState['status'] = { syncing: false };
+  readonly tracker: Tracker;
   private timer?: NodeJS.Timeout;
   private briefingTimer?: NodeJS.Timeout;
 
@@ -71,6 +77,12 @@ export class Engine extends EventEmitter {
   ) {
     super();
     this.status.demo = demo;
+    this.tracker = new Tracker({
+      store,
+      settings: () => this.s,
+      changed: () => this.changed(),
+      onReminder: (r: Reminder) => this.emit('reminder', r),
+    });
   }
 
   private get s(): Settings {
@@ -83,8 +95,12 @@ export class Engine extends EventEmitter {
 
   start(): void {
     this.schedule();
-    setTimeout(() => void this.sync().then(() => this.maybeBrief()), 3000);
-    this.briefingTimer = setInterval(() => void this.maybeBrief(), 60_000);
+    // Reminders that came due while the app was closed fire on launch.
+    setTimeout(() => void this.sync().then(() => Promise.all([this.maybeBrief(), this.tracker.tick()])), 3000);
+    this.briefingTimer = setInterval(() => {
+      void this.maybeBrief();
+      void this.tracker.tick();
+    }, 60_000);
   }
 
   private schedule(): void {
@@ -119,6 +135,10 @@ export class Engine extends EventEmitter {
       suggestedRules: suggestRules(this.d.corrections, this.d.rules),
       activity: this.d.activity.slice(-300).reverse(),
       stats: this.stats(),
+      followUps: this.d.followUps.filter((f) => f.status === 'waiting' || f.sentAt > Date.now() - 14 * DAY),
+      commitments: this.d.commitments.filter((c) => c.status === 'open' || c.at > Date.now() - 14 * DAY),
+      reminders: this.d.reminders.filter((r) => r.status !== 'cancelled'),
+      owed: this.tracker.owed(),
       signIn: { gmail: !!clients.google.clientId, outlook: !!clients.microsoft.clientId },
     };
   }
@@ -210,12 +230,15 @@ export class Engine extends EventEmitter {
     try {
       this.unsnooze();
       if (!this.demo) {
-        for (const account of this.watched()) await this.fetchAccount(account);
+        for (const account of this.watched()) {
+          await this.fetchAccount(account);
+          await this.trackFollowUps(account);
+        }
       }
       await this.ensureModel();
       await this.triagePending();
       this.prune();
-      if (this.status.message?.startsWith('Reading') || this.status.message === 'Checking mail…') {
+      if (this.status.message?.startsWith('Reading') || this.status.message === 'Checking mail…' || this.status.message === 'Checking follow-ups…') {
         this.status.message = undefined;
       }
     } finally {
@@ -253,6 +276,19 @@ export class Engine extends EventEmitter {
     this.changed();
   }
 
+  /** Sent-mail questions and promises, and reply checks. Never blocks reading new mail. */
+  private async trackFollowUps(account: Account): Promise<void> {
+    try {
+      this.status.message = 'Checking follow-ups…';
+      this.emit('changed');
+      await this.tracker.scanSent(account);
+      await this.tracker.checkReplies(account);
+    } catch (e) {
+      this.status.message = `Couldn't check follow-ups for ${account.email}: ${errorText(e)}`;
+    }
+    this.changed();
+  }
+
   /** Rule-decided and obvious mail first (instant), then unread personal mail, then the rest; newest first. */
   private async triagePending(): Promise<void> {
     const watched = new Map(this.watched().map((a) => [a.id, a]));
@@ -275,6 +311,7 @@ export class Engine extends EventEmitter {
         this.changed();
         continue;
       }
+      this.tracker.noteConversationPromises(u);
       this.changed();
       if (u.triage!.priority === 1 && account.permissions.notify && u.status === 'new') this.emit('notify', u);
       await this.autopilot(u, account);
@@ -365,6 +402,7 @@ export class Engine extends EventEmitter {
     this.d.sendLog = this.d.sendLog.filter((t) => t > Date.now() - DAY);
     this.d.corrections = this.d.corrections.slice(-2000);
     this.d.activity = this.d.activity.slice(-2000);
+    this.tracker.prune();
   }
 
   /** If the chosen model isn't installed, switch to an installed chat model instead of failing every email. */
@@ -774,7 +812,9 @@ export class Engine extends EventEmitter {
     const needYou = open.filter((u) => u.triage!.priority === 1);
     const worth = open.filter((u) => u.triage!.priority === 2);
     const drafts = open.filter((u) => u.reply?.state === 'drafted').length;
+    const overdue = this.tracker.overdueCount();
     let text = templateBriefing(needYou, worth, drafts);
+    if (overdue) text += ` ${overdue} follow-up${overdue === 1 ? ' is' : 's are'} due.`;
     const items = [...needYou, ...worth].slice(0, 15);
     if (items.length) {
       try {
@@ -793,7 +833,7 @@ export class Engine extends EventEmitter {
             .join('\n'),
           { type: 'object', properties: { briefing: { type: 'string' } }, required: ['briefing'] },
         );
-        if (r.briefing?.trim()) text = r.briefing.trim();
+        if (r.briefing?.trim()) text = r.briefing.trim() + (overdue ? ` ${overdue} follow-up${overdue === 1 ? ' is' : 's are'} due.` : '');
       } catch {
         // The template briefing is fine.
       }
@@ -865,6 +905,50 @@ export class Engine extends EventEmitter {
     } finally {
       this.changed();
     }
+  }
+
+  // ---- follow-ups ----
+
+  previewWhen(phrase: string) {
+    return this.tracker.preview(phrase);
+  }
+
+  remind(target: ReminderTarget, phrase: string): void {
+    this.tracker.remind(target, phrase);
+  }
+
+  cancelReminder(id: string): void {
+    this.tracker.cancelReminder(id);
+  }
+
+  setFollowUp(id: string, status: FollowUp['status']): void {
+    this.tracker.setFollowUp(id, status);
+  }
+
+  setCommitment(id: string, status: Commitment['status']): void {
+    this.tracker.setCommitment(id, status);
+  }
+
+  /** Saves a follow-up to everyone on your original email as a draft in your mailbox. Never sends. */
+  async draftNudge(id: string): Promise<void> {
+    const f = this.d.followUps.find((x) => x.id === id);
+    const account = f && this.accountOf(f.accountId);
+    if (!f || !account) throw new Error('That follow-up no longer exists.');
+    const text = this.tracker.nudgeText(f, account.permissions.signature);
+    const e = this.entry(undefined, account, 'draft', 'user', 'You asked for a follow-up draft', {
+      subject: f.subject,
+      sender: f.to.email,
+      replyText: text,
+    });
+    try {
+      await createProvider(account, this.s).reply(this.tracker.nudgeTarget(f), text, false, { all: true });
+      e.status = 'done';
+    } catch (err) {
+      e.status = 'failed';
+      e.error = errorText(err);
+    }
+    this.record(e);
+    if (e.status === 'failed') throw new Error(e.error);
   }
 
   webLink(key: string): string {

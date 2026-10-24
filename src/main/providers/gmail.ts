@@ -73,8 +73,15 @@ function findBody(part: GmailPart, mimeType: string): string | undefined {
 }
 
 export class GmailProvider extends OAuthProvider implements MailProvider {
-  async fetchSince(sinceMs: number, max: number): Promise<EmailMessage[]> {
-    const q = `in:inbox after:${Math.floor(sinceMs / 1000)}`;
+  fetchSince(sinceMs: number, max: number): Promise<EmailMessage[]> {
+    return this.search(`in:inbox after:${Math.floor(sinceMs / 1000)}`, max);
+  }
+
+  fetchSent(sinceMs: number, max: number): Promise<EmailMessage[]> {
+    return this.search(`in:sent after:${Math.floor(sinceMs / 1000)}`, max);
+  }
+
+  private async search(q: string, max: number): Promise<EmailMessage[]> {
     const list = await this.api<{ messages?: { id: string }[] }>(
       `${BASE}/messages?${new URLSearchParams({ q, maxResults: String(max) })}`,
     );

@@ -114,6 +114,27 @@ export class ImapProvider implements MailProvider {
     });
   }
 
+  fetchSent(sinceMs: number, max: number): Promise<EmailMessage[]> {
+    return this.withClient(async (c) => {
+      const sent = await this.specialFolder(c, '\\Sent', ['sent', 'sent items', 'sent messages']);
+      if (!sent) return [];
+      const lock = await c.getMailboxLock(sent);
+      try {
+        const uids = ((await c.search({ since: new Date(sinceMs) }, { uid: true })) || []).slice(-max);
+        const out: EmailMessage[] = [];
+        if (!uids.length) return out;
+        for await (const m of c.fetch(uids, { uid: true, source: true, internalDate: true }, { uid: true })) {
+          const at = m.internalDate ? new Date(m.internalDate).getTime() : Date.now();
+          if (at < sinceMs || !m.source) continue;
+          out.push(await this.parse(`sent:${m.uid}`, m.source, at));
+        }
+        return out.sort((a, b) => b.receivedAt - a.receivedAt);
+      } finally {
+        lock.release();
+      }
+    });
+  }
+
   /**
    * IMAP has no conversations, so find messages sharing the thread's root Message-ID in the inbox and
    * the Sent folder (References / In-Reply-To headers). Best effort: servers vary.

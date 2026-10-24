@@ -76,6 +76,19 @@ export class OutlookProvider extends OAuthProvider implements MailProvider {
     return res.value.map((m) => this.parse(m));
   }
 
+  async fetchSent(sinceMs: number, max: number): Promise<EmailMessage[]> {
+    const params = new URLSearchParams({
+      $filter: `sentDateTime ge ${new Date(sinceMs).toISOString()}`,
+      $orderby: 'sentDateTime desc',
+      $top: String(max),
+      $select: SELECT,
+    });
+    const res = await this.api<{ value: GraphMessage[] }>(`${GRAPH}/mailFolders/sentitems/messages?${params}`, {
+      headers: { Prefer: 'outlook.body-content-type="text"' },
+    });
+    return res.value.map((m) => this.parse(m));
+  }
+
   /** /me/messages spans every folder, so this includes your replies in Sent Items. */
   async fetchThread(msg: EmailMessage): Promise<EmailMessage[]> {
     const params = new URLSearchParams({
@@ -111,10 +124,11 @@ export class OutlookProvider extends OAuthProvider implements MailProvider {
     };
   }
 
-  async reply(msg: EmailMessage, text: string, send: boolean): Promise<void> {
+  async reply(msg: EmailMessage, text: string, send: boolean, opts: { all?: boolean } = {}): Promise<void> {
     // `comment` is placed above the quoted original, keeping the thread intact.
     const body = JSON.stringify({ comment: textToHtml(text) });
-    await this.api(`${GRAPH}/messages/${msg.id}/${send ? 'reply' : 'createReply'}`, { method: 'POST', body });
+    const action = opts.all ? (send ? 'replyAll' : 'createReplyAll') : send ? 'reply' : 'createReply';
+    await this.api(`${GRAPH}/messages/${msg.id}/${action}`, { method: 'POST', body });
   }
 
   /** Graph gives a moved message a new id, so return it for later undo. */

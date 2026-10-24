@@ -84,6 +84,7 @@ export interface Account {
   saveSentCopy?: boolean;
   webmailUrl?: string;
   lastSyncAt?: number;
+  lastSentScanAt?: number;
   lastError?: string;
 }
 
@@ -236,6 +237,72 @@ export interface ActivityEntry {
   unsubscribeSender?: string;
 }
 
+/** A message you sent that asked something, tracked until they reply. */
+export interface FollowUp {
+  id: string;
+  accountId: string;
+  threadId: string;
+  messageId: string;
+  messageIdHeader?: string;
+  references?: string;
+  to: Address;
+  subject: string;
+  sentAt: number;
+  /** The question or request in your email. */
+  asked: string;
+  /** When to nudge if there's no reply. */
+  dueAt: number;
+  dueReason: string;
+  webLink: string;
+  status: 'waiting' | 'replied' | 'done' | 'dismissed';
+  repliedAt?: number;
+  checkedAt?: number;
+}
+
+/** Something you said you'd do, from your sent mail or a conversation. */
+export interface Commitment {
+  id: string;
+  accountId: string;
+  text: string;
+  dueAt?: number;
+  source: 'sent' | 'conversation';
+  subject: string;
+  withWhom?: string;
+  at: number;
+  updateKey?: string;
+  status: 'open' | 'done' | 'dismissed';
+}
+
+export type ReminderTarget =
+  | { kind: 'update'; key: string }
+  | { kind: 'followup'; id: string }
+  | { kind: 'commitment'; id: string };
+
+export interface Reminder {
+  id: string;
+  target: ReminderTarget;
+  title: string;
+  /** What you typed, e.g. "Friday if they haven't replied". */
+  phrase: string;
+  at: number;
+  /** Skip the reminder if the reply it's about arrives first. */
+  unlessReplied: boolean;
+  createdAt: number;
+  status: 'pending' | 'due' | 'resolved' | 'cancelled';
+  note?: string;
+}
+
+/** An email waiting on your reply (computed from Updates). */
+export interface OwedReply {
+  key: string;
+  accountId: string;
+  from: Address;
+  subject: string;
+  receivedAt: number;
+  openQuestions: string[];
+  overdue: boolean;
+}
+
 export interface PipelineStats {
   bySource: Record<TriageSource, { count: number; avgMs: number; corrected: number }>;
   corrections: number;
@@ -272,6 +339,8 @@ export interface Settings {
   onboarded: boolean;
   pollMinutes: number;
   lookbackHours: number;
+  /** Nudge if nobody replied after this many working days. */
+  followUpDays: number;
   /** Daily briefing notification at `time` (HH:MM, local). */
   briefing: { enabled: boolean; time: string };
   /** fastModel: optional smaller model for simple emails; blank uses `model`. */
@@ -311,6 +380,10 @@ export interface AppState {
   /** Newest first, capped. */
   activity: ActivityEntry[];
   stats: PipelineStats;
+  followUps: FollowUp[];
+  commitments: Commitment[];
+  reminders: Reminder[];
+  owed: OwedReply[];
   /** Whether Google / Microsoft sign-in is configured in this build. */
   signIn: { gmail: boolean; outlook: boolean };
 }
@@ -348,6 +421,14 @@ export interface Api {
   approve(activityId: string): Promise<void>;
   reject(activityId: string): Promise<void>;
   undo(activityId: string): Promise<void>;
+  /** Parses a reminder phrase without saving it, so the UI can show what it means. */
+  previewWhen(phrase: string): Promise<{ at: number; unlessReplied: boolean; label: string } | { error: string }>;
+  remind(target: ReminderTarget, phrase: string): Promise<void>;
+  cancelReminder(id: string): Promise<void>;
+  setFollowUp(id: string, status: FollowUp['status']): Promise<void>;
+  setCommitment(id: string, status: Commitment['status']): Promise<void>;
+  /** Saves a polite follow-up as a draft in your mailbox. Never sends. */
+  draftNudge(followUpId: string): Promise<void>;
   saveSettings(patch: Partial<Settings>): Promise<void>;
   listModels(): Promise<string[]>;
   onState(cb: (state: AppState) => void): () => void;

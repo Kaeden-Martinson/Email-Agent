@@ -256,3 +256,13 @@ table.stats th { color: var(--muted); font-weight: 500; }
 .thread-msg.used { border-left-color: var(--accent); }
 .thread-head { display: flex; align-items: baseline; gap: 6px; font-size: 13px; }
 .thread-text { white-space: pre-wrap; font-size: 13px; margin-top: 3px; }
+
+/* follow-ups */
+.fu-row { display: flex; gap: 12px; align-items: flex-start; }
+.fu-row .grow { flex: 1; min-width: 0; }
+.fu-row.overdue { border-left: 3px solid var(--p1); }
+.empty.small { padding: 6px 0 4px; text-align: left; font-size: 13px; }
+.remind-box { margin-top: 10px; }
+.remind-box input[type="text"] { flex: 1; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; }
+.remind-preview { margin-top: 4px; }
+.resolved { padding: 2px 0; }

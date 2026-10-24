@@ -45,6 +45,9 @@ class DemoProvider implements MailProvider {
   async fetchThread(): Promise<EmailMessage[]> {
     return [];
   }
+  async fetchSent(): Promise<EmailMessage[]> {
+    return [];
+  }
   async reply(): Promise<void> {}
   async archive(): Promise<void> {}
   async unarchive(): Promise<void> {}

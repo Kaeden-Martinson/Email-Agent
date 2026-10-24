@@ -112,6 +112,26 @@ export function seedDemo(store: Store): void {
     needYou: 1,
     drafts: 1,
   };
+  // Follow-ups: one overdue, one not yet; a commitment; reminders (one due, one pending, one auto-skipped).
+  const fu = (id: string, to: string, subject: string, asked: string, sentDaysAgo: number, dueInDays: number, reason: string) => ({
+    id, accountId: 'demo-gmail', threadId: `t-${id}`, messageId: id, to: { name: '', email: to }, subject, asked,
+    sentAt: now - sentDaysAgo * 86_400_000, dueAt: now + dueInDays * 86_400_000, dueReason: reason,
+    webLink: 'https://mail.google.com/', status: 'waiting' as const,
+  });
+  d.followUps.push(
+    fu('f1', 'landlord@rentco.example', 'Lease renewal', 'Could you confirm the new rent amount for 2027?', 5, -1, '3 working days with no reply'),
+    fu('f2', 'jsilverman@tntech.edu', 'Campus visit', 'Is there a tour slot on Nov 7?', 1, 2, '3 working days with no reply'),
+    { ...fu('f3', 'marcus@gmail.com', 'Dinner Saturday?', 'Does 7pm work?', 2, 1, ''), status: 'replied' as const, repliedAt: now - 3_600_000 },
+  );
+  d.commitments.push({
+    id: 'c1', accountId: 'demo-gmail', text: 'I will send comments on section 7 by Thursday.', dueAt: now + 86_400_000,
+    source: 'sent', subject: 'Re: Contract redlines', withWhom: 'priya@acme.co', at: now - 2 * 86_400_000, status: 'open',
+  });
+  d.reminders.push(
+    { id: 'r1', target: { kind: 'followup', id: 'f1' }, title: 'Follow up with landlord@rentco.example: Lease renewal', phrase: "this morning if they haven't replied", at: now - 60_000, unlessReplied: true, createdAt: now - 86_400_000, status: 'pending' },
+    { id: 'r2', target: { kind: 'followup', id: 'f2' }, title: 'Follow up with jsilverman@tntech.edu: Campus visit', phrase: 'Monday if no reply', at: now + 3 * 86_400_000, unlessReplied: true, createdAt: now, status: 'pending' },
+    { id: 'r3', target: { kind: 'followup', id: 'f3' }, title: 'Follow up with marcus@gmail.com: Dinner Saturday?', phrase: "this morning if they haven't replied", at: now - 120_000, unlessReplied: true, createdAt: now - 86_400_000, status: 'pending' },
+  );
   const t = new Date(now);
   d.lastBriefingDay = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
   store.save();

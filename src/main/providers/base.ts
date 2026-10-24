@@ -8,8 +8,10 @@ export interface MailProvider {
   fetchSince(sinceMs: number, max: number): Promise<EmailMessage[]>;
   /** Every message in this message's conversation the provider can find, including ones you sent. */
   fetchThread(msg: EmailMessage): Promise<EmailMessage[]>;
-  /** Replies in-thread; `send: false` saves a draft instead. */
-  reply(msg: EmailMessage, text: string, send: boolean): Promise<void>;
+  /** Messages you sent at or after `sinceMs`, newest first. */
+  fetchSent(sinceMs: number, max: number): Promise<EmailMessage[]>;
+  /** Replies in-thread; `send: false` saves a draft instead. `all` replies to every recipient (for nudging your own sent mail). */
+  reply(msg: EmailMessage, text: string, send: boolean, opts?: { all?: boolean }): Promise<void>;
   /** Moves out of the inbox. Resolves with the message's new id when the provider changes it (Outlook, IMAP). */
   archive(msg: EmailMessage): Promise<string | void>;
   /** Moves back to the inbox; resolves with the new id when it changes. */
