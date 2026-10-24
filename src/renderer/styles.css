@@ -179,6 +179,14 @@ form.settings legend { font-weight: 600; padding: 0 6px; }
   transition: opacity 0.2s;
 }
 #toast.show { opacity: 1; }
+#toast.actionable.show { pointer-events: auto; display: flex; align-items: center; gap: 12px; }
+.toast-action { background: none; border: 0; color: var(--bg); font: inherit; font-weight: 650; text-decoration: underline; cursor: pointer; padding: 0; }
+article.card.selected { outline: 2px solid var(--accent); outline-offset: 1px; }
+.keys-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.35); display: flex; align-items: center; justify-content: center; z-index: 50; }
+.keys-box { background: var(--panel); color: var(--text); border-radius: 10px; padding: 18px 22px; min-width: 320px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25); }
+.keys-box h3 { margin: 0 0 10px; }
+.keys-box td { padding: 4px 14px 4px 0; }
+kbd { font-family: inherit; font-size: 12px; background: var(--chip); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; }
 
 /* onboarding, mailboxes, permissions */
 .onboard { max-width: 620px; margin: 9vh auto 0; padding: 0 24px; }
@@ -333,3 +341,4 @@ div.settings legend { font-weight: 600; padding: 0 6px; }
 .cluster > .similar > summary { cursor: pointer; font-size: 13px; color: var(--muted, #666); padding: 4px 0; }
 .cluster > .similar[open] > summary { margin-bottom: 8px; }
 .rule-preview { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: var(--chip); }
+.tabs .keys-hint { margin-left: auto; color: var(--muted); font-size: 12px; }

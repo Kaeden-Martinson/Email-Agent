@@ -608,6 +608,16 @@ export class Engine extends EventEmitter {
   }
 
   /** A model that won't load is skipped for the rest of the session; returns true if another was chosen. */
+  /** Runs a model call; if Ollama can't load the model, switches to an installed one and tries once more. */
+  private async withModelFallback<T>(fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn();
+    } catch (e) {
+      if (e instanceof ModelLoadError && (await this.switchModel(e))) return fn();
+      throw e;
+    }
+  }
+
   private async switchModel(e: ModelLoadError): Promise<boolean> {
     this.failedModels.add(e.model);
     log.warn('model.load_failed', { model: e.model, error: e.message });
@@ -991,7 +1001,7 @@ export class Engine extends EventEmitter {
 
   /** Turns a sentence into a rule and shows which current emails it would change. Saves nothing. */
   async parseRule(text: string): Promise<RulePreview> {
-    const parsed = await parseRuleText(text, this.s);
+    const parsed = await this.withModelFallback(() => parseRuleText(text, this.s));
     if ('error' in parsed) throw new Error(parsed.error);
     return this.previewRule(parsed);
   }
@@ -1138,7 +1148,7 @@ export class Engine extends EventEmitter {
     this.changed();
   }
 
-  async act(key: string, action: UpdateAction): Promise<void> {
+  async act(key: string, action: UpdateAction): Promise<string | void> {
     const { u, account } = this.get(key);
     switch (action) {
       case 'done':
@@ -1164,7 +1174,7 @@ export class Engine extends EventEmitter {
         if (e.status === 'failed') throw new Error(e.error);
         this.signal(u, 'archived');
         this.changed();
-        return;
+        return e.id;
       }
     }
     this.changed();
@@ -1259,7 +1269,7 @@ export class Engine extends EventEmitter {
   async replyOptions(key: string): Promise<{ tone: string; text: string }[]> {
     const { u, account } = this.get(key);
     const thread = u.thread ?? (await this.loadThread(u, account))?.thread;
-    const options = await suggestReplies(u.message, account, this.s, thread);
+    const options = await this.withModelFallback(() => suggestReplies(u.message, account, this.s, thread));
     if (!options.length) throw new Error("The AI didn't produce usable replies. Try again.");
     return options;
   }

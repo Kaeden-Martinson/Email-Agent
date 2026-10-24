@@ -618,7 +618,8 @@ export interface Api {
   updateAccount(id: string, patch: AccountPatch): Promise<void>;
   removeAccount(id: string): Promise<void>;
   syncNow(): Promise<void>;
-  act(key: string, action: UpdateAction): Promise<void>;
+  /** Resolves with the activity id for an archive, so it can be undone. */
+  act(key: string, action: UpdateAction): Promise<string | void>;
   sendReply(key: string, text: string, send: boolean): Promise<void>;
   redraft(key: string): Promise<void>;
   open(key: string): Promise<void>;

@@ -94,11 +94,31 @@ function h<K extends keyof HTMLElementTagNameMap>(
   return el;
 }
 
-function toast(text: string): void {
+let toastTimer: number | undefined;
+
+/** A short message at the bottom; with `action`, a button (like Undo) that stays for 8 seconds. */
+function toast(text: string, action?: { label: string; fn: () => void }): void {
   const t = document.getElementById('toast')!;
-  t.textContent = text;
+  t.replaceChildren(text);
+  if (action) {
+    t.append(h('button', { class: 'toast-action', type: 'button', onclick: () => { t.classList.remove('show'); action.fn(); } }, action.label));
+  }
+  t.classList.toggle('actionable', !!action);
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 4500);
+  clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => t.classList.remove('show'), action ? 8000 : 4500);
+}
+
+/** Done, Snooze and Archive on one email, each with Undo in the toast. */
+function quickAct(u: Update, action: 'done' | 'snooze' | 'archive'): void {
+  void run(async () => {
+    const id = await api.act(u.key, action);
+    const what = action === 'archive' ? 'Archived' : action === 'done' ? 'Marked done' : 'Snoozed till tomorrow';
+    toast(what, {
+      label: 'Undo',
+      fn: () => void run(() => (action === 'archive' && id ? api.undo(id) : api.act(u.key, 'reopen')), 'Undone'),
+    });
+  });
 }
 
 async function run(fn: () => Promise<unknown>, done?: string): Promise<boolean> {
@@ -634,7 +654,8 @@ function renderUpdates(): HTMLElement {
 
   wrap.append(h('div', { class: 'tabs' },
     h('button', { class: tab === 'open' ? 'active' : '', onclick: () => { tab = 'open'; render(); } }, `Open (${open.length})`),
-    h('button', { class: tab === 'done' ? 'active' : '', onclick: () => { tab = 'done'; render(); } }, `Done (${done.length})`)));
+    h('button', { class: tab === 'done' ? 'active' : '', onclick: () => { tab = 'done'; render(); } }, `Done (${done.length})`),
+    h('button', { class: 'keys-hint', title: 'Keyboard shortcuts', onclick: () => { showKeys = true; document.body.append(keysOverlay()); } }, 'Shortcuts: ?')));
 
   if (tab === 'done') {
     wrap.append(done.length ? group('Done', done) : h('div', { class: 'empty' }, 'Nothing marked done yet.'));
@@ -718,6 +739,13 @@ function renderBriefing(): HTMLElement {
     h('p', {}, b.text));
 }
 
+function openReply(u: Update): void {
+  const sig = accountOf(u)?.permissions.signature.trim();
+  if (!editors.has(u.key)) editors.set(u.key, (u.triage?.draftReply ?? '') + (sig ? `\n\n${sig}` : ''));
+  render();
+  document.getElementById(`reply-${u.key}`)?.focus();
+}
+
 function card(u: Update): HTMLElement {
   const m = u.message;
   const t = u.triage;
@@ -725,19 +753,14 @@ function card(u: Update): HTMLElement {
   const isOpen = u.status !== 'done';
   const canOpen = !!(m.webLink || account?.webmailUrl);
 
-  const openEditor = () => {
-    const sig = account?.permissions.signature.trim();
-    editors.set(u.key, (t?.draftReply ?? '') + (sig ? `\n\n${sig}` : ''));
-    render();
-    document.getElementById(`reply-${u.key}`)?.focus();
-  };
+  const openEditor = () => openReply(u);
 
   const actions = isOpen
     ? [
-        btn('Done', () => void run(() => api.act(u.key, 'done'))),
-        account?.permissions.manage ? btn('Archive', () => void run(() => api.act(u.key, 'archive'), 'Archived')) : null,
+        btn('Done', () => quickAct(u, 'done')),
+        account?.permissions.manage ? btn('Archive', () => quickAct(u, 'archive')) : null,
         u.status === 'new'
-          ? btn('Snooze till tomorrow', () => void run(() => api.act(u.key, 'snooze')))
+          ? btn('Snooze till tomorrow', () => quickAct(u, 'snooze'))
           : btn('Unsnooze', () => void run(() => api.act(u.key, 'reopen'))),
         editors.has(u.key) ? null : btn(t?.draftReply ? 'Review reply' : 'Reply', openEditor),
         t?.needsReply && !t.repliedAlready ? btn('Remind me…', () => openRemind(`u:${u.key}`)) : null,
@@ -767,7 +790,7 @@ function card(u: Update): HTMLElement {
         canOpen ? btn('Open in mail', () => void run(() => api.open(u.key)), 'ghost') : null,
       ];
 
-  return h('article', { class: `card p${t?.priority ?? 0} ${isOpen ? '' : 'done'}` },
+  return h('article', { class: `card p${t?.priority ?? 0} ${isOpen ? '' : 'done'} ${selectedKey === u.key ? 'selected' : ''}`, 'data-key': u.key },
     h('div', { class: 'card-head' },
       h('span', { class: 'from', title: m.from.email }, m.from.name || m.from.email || 'Unknown sender'),
       t ? h('span', { class: `chip c-${t.category}` }, CAT_LABEL[t.category]) : null,
@@ -1120,10 +1143,113 @@ function renderAsk(): HTMLElement {
   return wrap;
 }
 
+// ---- keyboard ----
+
+let selectedKey: string | null = null;
+let showKeys = false;
+
+const SHORTCUTS: [string, string][] = [
+  ['j / k', 'Next / previous email'],
+  ['e', 'Archive'],
+  ['d', 'Done'],
+  ['s', 'Snooze till tomorrow'],
+  ['r', 'Reply'],
+  ['o', 'Open in your mail'],
+  ['Ctrl+K', 'Ask my inbox'],
+  ['g then u / t / d', 'Go to Updates / Today / Deadlines'],
+  ['?', 'Show these shortcuts'],
+];
+
+function visibleCards(): HTMLElement[] {
+  return [...document.querySelectorAll<HTMLElement>('article.card[data-key]')].filter((el) => el.offsetParent !== null);
+}
+
+function select(key: string | null): void {
+  selectedKey = key;
+  for (const el of document.querySelectorAll('article.card.selected')) el.classList.remove('selected');
+  const el = key ? document.querySelector<HTMLElement>(`article.card[data-key="${CSS.escape(key)}"]`) : null;
+  el?.classList.add('selected');
+  el?.scrollIntoView({ block: 'nearest' });
+}
+
+function keysOverlay(): HTMLElement {
+  return h('div', { class: 'keys-overlay', onclick: () => { showKeys = false; document.querySelector('.keys-overlay')?.remove(); } },
+    h('div', { class: 'keys-box' },
+      h('h3', {}, 'Keyboard shortcuts'),
+      h('table', {}, SHORTCUTS.map(([k, what]) => h('tr', {}, h('td', {}, h('kbd', {}, k)), h('td', {}, what)))),
+      h('div', { class: 'hint' }, 'Press Esc or click anywhere to close.')));
+}
+
+let pendingG = 0;
+
 document.addEventListener('keydown', (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k' && state?.settings.onboarded) {
+  if (!state?.settings.onboarded) return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
     e.preventDefault();
     go('ask');
+    return;
+  }
+  const el = document.activeElement;
+  const typing = el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement || (el as HTMLElement | null)?.isContentEditable;
+  if (e.key === 'Escape') {
+    if (showKeys) {
+      showKeys = false;
+      document.querySelector('.keys-overlay')?.remove();
+    } else if (typing) {
+      (el as HTMLElement).blur();
+    }
+    return;
+  }
+  if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
+
+  if (Date.now() - pendingG < 1500) {
+    pendingG = 0;
+    const dest = ({ u: 'updates', t: 'today', d: 'deadlines', a: 'activity', f: 'followups' } as Record<string, View>)[e.key];
+    if (dest) go(dest);
+    return;
+  }
+  if (e.key === 'g') {
+    pendingG = Date.now();
+    return;
+  }
+  if (e.key === '?') {
+    showKeys = !showKeys;
+    document.querySelector('.keys-overlay')?.remove();
+    if (showKeys) document.body.append(keysOverlay());
+    return;
+  }
+
+  const cards = visibleCards();
+  const at = cards.findIndex((c) => c.dataset.key === selectedKey);
+  if (e.key === 'j' || e.key === 'k') {
+    if (!cards.length) return;
+    const next = at < 0 ? 0 : Math.max(0, Math.min(cards.length - 1, at + (e.key === 'j' ? 1 : -1)));
+    select(cards[next].dataset.key ?? null);
+    e.preventDefault();
+    return;
+  }
+  const u = at >= 0 ? state.updates.find((x) => x.key === selectedKey) : undefined;
+  if (!u) return;
+  const after = cards[at + 1]?.dataset.key ?? cards[at - 1]?.dataset.key ?? null;
+  const moveOn = () => { selectedKey = after; };
+  switch (e.key) {
+    case 'e':
+      if (accountOf(u)?.permissions.manage && u.status !== 'done') { moveOn(); quickAct(u, 'archive'); }
+      else toast('Archiving is turned off for this mailbox.');
+      break;
+    case 'd':
+      if (u.status !== 'done') { moveOn(); quickAct(u, 'done'); }
+      break;
+    case 's':
+      if (u.status === 'new') { moveOn(); quickAct(u, 'snooze'); }
+      break;
+    case 'r':
+      e.preventDefault();
+      openReply(u);
+      break;
+    case 'o':
+      void run(() => api.open(u.key));
+      break;
   }
 });
 
