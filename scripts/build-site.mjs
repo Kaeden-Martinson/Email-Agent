@@ -4,9 +4,11 @@ import { execSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 let owner = '__OWNER__';
+let repo = 'inbox-pilot';
 try {
   const url = execSync('git remote get-url origin', { encoding: 'utf8' }).trim();
-  owner = url.match(/github\.com[:/]([^/]+)\//)?.[1] ?? owner;
+  const m = url.match(/github\.com[:/]([^/]+)\/([^/]+?)(?:\.git)?$/);
+  if (m) [, owner, repo] = m;
 } catch {
   console.warn('No git remote yet; links keep the __OWNER__ placeholder.');
 }
@@ -61,7 +63,7 @@ ${policy}
   </body>
 </html>
 `;
-const fill = (s) => s.replaceAll('__OWNER__', owner);
+const fill = (s) => s.replaceAll('github.com/__OWNER__/inbox-pilot', `github.com/${owner}/${repo}`);
 writeFileSync('docs/privacy.html', fill(page));
 writeFileSync('docs/index.html', fill(index));
-console.log(`Site built for github.com/${owner}/inbox-pilot`);
+console.log(`Site built for github.com/${owner}/${repo}`);

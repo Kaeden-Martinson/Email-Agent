@@ -26,6 +26,9 @@ function allEvents(on: boolean): Record<NotifyEvent, boolean> {
   return Object.fromEntries(NOTIFY_EVENTS.map((e) => [e, on])) as Record<NotifyEvent, boolean>;
 }
 
+/** Official releases (GitHub). Pilot only reports updates; installing stays your choice. */
+export const UPDATE_FEED = 'https://api.github.com/repos/Kaeden-Martinson/Email-Agent/releases/latest';
+
 export const DEFAULT_SETTINGS: Settings = {
   userName: '',
   onboarded: false,
@@ -51,7 +54,7 @@ export const DEFAULT_SETTINGS: Settings = {
   previewMode: true,
   encryptAtRest: true,
   launchAtLogin: false,
-  updates: { check: true, feedUrl: '' },
+  updates: { check: true, feedUrl: UPDATE_FEED },
   google: { clientId: '', clientSecret: '' },
   microsoft: { clientId: '', tenant: 'common' },
   autoReply: {
@@ -214,7 +217,10 @@ export class Store {
           this.recovered = `Pilot's data file couldn't be read, so it was restored from the backup of ${path.basename(file).slice(6, 16)}.`;
           log.warn('store.restored_from_backup', { backup: path.basename(file) });
         }
-        return { ...this.fresh(), ...raw, settings: mergeSettings(DEFAULT_SETTINGS, raw.settings) } as Persisted;
+        const settings = mergeSettings(DEFAULT_SETTINGS, raw.settings);
+        // Saved before releases existed: use the official feed (switch checks off in Settings to stop them).
+        if (!settings.updates.feedUrl) settings.updates = { ...settings.updates, feedUrl: UPDATE_FEED };
+        return { ...this.fresh(), ...raw, settings } as Persisted;
       } catch (e) {
         if (candidates.includes(file)) {
           const aside = `${file}.unreadable-${Date.now()}`;

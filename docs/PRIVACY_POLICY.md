@@ -71,4 +71,4 @@ We will update this policy when Pilot's data handling changes and note the date 
 
 ## Contact
 
-Questions or requests: open an issue at https://github.com/__OWNER__/inbox-pilot/issues
+Questions or requests: open an issue at https://github.com/Kaeden-Martinson/Email-Agent/issues
