@@ -18,6 +18,7 @@ import {
   type ReminderTarget,
   type PipelineStats,
   type Rule,
+  type SuggestedRule,
   type Settings,
   type Subscription,
   type TriageSource,
@@ -42,7 +43,9 @@ import {
   matchRule,
   ruleEffectFor,
   ruleSkipsModel,
+  suggestFromSignals,
   suggestRules,
+  type Signal,
 } from './core/rules';
 import { buildThread, type ThreadView } from './core/thread';
 import { createProvider, discover, signIn, verifyImap } from './providers';
@@ -55,6 +58,8 @@ import { Tracker } from './tracker';
 import type { Formatted } from './core/notify';
 
 const DAY = 24 * 60 * 60_000;
+
+const suggestionId = (s: SuggestedRule) => `${s.match.sender ?? '@' + s.match.domain}|${s.effect.priority ?? ''}`;
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -157,7 +162,7 @@ export class Engine extends EventEmitter {
       briefing: this.d.briefing,
       subscriptions: this.subscriptions(),
       rules: this.d.rules,
-      suggestedRules: suggestRules(this.d.corrections, this.d.rules),
+      suggestedRules: this.suggestedRules(),
       activity: this.d.activity.slice(-300).reverse(),
       stats: this.stats(),
       followUps: this.d.followUps.filter((f) => f.status === 'waiting' || f.sentAt > Date.now() - 14 * DAY),
@@ -1031,11 +1036,44 @@ export class Engine extends EventEmitter {
     return { u, account };
   }
 
+  /** Rule suggestions from explicit corrections first, then from behavior; minus the ones you declined. */
+  private suggestedRules(): SuggestedRule[] {
+    const out: SuggestedRule[] = [];
+    for (const s of [...suggestRules(this.d.corrections, this.d.rules), ...suggestFromSignals(this.d.signals, this.d.rules)]) {
+      const id = suggestionId(s);
+      if (this.d.dismissedSuggestions.includes(id) || out.some((o) => o.match.sender === s.match.sender)) continue;
+      out.push(s);
+    }
+    return out;
+  }
+
+  dismissSuggestion(s: SuggestedRule): void {
+    const id = suggestionId(s);
+    if (!this.d.dismissedSuggestions.includes(id)) this.d.dismissedSuggestions.push(id);
+    this.changed();
+  }
+
+  /** Remembers what you did with an email (sender and priority only), capped and kept for 60 days. */
+  private signal(u: Update, kind: Signal['kind']): void {
+    const cutoff = Date.now() - 60 * DAY;
+    this.d.signals = this.d.signals.filter((x) => x.at > cutoff).slice(-2000);
+    this.d.signals.push({ sender: u.message.from.email.toLowerCase(), kind, priority: u.triage?.priority ?? 2, at: Date.now() });
+  }
+
+  /** "Mark all done" on a group of similar emails. Counts as one signal, not one per email. */
+  doneMany(keys: string[]): void {
+    const us = keys.map((k) => this.d.updates[k]).filter((u): u is Update => !!u && u.status !== 'done');
+    for (const u of us) u.status = 'done';
+    if (us[0]) this.signal(us[0], 'dismissed');
+    this.changed();
+  }
+
   async act(key: string, action: UpdateAction): Promise<void> {
     const { u, account } = this.get(key);
     switch (action) {
       case 'done':
         u.status = 'done';
+        this.signal(u, 'dismissed');
         break;
       case 'reopen':
         u.status = 'new';
@@ -1054,6 +1092,8 @@ export class Engine extends EventEmitter {
         }
         const e = await this.perform(this.entry(u, account, 'archive', 'user', 'You clicked Archive'));
         if (e.status === 'failed') throw new Error(e.error);
+        this.signal(u, 'archived');
+        this.changed();
         return;
       }
     }
@@ -1068,6 +1108,10 @@ export class Engine extends EventEmitter {
       this.entry(u, account, send ? 'send' : 'draft', 'user', send ? 'You clicked Send' : 'You clicked Save as draft', { replyText: text, sendReply: send }),
     );
     if (e.status === 'failed') throw new Error(e.error);
+    if (send) {
+      this.signal(u, 'replied');
+      this.changed();
+    }
   }
 
   /** "Re-read" always uses the full model, but explicit rules still apply. */

@@ -18,6 +18,7 @@ import {
   type Update,
 } from '../shared/types';
 import { migrate, SCHEMA_VERSION } from './core/migrate';
+import type { Signal } from './core/rules';
 import { log } from './logger';
 import { decryptText, encryptText, vaultAvailable } from './vault';
 
@@ -78,6 +79,10 @@ interface Persisted {
   briefing?: Briefing;
   rules: Rule[];
   corrections: Correction[];
+  /** What you did with emails (archive, done, reply), for behavior-based rule suggestions. Newest last. */
+  signals: Signal[];
+  /** Suggestions you said "Not now" to, as sender|priority. */
+  dismissedSuggestions: string[];
   /** Newest last. */
   activity: ActivityEntry[];
   followUps: FollowUp[];
@@ -179,6 +184,8 @@ export class Store {
       unsubscribed: {},
       rules: [],
       corrections: [],
+      signals: [],
+      dismissedSuggestions: [],
       activity: [],
       followUps: [],
       commitments: [],

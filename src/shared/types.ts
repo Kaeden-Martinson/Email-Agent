@@ -594,6 +594,8 @@ export interface Api {
   briefNow(): Promise<void>;
   /** scope 'once' fixes this email only; 'sender' / 'domain' also create a rule. */
   correct(key: string, kind: CorrectionKind, scope: 'once' | 'sender' | 'domain'): Promise<void>;
+  dismissSuggestion(s: SuggestedRule): Promise<void>;
+  doneMany(keys: string[]): Promise<void>;
   saveRule(rule: Omit<Rule, 'id' | 'createdAt' | 'hits'> & { id?: string }): Promise<void>;
   deleteRule(id: string): Promise<void>;
   approve(activityId: string): Promise<void>;

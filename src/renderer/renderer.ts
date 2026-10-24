@@ -32,6 +32,7 @@ import type {
   Subscription,
   Update,
 } from '../shared/types.js';
+import { cluster } from '../shared/group.js';
 
 declare global {
   interface Window {
@@ -651,8 +652,31 @@ function renderUpdates(): HTMLElement {
 }
 
 function group(title: string, items: Update[], collapsed = false): HTMLElement {
-  if (collapsed) return h('details', { class: 'group' }, h('summary', {}, `${title} (${items.length})`), items.map(card));
-  return h('section', { class: 'group' }, h('h2', {}, title), items.map(card));
+  const body = groupedCards(items);
+  if (collapsed) return h('details', { class: 'group' }, h('summary', {}, `${title} (${items.length})`), body);
+  return h('section', { class: 'group' }, h('h2', {}, title), body);
+}
+
+/** Repeats of the same alert or notification show as one card with "+N similar" under it. */
+function groupedCards(items: Update[]): HTMLElement[] {
+  const byKey = new Map(items.map((u) => [u.key, u]));
+  const clusters = cluster(items.map((u) => ({ key: u.key, from: u.message.from.email, subject: u.message.subject, at: u.message.receivedAt })));
+  // Keep the section's own order (by importance), placing each cluster where its newest email was.
+  const order = new Map(items.map((u, i) => [u.key, i]));
+  clusters.sort((a, b) => Math.min(...a.map((x) => order.get(x.key)!)) - Math.min(...b.map((x) => order.get(x.key)!)));
+  return clusters.map((c) => {
+    const [first, ...rest] = c.map((x) => byKey.get(x.key)!);
+    if (!rest.length) return card(first);
+    const open = [first, ...rest].filter((u) => u.status !== 'done');
+    return h('div', { class: 'cluster' },
+      card(first),
+      h('details', { class: 'similar' },
+        h('summary', {}, `+${rest.length} similar from ${first.message.from.name || first.message.from.email}`),
+        rest.map(card),
+        open.length > 1
+          ? h('div', { class: 'actions' }, btn(`Mark all ${open.length} done`, () => void run(() => api.doneMany(open.map((u) => u.key)), `Marked ${open.length} done`)))
+          : null));
+  });
 }
 
 function replyLine(r: ReplyRecord): HTMLElement {
@@ -1605,7 +1629,7 @@ function ruleEffectLabel(e: Rule['effect']): string {
 function renderSorting(): HTMLElement {
   const wrap = h('div');
   wrap.append(h('p', { class: 'hint' },
-    'Rules always win over the AI. Teach Pilot from any email ("Always from this sender…"), or add a rule here. A single "More/Less important" click only changes that one email; after two similar corrections Pilot suggests a rule.'));
+    'Rules always win over the AI. Teach Pilot from any email ("Always from this sender…"), or add a rule here. A single "More/Less important" click only changes that one email; after two similar corrections, or when you keep archiving or replying to a sender, Pilot suggests a rule.'));
 
   if (state.suggestedRules.length) {
     wrap.append(h('h3', { class: 'section' }, 'Suggested'));
@@ -1641,7 +1665,8 @@ function suggestedRow(s: SuggestedRule): HTMLElement {
     h('div', { class: 'grow' },
       h('div', {}, h('strong', {}, s.match.sender ?? `@${s.match.domain}`), ` → ${ruleEffectLabel(s.effect)}`),
       h('div', { class: 'hint' }, s.because)),
-    btn('Create rule', () => void run(() => api.saveRule({ enabled: true, match: s.match, effect: s.effect, origin: 'suggestion' }), 'Rule created'), 'primary'));
+    btn('Create rule', () => void run(() => api.saveRule({ enabled: true, match: s.match, effect: s.effect, origin: 'suggestion' }), 'Rule created'), 'primary'),
+    btn('Not now', () => void run(() => api.dismissSuggestion(s))));
 }
 
 function ruleRow(r: Rule): HTMLElement {

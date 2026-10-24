@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { cluster, similarKey } from '../src/main/core/group';
+import { cluster, similarKey } from '../src/shared/group';
 import { suggestFromSignals, type Signal } from '../src/main/core/rules';
 
 const now = Date.now();

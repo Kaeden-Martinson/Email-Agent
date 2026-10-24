@@ -140,6 +140,8 @@ function registerIpc(engine: Engine): void {
     if (!['more', 'less', 'junk'].includes(kind) || !['once', 'sender', 'domain'].includes(scope)) throw new Error('Invalid correction');
     return engine.correct(String(key), kind, scope);
   });
+  ipcMain.handle('doneMany', (_e, keys: string[]) => engine.doneMany(Array.isArray(keys) ? keys.filter((k) => typeof k === 'string') : []));
+  ipcMain.handle('dismissSuggestion', (_e, s: Parameters<Engine['dismissSuggestion']>[0]) => engine.dismissSuggestion(s));
   ipcMain.handle('saveRule', (_e, rule: Parameters<Engine['saveRule']>[0]) => engine.saveRule(rule));
   ipcMain.handle('deleteRule', (_e, id: string) => engine.deleteRule(String(id)));
   ipcMain.handle('approve', (_e, id: string) => engine.approve(String(id)));
