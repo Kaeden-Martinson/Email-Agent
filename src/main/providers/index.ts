@@ -44,6 +44,8 @@ class DemoProvider implements MailProvider {
   }
   async reply(): Promise<void> {}
   async archive(): Promise<void> {}
+  async unarchive(): Promise<void> {}
+  async unlabel(): Promise<void> {}
   async markRead(): Promise<void> {}
   async label(): Promise<void> {}
   async send(): Promise<void> {}

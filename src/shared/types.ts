@@ -128,6 +128,7 @@ export interface EmailMessage {
   /** Mailing-list, bulk or machine-generated mail (List-Unsubscribe, Precedence, Auto-Submitted). */
   isBulk: boolean;
   unsubscribe?: Unsubscribe;
+  unread?: boolean;
 }
 
 export type Category = 'action' | 'reply' | 'fyi' | 'newsletter' | 'promo' | 'notification' | 'spam';
@@ -140,6 +141,9 @@ export const NEVER_REPLY: Category[] = ['newsletter', 'promo', 'notification', '
 /** 1 = needs you today, 2 = normal, 3 = low. */
 export type Priority = 1 | 2 | 3;
 
+/** Which pipeline stage classified an email: a user rule, deterministic rules, or the light or full model. */
+export type TriageSource = 'rule' | 'fast' | 'light' | 'full';
+
 export interface Triage {
   category: Category;
   priority: Priority;
@@ -148,12 +152,82 @@ export interface Triage {
   needsReply: boolean;
   draftReply: string;
   model: string;
+  source?: TriageSource;
+  /** Milliseconds spent classifying. */
+  ms?: number;
+  /** Why it got this category and priority, shown to the user. */
+  reason?: string;
+  ruleId?: string;
+  /** The user changed the category or priority by hand. */
+  corrected?: boolean;
+}
+
+/** A sorting rule. Rules always win over the AI. */
+export interface Rule {
+  id: string;
+  enabled: boolean;
+  createdAt: number;
+  /** Exactly one of sender (full address) or domain (example.com). */
+  match: { sender?: string; domain?: string };
+  effect: { priority?: Priority; category?: Category; hide?: boolean };
+  origin: 'correction' | 'manual' | 'suggestion';
+  hits: number;
+  lastHitAt?: number;
+}
+
+export type CorrectionKind = 'more' | 'less' | 'junk';
+
+export interface Correction {
+  at: number;
+  key: string;
+  sender: string;
+  kind: CorrectionKind;
+  source?: TriageSource;
+  from: { category: Category; priority: Priority };
+  to: { category: Category; priority: Priority };
+}
+
+export interface SuggestedRule {
+  match: Rule['match'];
+  effect: Rule['effect'];
+  because: string;
+}
+
+export type ActivityAction = 'archive' | 'label' | 'draft' | 'send' | 'unsubscribe';
+
+/** One entry in the audit trail of things Pilot did or proposes to do. */
+export interface ActivityEntry {
+  id: string;
+  at: number;
+  accountId: string;
+  key?: string;
+  subject?: string;
+  sender?: string;
+  action: ActivityAction;
+  trigger: 'auto' | 'user';
+  /** proposed = waiting for your approval (preview mode). */
+  status: 'proposed' | 'done' | 'failed' | 'undone' | 'rejected';
+  /** An automatic action that you approved. */
+  approved?: boolean;
+  reason: string;
+  error?: string;
+  /** Archive and label can be undone; send, draft and unsubscribe cannot. */
+  undoable: boolean;
+  category?: Category;
+  replyText?: string;
+  sendReply?: boolean;
+  unsubscribeSender?: string;
+}
+
+export interface PipelineStats {
+  bySource: Record<TriageSource, { count: number; avgMs: number; corrected: number }>;
+  corrections: number;
 }
 
 export type UpdateStatus = 'new' | 'done' | 'snoozed';
 
 export interface ReplyRecord {
-  state: 'drafted' | 'sent' | 'skipped' | 'failed';
+  state: 'proposed' | 'drafted' | 'sent' | 'skipped' | 'failed';
   text: string;
   at: number;
   auto: boolean;
@@ -181,7 +255,10 @@ export interface Settings {
   lookbackHours: number;
   /** Daily briefing notification at `time` (HH:MM, local). */
   briefing: { enabled: boolean; time: string };
-  ollama: { url: string; model: string };
+  /** fastModel: optional smaller model for simple emails; blank uses `model`. */
+  ollama: { url: string; model: string; fastModel: string };
+  /** Preview (dry-run): automatic actions become proposals you approve in Activity. */
+  previewMode: boolean;
   /** Optional overrides for the OAuth clients built into the app. */
   google: { clientId: string; clientSecret: string };
   microsoft: { clientId: string; tenant: string };
@@ -210,6 +287,11 @@ export interface AppState {
   status: AppStatus;
   briefing?: Briefing;
   subscriptions: Subscription[];
+  rules: Rule[];
+  suggestedRules: SuggestedRule[];
+  /** Newest first, capped. */
+  activity: ActivityEntry[];
+  stats: PipelineStats;
   /** Whether Google / Microsoft sign-in is configured in this build. */
   signIn: { gmail: boolean; outlook: boolean };
 }
@@ -240,6 +322,13 @@ export interface Api {
   /** Unsubscribes in the background where possible; otherwise returns a page to open. */
   unsubscribe(accountId: string, sender: string): Promise<{ message: string; openUrl?: string }>;
   briefNow(): Promise<void>;
+  /** scope 'once' fixes this email only; 'sender' / 'domain' also create a rule. */
+  correct(key: string, kind: CorrectionKind, scope: 'once' | 'sender' | 'domain'): Promise<void>;
+  saveRule(rule: Omit<Rule, 'id' | 'createdAt' | 'hits'> & { id?: string }): Promise<void>;
+  deleteRule(id: string): Promise<void>;
+  approve(activityId: string): Promise<void>;
+  reject(activityId: string): Promise<void>;
+  undo(activityId: string): Promise<void>;
   saveSettings(patch: Partial<Settings>): Promise<void>;
   listModels(): Promise<string[]>;
   onState(cb: (state: AppState) => void): () => void;

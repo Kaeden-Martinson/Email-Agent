@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, shell, Tray } from 'electron';
 import * as path from 'node:path';
-import type { AccountPatch, Briefing, ConnectRequest, Settings, Update, UpdateAction } from '../shared/types';
+import type { AccountPatch, Briefing, ConnectRequest, CorrectionKind, Settings, Update, UpdateAction } from '../shared/types';
 import { seedDemo } from './demo';
 import { Engine } from './engine';
 import { cancelAuthorize } from './oauth';
@@ -105,6 +105,15 @@ function registerIpc(engine: Engine): void {
   ipcMain.handle('openUrl', (_e, url: string) => openHttps(String(url)));
   ipcMain.handle('unsubscribe', (_e, accountId: string, sender: string) => engine.unsubscribe(String(accountId), String(sender)));
   ipcMain.handle('briefNow', () => engine.brief());
+  ipcMain.handle('correct', (_e, key: string, kind: CorrectionKind, scope: 'once' | 'sender' | 'domain') => {
+    if (!['more', 'less', 'junk'].includes(kind) || !['once', 'sender', 'domain'].includes(scope)) throw new Error('Invalid correction');
+    return engine.correct(String(key), kind, scope);
+  });
+  ipcMain.handle('saveRule', (_e, rule: Parameters<Engine['saveRule']>[0]) => engine.saveRule(rule));
+  ipcMain.handle('deleteRule', (_e, id: string) => engine.deleteRule(String(id)));
+  ipcMain.handle('approve', (_e, id: string) => engine.approve(String(id)));
+  ipcMain.handle('reject', (_e, id: string) => engine.reject(String(id)));
+  ipcMain.handle('undo', (_e, id: string) => engine.undo(String(id)));
   ipcMain.handle('saveSettings', (_e, patch: Partial<Settings>) => engine.saveSettings(patch));
   ipcMain.handle('listModels', () => engine.listModels());
 }

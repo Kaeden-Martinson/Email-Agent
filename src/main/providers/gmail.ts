@@ -34,6 +34,7 @@ interface GmailMessage {
   threadId: string;
   snippet?: string;
   internalDate?: string;
+  labelIds?: string[];
   payload?: GmailPart;
 }
 
@@ -77,10 +78,17 @@ export class GmailProvider extends OAuthProvider implements MailProvider {
     const list = await this.api<{ messages?: { id: string }[] }>(
       `${BASE}/messages?${new URLSearchParams({ q, maxResults: String(max) })}`,
     );
-    const out: EmailMessage[] = [];
-    for (const { id } of list.messages ?? []) {
-      out.push(this.parse(await this.api<GmailMessage>(`${BASE}/messages/${id}?format=full`)));
-    }
+    // A few requests at a time: much faster than one by one, gentle on Gmail's rate limits.
+    const ids = (list.messages ?? []).map((m) => m.id);
+    const out: EmailMessage[] = new Array(ids.length);
+    let next = 0;
+    const worker = async () => {
+      while (next < ids.length) {
+        const i = next++;
+        out[i] = this.parse(await this.api<GmailMessage>(`${BASE}/messages/${ids[i]}?format=full`));
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(5, ids.length) }, worker));
     return out;
   }
 
@@ -102,6 +110,7 @@ export class GmailProvider extends OAuthProvider implements MailProvider {
       body: cleanBody(plain ?? (html ? htmlToText(html) : decodeEntities(m.snippet ?? ''))),
       receivedAt: Number(m.internalDate) || Date.now(),
       webLink: `https://mail.google.com/mail/?authuser=${encodeURIComponent(this.account.email)}#all/${m.id}`,
+      unread: m.labelIds?.includes('UNREAD'),
       messageIdHeader: h('message-id'),
       references: h('references'),
       isBulk: isBulkMail(h('list-unsubscribe'), h('precedence'), h('auto-submitted')),
@@ -128,6 +137,15 @@ export class GmailProvider extends OAuthProvider implements MailProvider {
 
   async archive(msg: EmailMessage): Promise<void> {
     await this.modify(msg.id, ['INBOX']);
+  }
+
+  async unarchive(msg: EmailMessage): Promise<void> {
+    await this.api(`${BASE}/messages/${msg.id}/modify`, { method: 'POST', body: JSON.stringify({ addLabelIds: ['INBOX'] }) });
+  }
+
+  async unlabel(msg: EmailMessage, category: Category): Promise<void> {
+    const id = await this.labelId(`Pilot/${LABEL_NAMES[category]}`);
+    await this.modify(msg.id, [id]);
   }
 
   async markRead(msg: EmailMessage): Promise<void> {

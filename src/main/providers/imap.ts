@@ -103,10 +103,12 @@ export class ImapProvider implements MailProvider {
       const pick = uids.slice(-max);
       const out: EmailMessage[] = [];
       if (!pick.length) return out;
-      for await (const m of c.fetch(pick, { uid: true, source: true, internalDate: true }, { uid: true })) {
+      for await (const m of c.fetch(pick, { uid: true, source: true, internalDate: true, flags: true }, { uid: true })) {
         const receivedAt = m.internalDate ? new Date(m.internalDate).getTime() : Date.now();
         if (receivedAt < sinceMs || !m.source) continue;
-        out.push(await this.parse(`${uidValidity}-${m.uid}`, m.source, receivedAt));
+        const msg = await this.parse(`${uidValidity}-${m.uid}`, m.source, receivedAt);
+        msg.unread = m.flags ? !m.flags.has('\\Seen') : undefined;
+        out.push(msg);
       }
       return out.sort((a, b) => b.receivedAt - a.receivedAt);
     });
@@ -196,11 +198,38 @@ export class ImapProvider implements MailProvider {
     });
   }
 
-  archive(msg: EmailMessage): Promise<void> {
+  /** Resolves with "archived:<uid>:<folder>" so the move can be undone (needs the server's UIDPLUS). */
+  archive(msg: EmailMessage): Promise<string | void> {
     return this.inInbox(async (c, uidValidity) => {
       const folder = await this.specialFolder(c, '\\Archive', ['archive', 'archives']);
       if (!folder) throw new Error('This mailbox has no Archive folder.');
-      await c.messageMove(this.uidOf(msg, uidValidity), folder, { uid: true });
+      const uid = this.uidOf(msg, uidValidity);
+      const res = await c.messageMove(uid, folder, { uid: true });
+      const newUid = res ? res.uidMap?.get(uid) : undefined;
+      return newUid ? `archived:${newUid}:${folder}` : undefined;
+    });
+  }
+
+  unarchive(msg: EmailMessage): Promise<string | void> {
+    const m = msg.id.match(/^archived:(\d+):(.+)$/);
+    if (!m) return Promise.reject(new Error("This server didn't report where it moved the email, so it can't be moved back automatically."));
+    const [, uid, folder] = m;
+    return this.withClient(async (c) => {
+      const lock = await c.getMailboxLock(folder);
+      try {
+        const res = await c.messageMove(Number(uid), 'INBOX', { uid: true });
+        const status = await c.status('INBOX', { uidValidity: true });
+        const newUid = res ? res.uidMap?.get(Number(uid)) : undefined;
+        return newUid && status ? `${status.uidValidity}-${newUid}` : undefined;
+      } finally {
+        lock.release();
+      }
+    });
+  }
+
+  unlabel(msg: EmailMessage, category: Category): Promise<void> {
+    return this.inInbox(async (c, uidValidity) => {
+      await c.messageFlagsRemove(this.uidOf(msg, uidValidity), [`Pilot_${LABEL_NAMES[category]}`], { uid: true });
     });
   }
 

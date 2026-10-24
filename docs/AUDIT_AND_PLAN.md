@@ -82,3 +82,15 @@
 - **Stage 2:** Obvious bulk mail is classified with no model call. Bulk mail with account, money or school keywords still goes to the model. Each triage records its source and milliseconds. Settings shows how many emails went through each path. Unread and personal mail is processed first.
 - **Stage 3a:** Each card has *More important*, *Less important* and *Junk*, plus *Always from this sender…*. Rules override the AI and re-apply to existing mail. The Rules page can list, toggle, edit and delete rules. A single correction never creates a rule on its own; after two same-direction corrections, the Pilot *suggests* one. Corrections are counted per pipeline stage.
 - **Stage 3b:** Every automatic or user action goes into a log with its time, mailbox, email, reason, source and status. Preview mode, on by default, turns automatic actions into *proposed* items you approve. Archive and label can be undone. Actions that can't be undone (send, unsubscribe, draft) say so. A failure is logged as failed, never as done.
+
+## 3. Progress log
+
+**2026-10-23: stages 1, 2, 3a and 3b delivered**
+
+- **Stage 1:** git baseline (`b6f35dd`); `npm test` with 57 tests passing; safety logic extracted to `src/main/core/policy.ts`.
+- **Stage 2:** `core/prefilter.ts` + `classify()` in `engine.ts`; rule-decided mail first, then unread personal mail; Gmail fetches 5 at a time; per-email source and time recorded; the stats table is in Settings. Measured on the real inbox: 18 of 28 emails decided instantly, 0 important emails fast-pathed. The light read was **not** meaningfully faster than the full read on short emails (about 10 s each with gemma4:e4b); the speed-up comes from skipping the model.
+- **Stage 3a:** correction bar, sender and domain rules (no domain rules for public webmail), Rules page, suggestions after two same-direction corrections, corrections counted per stage.
+- **Stage 3b:** activity log for every action, preview mode on by default, approve/reject on the email and in Activity, undo for archive and label (Gmail; Outlook and IMAP return new ids, so restores dedupe by Message-ID).
+- **Verified in the running app (demo mode):** proposals → approve → done → undo; corrections; rule creation; stats. **Not yet verified against live Gmail:** label/archive undo on a real message, because no autopilot action has been enabled on your mailbox.
+
+**Next:** stage 4 (thread understanding), then 5 (follow-ups), 6 (deadlines and command center), 7 (ask my inbox).

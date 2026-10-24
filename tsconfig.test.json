@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "rootDir": ".",
+    "outDir": "dist-test",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["test/**/*", "src/main/core/**/*", "src/main/ai/triage.ts", "src/main/ai/ollama.ts", "src/main/providers/mime.ts", "src/shared/**/*"]
+}

@@ -1,7 +1,16 @@
 import { app } from 'electron';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { DEFAULT_PERMISSIONS, type Account, type Briefing, type Settings, type Update } from '../shared/types';
+import {
+  DEFAULT_PERMISSIONS,
+  type Account,
+  type ActivityEntry,
+  type Briefing,
+  type Correction,
+  type Rule,
+  type Settings,
+  type Update,
+} from '../shared/types';
 
 export const DEFAULT_SETTINGS: Settings = {
   userName: '',
@@ -9,7 +18,8 @@ export const DEFAULT_SETTINGS: Settings = {
   pollMinutes: 5,
   lookbackHours: 48,
   briefing: { enabled: true, time: '08:00' },
-  ollama: { url: 'http://127.0.0.1:11434', model: 'llama3.1:8b' },
+  ollama: { url: 'http://127.0.0.1:11434', model: 'llama3.1:8b', fastModel: '' },
+  previewMode: true,
   google: { clientId: '', clientSecret: '' },
   microsoft: { clientId: '', tenant: 'common' },
   autoReply: {
@@ -34,6 +44,10 @@ interface Persisted {
   /** Local date (YYYY-MM-DD) of the last morning briefing. */
   lastBriefingDay?: string;
   briefing?: Briefing;
+  rules: Rule[];
+  corrections: Correction[];
+  /** Newest last. */
+  activity: ActivityEntry[];
 }
 
 export function mergeSettings(base: Settings, patch: Partial<Settings> | undefined): Settings {
@@ -84,6 +98,9 @@ export class Store {
       repliedThreads: [],
       sendLog: [],
       unsubscribed: {},
+      rules: [],
+      corrections: [],
+      activity: [],
     };
     try {
       const raw = JSON.parse(fs.readFileSync(this.file, 'utf8')) as Partial<Persisted>;

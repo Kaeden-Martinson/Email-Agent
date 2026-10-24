@@ -8,10 +8,14 @@ export interface MailProvider {
   fetchSince(sinceMs: number, max: number): Promise<EmailMessage[]>;
   /** Replies in-thread; `send: false` saves a draft instead. */
   reply(msg: EmailMessage, text: string, send: boolean): Promise<void>;
-  archive(msg: EmailMessage): Promise<void>;
+  /** Moves out of the inbox. Resolves with the message's new id when the provider changes it (Outlook, IMAP). */
+  archive(msg: EmailMessage): Promise<string | void>;
+  /** Moves back to the inbox; resolves with the new id when it changes. */
+  unarchive(msg: EmailMessage): Promise<string | void>;
   markRead(msg: EmailMessage): Promise<void>;
   /** Tags the message in the mailbox (label, category or keyword). */
   label(msg: EmailMessage, category: Category): Promise<void>;
+  unlabel(msg: EmailMessage, category: Category): Promise<void>;
   /** Sends a new plain-text email (used for mailto: unsubscribes). */
   send(to: string, subject: string, text: string): Promise<void>;
 }

@@ -22,6 +22,7 @@ interface GraphMessage {
   replyTo?: GraphAddress[];
   toRecipients?: GraphAddress[];
   internetMessageId?: string;
+  isRead?: boolean;
   internetMessageHeaders?: { name: string; value: string }[];
 }
 
@@ -66,7 +67,7 @@ export class OutlookProvider extends OAuthProvider implements MailProvider {
       $orderby: 'receivedDateTime desc',
       $top: String(max),
       $select:
-        'id,conversationId,subject,bodyPreview,body,receivedDateTime,webLink,from,replyTo,toRecipients,internetMessageId,internetMessageHeaders',
+        'id,conversationId,subject,bodyPreview,body,receivedDateTime,webLink,from,replyTo,toRecipients,internetMessageId,internetMessageHeaders,isRead',
     });
     const res = await this.api<{ value: GraphMessage[] }>(`${GRAPH}/mailFolders/inbox/messages?${params}`, {
       headers: { Prefer: 'outlook.body-content-type="text"' },
@@ -89,6 +90,7 @@ export class OutlookProvider extends OAuthProvider implements MailProvider {
       body: cleanBody(m.body?.contentType?.toLowerCase() === 'html' ? htmlToText(content) : content),
       receivedAt: Date.parse(m.receivedDateTime) || Date.now(),
       webLink: m.webLink ?? 'https://outlook.office.com/mail/',
+      unread: m.isRead === false,
       messageIdHeader: m.internetMessageId,
       isBulk: isBulkMail(h('list-unsubscribe'), h('precedence'), h('auto-submitted')),
       unsubscribe: parseListUnsubscribe(h('list-unsubscribe'), h('list-unsubscribe-post')),
@@ -101,10 +103,30 @@ export class OutlookProvider extends OAuthProvider implements MailProvider {
     await this.api(`${GRAPH}/messages/${msg.id}/${send ? 'reply' : 'createReply'}`, { method: 'POST', body });
   }
 
-  async archive(msg: EmailMessage): Promise<void> {
-    await this.api(`${GRAPH}/messages/${msg.id}/move`, {
+  /** Graph gives a moved message a new id, so return it for later undo. */
+  async archive(msg: EmailMessage): Promise<string> {
+    return this.move(msg.id, 'archive');
+  }
+
+  async unarchive(msg: EmailMessage): Promise<string> {
+    return this.move(msg.id, 'inbox');
+  }
+
+  private async move(id: string, destinationId: string): Promise<string> {
+    const moved = await this.api<{ id: string }>(`${GRAPH}/messages/${id}/move`, {
       method: 'POST',
-      body: JSON.stringify({ destinationId: 'archive' }),
+      body: JSON.stringify({ destinationId }),
+    });
+    return moved.id;
+  }
+
+  async unlabel(msg: EmailMessage, category: Category): Promise<void> {
+    const name = `Pilot: ${LABEL_NAMES[category]}`;
+    const { categories = [] } = await this.api<{ categories?: string[] }>(`${GRAPH}/messages/${msg.id}?$select=categories`);
+    if (!categories.includes(name)) return;
+    await this.api(`${GRAPH}/messages/${msg.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ categories: categories.filter((c) => c !== name) }),
     });
   }
 

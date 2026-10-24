@@ -28,6 +28,7 @@ export async function chatJson<T>(
   system: string,
   user: string,
   schema: object,
+  opts: { numCtx?: number } = {},
 ): Promise<T> {
   const res = await call<{ message: { content: string } }>(
     baseUrl,
@@ -39,7 +40,7 @@ export async function chatJson<T>(
         model,
         stream: false,
         format: schema,
-        options: { temperature: 0.2, num_ctx: 8192 },
+        options: { temperature: 0.2, num_ctx: opts.numCtx ?? 8192 },
         messages: [
           { role: 'system', content: system },
           { role: 'user', content: user },

@@ -1,6 +1,12 @@
 import type {
   Account,
   AccountPatch,
+  ActivityEntry,
+  CorrectionKind,
+  Priority,
+  Rule,
+  SuggestedRule,
+  TriageSource,
   AccountPermissions,
   Api,
   AppState,
@@ -20,7 +26,7 @@ declare global {
   }
 }
 
-type View = 'updates' | 'mailboxes' | 'subscriptions' | 'rules' | 'settings';
+type View = 'updates' | 'mailboxes' | 'subscriptions' | 'activity' | 'sorting' | 'rules' | 'settings';
 
 const api = window.api;
 const root = document.getElementById('app')!;
@@ -149,6 +155,7 @@ function renderNav(): HTMLElement {
   const open = state.updates.filter((u) => u.status === 'new').length;
   const watching = state.accounts.filter((a) => a.watching).length;
   const suggestions = state.subscriptions.filter((s) => !s.unsubscribedAt && s.count >= 2).length;
+  const proposed = state.activity.filter((a) => a.status === 'proposed').length;
   const item = (v: View, label: string, count?: string) =>
     h(
       'button',
@@ -164,7 +171,9 @@ function renderNav(): HTMLElement {
     item('updates', 'Updates', open ? String(open) : undefined),
     item('mailboxes', 'Mailboxes', state.accounts.length ? `${watching}/${state.accounts.length}` : undefined),
     item('subscriptions', 'Subscriptions', suggestions ? String(suggestions) : undefined),
-    item('rules', 'Reply rules'),
+    item('activity', 'Activity', proposed ? String(proposed) : undefined),
+    item('sorting', 'Rules', state.suggestedRules.length ? `${state.suggestedRules.length} new` : undefined),
+    item('rules', 'Replies'),
     item('settings', 'Settings'),
   );
 }
@@ -174,7 +183,9 @@ function renderHeader(): HTMLElement {
     updates: 'Updates',
     mailboxes: 'Mailboxes',
     subscriptions: 'Subscriptions',
-    rules: 'Reply rules',
+    activity: 'Activity',
+    sorting: 'Rules',
+    rules: 'Replies',
     settings: 'Settings',
   };
   const s = state.status;
@@ -193,6 +204,8 @@ function renderView(): HTMLElement {
     case 'updates': return renderUpdates();
     case 'mailboxes': return renderMailboxes();
     case 'subscriptions': return renderSubscriptions();
+    case 'activity': return renderActivity();
+    case 'sorting': return renderSorting();
     case 'rules': return renderRules();
     case 'settings': return renderSettings();
   }
@@ -532,6 +545,13 @@ function renderUpdates(): HTMLElement {
   }
 
   if (watching.length) wrap.append(renderBriefing());
+  const waiting = state.activity.filter((a) => a.status === 'proposed').length;
+  if (waiting) {
+    wrap.append(h('div', { class: 'banner approve-banner' },
+      h('strong', {}, `${waiting} action${waiting === 1 ? '' : 's'} waiting for your approval. `),
+      'Preview mode is on, so Pilot proposes automatic actions instead of doing them.',
+      h('div', { class: 'actions' }, btn('Review in Activity', () => go('activity'), 'primary'))));
+  }
 
   const open = state.updates.filter((u) => u.status !== 'done');
   const done = state.updates.filter((u) => u.status === 'done');
@@ -575,7 +595,13 @@ function group(title: string, items: Update[], collapsed = false): HTMLElement {
 
 function replyLine(r: ReplyRecord): HTMLElement {
   const who = r.auto ? 'Pilot' : 'You';
-  const what = { drafted: 'saved a reply draft', sent: 'sent a reply', skipped: 'did not reply', failed: 'tried to reply but it failed' }[r.state];
+  const what = {
+    proposed: 'proposes a reply',
+    drafted: 'saved a reply draft',
+    sent: 'sent a reply',
+    skipped: 'did not reply',
+    failed: 'tried to reply but it failed',
+  }[r.state];
   return h('div', { class: 'reply-state' }, h('strong', {}, `${who} ${what}`), ` ${relTime(r.at)}`, r.note ? ` · ${r.note}` : '');
 }
 
@@ -647,11 +673,212 @@ function card(u: Update): HTMLElement {
     h('div', { class: 'subject' }, m.subject || '(no subject)'),
     h('p', { class: 'summary' }, t ? t.summary : u.triageError ? `Couldn't summarize this one: ${u.triageError}` : m.snippet),
     t?.actionItems.length ? h('ul', { class: 'todos' }, t.actionItems.map((a) => h('li', {}, a))) : null,
+    t ? whyLine(u) : null,
     u.reply ? replyLine(u.reply) : null,
     autoLine(u),
+    proposalsFor(u),
     showOriginal.has(u.key) ? h('pre', { class: 'original' }, m.body || m.snippet) : null,
     editors.has(u.key) ? replyEditor(u) : null,
-    h('div', { class: 'actions' }, actions));
+    h('div', { class: 'actions' }, actions),
+    t && isOpen ? correctionBar(u) : null);
+}
+
+const SOURCE_LABEL: Record<TriageSource, string> = {
+  rule: 'your rule',
+  fast: 'rules (no AI)',
+  light: 'quick AI read',
+  full: 'full AI read',
+};
+
+/** Explainability: why this priority, from which stage, how long it took. */
+function whyLine(u: Update): HTMLElement {
+  const t = u.triage!;
+  const bits = [t.reason, t.source ? `via ${SOURCE_LABEL[t.source]}` : '', t.ms != null && t.source !== 'fast' && t.source !== 'rule' ? `${(t.ms / 1000).toFixed(1)}s` : '']
+    .filter(Boolean)
+    .join(' · ');
+  return bits ? h('div', { class: 'why' }, `Why: ${bits}`) : h('div');
+}
+
+function correctionBar(u: Update): HTMLElement {
+  const fix = (kind: CorrectionKind, scope: 'once' | 'sender' | 'domain', done: string) =>
+    void run(() => api.correct(u.key, kind, scope), done);
+  const sender = u.message.from.email;
+  const domain = sender.split('@')[1] ?? '';
+  const always = h('select', {
+    class: 'always',
+    onchange: (e: Event) => {
+      const [kind, scope] = (e.target as HTMLSelectElement).value.split(':') as [CorrectionKind, 'sender' | 'domain'];
+      (e.target as HTMLSelectElement).value = '';
+      if (kind) fix(kind, scope, 'Rule created. It applies to new and existing mail.');
+    },
+  },
+    h('option', { value: '' }, 'Always from this sender…'),
+    h('option', { value: 'more:sender' }, `Important: ${sender}`),
+    h('option', { value: 'less:sender' }, `Low priority: ${sender}`),
+    h('option', { value: 'junk:sender' }, `Hide: ${sender}`),
+    h('option', { value: 'more:domain' }, `Important: anyone @${domain}`),
+    h('option', { value: 'less:domain' }, `Low priority: anyone @${domain}`));
+  return h('div', { class: 'correct' },
+    h('span', { class: 'hint' }, 'Teach Pilot:'),
+    btn('More important', () => fix('more', 'once', 'Got it. Only this email changes.'), 'tiny'),
+    btn('Less important', () => fix('less', 'once', 'Got it. Only this email changes.'), 'tiny'),
+    btn('Junk', () => fix('junk', 'once', 'Moved to Done. Only this email changes.'), 'tiny'),
+    always);
+}
+
+const ACTION_LABEL: Record<ActivityEntry['action'], string> = {
+  archive: 'Archive',
+  label: 'Label',
+  draft: 'Save a reply draft',
+  send: 'Send a reply',
+  unsubscribe: 'Unsubscribe',
+};
+
+function proposalsFor(u: Update): HTMLElement | null {
+  const items = state.activity.filter((a) => a.key === u.key && a.status === 'proposed');
+  if (!items.length) return null;
+  return h('div', { class: 'proposals' }, items.map((a) =>
+    h('div', { class: 'proposal' },
+      h('span', {}, h('strong', {}, `Pilot proposes: ${ACTION_LABEL[a.action]}${a.category ? ` as ${CAT_LABEL[a.category]}` : ''}`), ` · ${a.reason}`),
+      btn(a.action === 'send' ? 'Approve and send' : 'Approve', () => void run(() => api.approve(a.id), 'Done'), 'primary tiny'),
+      btn('Reject', () => void run(() => api.reject(a.id)), 'tiny'))));
+}
+
+// ---- activity ----
+
+let activityFilter: 'waiting' | 'all' = 'waiting';
+
+const IRREVERSIBLE: Partial<Record<ActivityEntry['action'], string>> = {
+  send: "Sent mail can't be recalled.",
+  draft: 'Delete the draft in your mailbox if you no longer want it.',
+  unsubscribe: "Can't be reversed here; re-subscribe on the sender's site.",
+};
+
+function renderActivity(): HTMLElement {
+  const wrap = h('div');
+  const waiting = state.activity.filter((a) => a.status === 'proposed');
+  if (activityFilter === 'waiting' && !waiting.length) activityFilter = 'all';
+  wrap.append(h('p', { class: 'hint' },
+    state.settings.previewMode
+      ? 'Preview mode is on: automatic actions wait here for your approval. Turn it off in Settings once you trust them.'
+      : 'Everything Pilot did, newest first. Archive and label can be undone.'));
+  wrap.append(h('div', { class: 'tabs' },
+    h('button', { class: activityFilter === 'waiting' ? 'active' : '', onclick: () => { activityFilter = 'waiting'; render(); } }, `Waiting for approval (${waiting.length})`),
+    h('button', { class: activityFilter === 'all' ? 'active' : '', onclick: () => { activityFilter = 'all'; render(); } }, `All (${state.activity.length})`)));
+  const list = activityFilter === 'waiting' ? waiting : state.activity;
+  if (!list.length) wrap.append(h('div', { class: 'empty' }, 'Nothing yet. Actions Pilot takes or proposes will appear here.'));
+  if (activityFilter === 'waiting' && waiting.length > 1) {
+    wrap.append(h('div', { class: 'actions top-actions' },
+      btn(`Approve all ${waiting.length}`, () => void run(async () => {
+        for (const a of waiting) {
+          if (a.action === 'send') continue; // Sends are always approved one at a time.
+          await api.approve(a.id);
+        }
+      }, 'Approved (replies to send still need individual approval)'), 'primary')));
+  }
+  for (const a of list) wrap.append(activityRow(a));
+  return wrap;
+}
+
+function activityRow(a: ActivityEntry): HTMLElement {
+  const account = state.accounts.find((x) => x.id === a.accountId);
+  const statusLabel = {
+    proposed: 'Waiting for approval',
+    done: a.trigger === 'auto' ? (a.approved ? 'Done, approved by you' : 'Done automatically') : 'Done by you',
+    failed: 'Failed',
+    undone: 'Undone',
+    rejected: 'Rejected',
+  }[a.status];
+  const controls =
+    a.status === 'proposed'
+      ? [btn(a.action === 'send' ? 'Approve and send' : 'Approve', () => void run(() => api.approve(a.id), 'Done'), 'primary'), btn('Reject', () => void run(() => api.reject(a.id)))]
+      : a.status === 'done' && a.undoable
+        ? [btn('Undo', () => void run(() => api.undo(a.id), 'Undone'))]
+        : [];
+  return h('div', { class: `banner activity-row s-${a.status}` },
+    h('div', { class: 'grow' },
+      h('div', {},
+        h('strong', {}, `${ACTION_LABEL[a.action]}${a.category ? ` as ${CAT_LABEL[a.category]}` : ''}`),
+        a.subject ? ` · "${a.subject}"` : '',
+        a.sender ? ` · ${a.sender}` : '',
+        h('span', { class: `pill ${a.status === 'done' ? 'on' : a.status === 'failed' ? 'bad' : 'off'}` }, statusLabel)),
+      h('div', { class: 'hint' },
+        `${relTime(a.at)} · ${a.trigger === 'auto' ? 'Automatic' : 'You'} · ${a.reason}` + (state.accounts.length > 1 && account ? ` · ${account.email}` : '')),
+      a.error ? h('div', { class: 'err' }, a.error) : null,
+      a.replyText ? h('pre', { class: 'original' }, a.replyText) : null,
+      a.status === 'done' && !a.undoable && IRREVERSIBLE[a.action] ? h('div', { class: 'hint' }, IRREVERSIBLE[a.action]!) : null),
+    h('div', { class: 'row' }, controls));
+}
+
+// ---- sorting rules ----
+
+const PRIORITY_LABEL: Record<Priority, string> = { 1: 'Always important', 2: 'Normal', 3: 'Always low priority' };
+
+function ruleEffectLabel(e: Rule['effect']): string {
+  if (e.hide) return 'Hide (move to Done)';
+  return e.priority ? PRIORITY_LABEL[e.priority] : e.category ? `Always ${CAT_LABEL[e.category]}` : 'No change';
+}
+
+function renderSorting(): HTMLElement {
+  const wrap = h('div');
+  wrap.append(h('p', { class: 'hint' },
+    'Rules always win over the AI. Teach Pilot from any email ("Always from this sender…"), or add a rule here. A single "More/Less important" click only changes that one email; after two similar corrections Pilot suggests a rule.'));
+
+  if (state.suggestedRules.length) {
+    wrap.append(h('h3', { class: 'section' }, 'Suggested'));
+    for (const s of state.suggestedRules) wrap.append(suggestedRow(s));
+  }
+
+  wrap.append(h('h3', { class: 'section' }, `Your rules (${state.rules.length})`));
+  if (!state.rules.length) wrap.append(h('div', { class: 'empty' }, 'No rules yet.'));
+  for (const r of state.rules) wrap.append(ruleRow(r));
+
+  const who = h('input', { type: 'text', placeholder: 'person@company.com or @company.com' });
+  const effect = h('select', {},
+    h('option', { value: '1' }, 'Always important'),
+    h('option', { value: '3' }, 'Always low priority'),
+    h('option', { value: 'hide' }, 'Hide (move to Done)'));
+  wrap.append(h('form', { class: 'banner add-rule', onsubmit: (e: Event) => {
+    e.preventDefault();
+    const v = who.value.trim().toLowerCase();
+    const match = v.startsWith('@') ? { domain: v.slice(1) } : { sender: v };
+    void run(() => api.saveRule({ enabled: true, match, effect: effectFrom(effect.value), origin: 'manual' }), 'Rule added');
+  } },
+    h('h3', {}, 'Add a rule'),
+    h('div', { class: 'row' }, who, effect, h('button', { class: 'btn primary', type: 'submit' }, 'Add'))));
+  return wrap;
+}
+
+function effectFrom(v: string): Rule['effect'] {
+  return v === 'hide' ? { priority: 3, hide: true } : { priority: Number(v) as Priority };
+}
+
+function suggestedRow(s: SuggestedRule): HTMLElement {
+  return h('div', { class: 'banner sub-row' },
+    h('div', { class: 'grow' },
+      h('div', {}, h('strong', {}, s.match.sender ?? `@${s.match.domain}`), ` → ${ruleEffectLabel(s.effect)}`),
+      h('div', { class: 'hint' }, s.because)),
+    btn('Create rule', () => void run(() => api.saveRule({ enabled: true, match: s.match, effect: s.effect, origin: 'suggestion' }), 'Rule created'), 'primary'));
+}
+
+function ruleRow(r: Rule): HTMLElement {
+  const effect = h('select', {
+    onchange: (e: Event) => void run(() => api.saveRule({ ...r, effect: effectFrom((e.target as HTMLSelectElement).value) })),
+  },
+    h('option', { value: '1', selected: r.effect.priority === 1 && !r.effect.hide }, 'Always important'),
+    h('option', { value: '3', selected: r.effect.priority === 3 && !r.effect.hide }, 'Always low priority'),
+    h('option', { value: 'hide', selected: !!r.effect.hide }, 'Hide (move to Done)'));
+  return h('div', { class: `banner sub-row ${r.enabled ? '' : 'disabled'}` },
+    h('div', { class: 'grow' },
+      h('div', {}, h('strong', {}, r.match.sender ?? `anyone @${r.match.domain}`)),
+      h('div', { class: 'hint' },
+        `${r.origin === 'manual' ? 'Added by you' : r.origin === 'suggestion' ? 'From a suggestion' : 'From a correction'} · used ${r.hits} time${r.hits === 1 ? '' : 's'}` +
+          (r.lastHitAt ? `, last ${relTime(r.lastHitAt)}` : ''))),
+    effect,
+    h('label', { class: 'check inline' },
+      h('input', { type: 'checkbox', checked: r.enabled, onchange: (e: Event) => void run(() => api.saveRule({ ...r, enabled: (e.target as HTMLInputElement).checked })) }),
+      'On'),
+    btn('Delete', () => void run(() => api.deleteRule(r.id), 'Rule deleted'), 'ghost danger'));
 }
 
 function replyEditor(u: Update): HTMLElement {
@@ -736,6 +963,9 @@ function renderSettings(): HTMLElement {
   const briefingTime = h('input', { type: 'time', value: s.briefing.time });
   const ollamaUrl = text(s.ollama.url);
   const model = h('input', { type: 'text', value: s.ollama.model, list: 'models' });
+  const fastModel = h('input', { type: 'text', value: s.ollama.fastModel, list: 'models', placeholder: 'Same as above' });
+  const [previewEl, preview] = check('Preview mode: automatic actions wait for my approval', s.previewMode,
+    'Labels, auto-archive, auto-replies and auto-unsubscribes are proposed in Activity instead of done. Recommended until you trust them. Replies you send yourself are never affected.');
   const modelList = h('datalist', { id: 'models' });
   const gId = text(s.google.clientId);
   const gSecret = text(s.google.clientSecret, 'password');
@@ -756,7 +986,8 @@ function renderSettings(): HTMLElement {
       pollMinutes: Math.max(1, Number(poll.value) || 5),
       lookbackHours: Math.max(1, Number(lookback.value) || 48),
       briefing: { enabled: briefingOn.checked, time: briefingTime.value || '08:00' },
-      ollama: { url: ollamaUrl.value.trim(), model: model.value.trim() },
+      ollama: { url: ollamaUrl.value.trim(), model: model.value.trim(), fastModel: fastModel.value.trim() },
+      previewMode: preview.checked,
       google: { clientId: gId.value.trim(), clientSecret: gSecret.value.trim() },
       microsoft: { clientId: mId.value.trim(), tenant: mTenant.value.trim() || 'common' },
     };
@@ -766,13 +997,16 @@ function renderSettings(): HTMLElement {
       field('Your name', name, 'This PC has one Pilot, and it works for you.'),
       field('Check for mail every (minutes)', poll),
       field('When a mailbox starts being watched, look back (hours)', lookback)),
+    h('fieldset', {}, h('legend', {}, 'Automation'), previewEl),
     h('fieldset', {}, h('legend', {}, 'Morning briefing'),
       briefingEl,
       field('Time', briefingTime)),
     h('fieldset', {}, h('legend', {}, 'Local AI (Ollama)'),
       field('Ollama address', ollamaUrl),
       field('Model', h('div', { class: 'row' }, model, modelList, btn('Find installed', loadModels)),
-        'Any chat model you have pulled, such as llama3.1:8b, qwen2.5:7b or gemma4:e4b. If this one is not installed, Pilot switches to one that is.')),
+        'Any chat model you have pulled, such as llama3.1:8b, qwen2.5:7b or gemma4:e4b. If this one is not installed, Pilot switches to one that is.'),
+      field('Quick-read model (optional)', fastModel, 'A smaller model for automated mail. Leave blank to use the main model.'),
+      statsTable()),
     h('details', { class: 'advanced' }, h('summary', {}, 'Advanced: use your own sign-in clients'),
       h('p', { class: 'hint' },
         'Inbox Pilot normally uses the Google and Microsoft sign-in clients built into the app. Fill these in only to use your own.'),
@@ -783,6 +1017,26 @@ function renderSettings(): HTMLElement {
         field('Application (client) ID', mId),
         field('Tenant', mTenant, '"common" works for personal and work accounts.'))),
     h('button', { class: 'btn primary', type: 'submit' }, 'Save'));
+}
+
+/** Pipeline metrics: how mail was classified, how fast, and how often you corrected it. */
+function statsTable(): HTMLElement {
+  const st = state.stats;
+  const rows = (['rule', 'fast', 'light', 'full'] as TriageSource[]).map((src) => {
+    const b = st.bySource[src];
+    const accuracy = b.count ? `${Math.round(100 * (1 - b.corrected / b.count))}%` : '–';
+    return h('tr', {},
+      h('td', {}, SOURCE_LABEL[src]),
+      h('td', {}, String(b.count)),
+      h('td', {}, b.count && (src === 'light' || src === 'full') ? `${(b.avgMs / 1000).toFixed(1)}s` : src === 'rule' || src === 'fast' ? 'instant' : '–'),
+      h('td', {}, accuracy));
+  });
+  return h('div', { class: 'field' },
+    h('label', {}, 'How your mail was read'),
+    h('table', { class: 'stats' },
+      h('thead', {}, h('tr', {}, h('th', {}, 'Stage'), h('th', {}, 'Emails'), h('th', {}, 'Avg time'), h('th', {}, 'Not corrected'))),
+      h('tbody', {}, rows)),
+    h('div', { class: 'hint' }, `${st.corrections} correction${st.corrections === 1 ? '' : 's'} so far. "Not corrected" is the share you didn't have to fix.`));
 }
 
 // ---- boot ----

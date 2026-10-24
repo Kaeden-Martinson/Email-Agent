@@ -84,6 +84,11 @@ export function seedDemo(store: Store): void {
     u.auto = { archived: true, labeled: true };
     items.push(u);
   }
+  // Not read yet: goes through the real pipeline on startup, so preview-mode proposals show up in Activity.
+  const fresh = mk(20, ['ShopMart', 'deals@shopmart.example'], 'Weekend flash sale: 40% off everything', 5, undefined, 'Shop now. 40% off sitewide this weekend only.');
+  fresh.message.isBulk = true;
+  fresh.message.unsubscribe = { mailto: 'mailto:unsubscribe@shopmart.example?subject=unsubscribe', oneClick: false };
+  items.push(fresh);
   for (const u of items) d.updates[u.key] = u;
   d.accounts[0].permissions = { ...d.accounts[0].permissions, labels: true, autoClean: ['promo'] };
   d.briefing = {

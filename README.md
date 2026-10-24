@@ -20,6 +20,25 @@ Email content never leaves the PC. The AI runs in Ollama on this machine, and th
    - **Trusted senders** and a **signature** for this mailbox
 4. **Start watching**: the Pilot checks every few minutes (5 by default) and fills the Updates list.
 
+### How mail is read (the pipeline)
+
+1. **Your rules** run first. A rule for a sender or domain always wins over the AI.
+2. **Deterministic rules** classify obvious mailing-list mail (newsletters and promotions) instantly, with no AI. Bulk mail that mentions accounts, money, school, security or deadlines in its subject or preview is never decided this way.
+3. A **quick AI read** handles automated senders and important-looking bulk mail.
+4. A **full AI read** handles personal mail. It's the only stage that drafts replies.
+
+Every email shows a **Why:** line with its reason, its stage and how long it took. **Settings → How your mail was read** shows counts, average time and how often you had to correct each stage. On the first real inbox (28 emails), stage 2 handled 18 instantly without burying any important mail.
+
+### Teaching Pilot
+
+Each email has **More important**, **Less important** and **Junk**. These change *only that email*. To change all future mail, use **Always from this sender…**, which creates a rule for that sender or their company domain. Domain rules for shared webmail such as gmail.com aren't allowed. After two corrections in the same direction for one sender, the **Rules** page suggests a rule; you can edit, switch off or delete any rule there.
+
+### Activity, preview mode and undo
+
+- Every action is logged under **Activity**: label, archive, draft, send, unsubscribe. Each entry records when it happened, which mailbox and email, why, whether it was automatic or yours, and whether it was done, failed, rejected or undone. An action is marked done only after the mail provider confirms it.
+- **Preview mode** (Settings → Automation, **on by default**) turns every automatic action into a proposal you approve or reject, either in Activity or on the email itself. "Approve all" never includes sending a reply; each send needs its own approval.
+- **Archive and label can be undone.** Send, draft and unsubscribe can't, and Activity says what to do instead.
+
 ### Autopilot
 
 Each mailbox's **Permissions** panel also has an Autopilot section. Everything there is off until you turn it on:
@@ -88,6 +107,14 @@ npm install
 npm start
 ```
 
+### Tests
+
+```bash
+npm test
+```
+
+The tests cover the safety rules (reply blockers, trusted senders, the daily cap, auto-archive and auto-unsubscribe limits, header injection), the prefilter, learned rules and corrections, and the guard rails on model output.
+
 To try the interface with sample data and no accounts:
 
 ```bash
@@ -109,7 +136,8 @@ Removing a mailbox deletes its sign-in and its updates from the app. Nothing in 
 src/
   main/              Electron main process
     main.ts          window, tray, notifications, IPC
-    engine.ts        watch loop, triage queue, per-mailbox permissions, reply rules
+    engine.ts        watch loop, pipeline, autopilot, activity log, rules, briefing
+    core/            pure, unit-tested logic: policy.ts (safety), prefilter.ts, rules.ts
     clients.ts       built-in OAuth clients (oauth-clients.json) + overrides
     oauth.ts         desktop OAuth (PKCE + loopback redirect)
     secrets.ts       encrypted tokens and passwords
