@@ -3,3 +3,4 @@ dist/
 *.log
 oauth-clients.json
 dist-test/
+release/

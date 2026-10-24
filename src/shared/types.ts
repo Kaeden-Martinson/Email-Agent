@@ -488,6 +488,12 @@ export interface Settings {
   ollama: { url: string; model: string; fastModel: string; embedModel: string };
   /** Preview (dry-run): automatic actions become proposals you approve in Activity. */
   previewMode: boolean;
+  /** Encrypt Pilot's data file with the OS keystore (DPAPI on Windows). */
+  encryptAtRest: boolean;
+  /** Start Pilot (hidden in the tray) when you sign in to Windows. Installed app only. */
+  launchAtLogin: boolean;
+  /** Tell me about new versions; nothing is installed without you. */
+  updates: { check: boolean; feedUrl: string };
   /** Optional overrides for the OAuth clients built into the app. */
   google: { clientId: string; clientSecret: string };
   microsoft: { clientId: string; tenant: string };
@@ -499,6 +505,25 @@ export interface Settings {
     /** Add a line to auto-sent mail saying an assistant wrote it. */
     disclose: boolean;
   };
+}
+
+export interface UpdateInfo {
+  checkedAt: number;
+  available: boolean;
+  latest?: string;
+  url?: string;
+  notes?: string;
+  error?: string;
+}
+
+export interface AppInfo {
+  version: string;
+  /** Running from the installer (not `npm start`). */
+  packaged: boolean;
+  devMode: boolean;
+  update?: UpdateInfo;
+  /** Shown once when data had to be restored from a backup. */
+  notice?: string;
 }
 
 export interface AppStatus {
@@ -528,6 +553,7 @@ export interface AppState {
   items: KeyItem[];
   search: SearchStatus;
   notifier: NotifierStatus;
+  app: AppInfo;
   /** Whether Google / Microsoft sign-in is configured in this build. */
   signIn: { gmail: boolean; outlook: boolean };
 }
@@ -582,6 +608,11 @@ export interface Api {
   /** Stores an ntfy access token or Telegram bot token encrypted; "" removes it. Never read back. */
   setChannelSecret(channel: 'ntfy' | 'telegram', secret: string): Promise<void>;
   detectTelegramChat(): Promise<{ chatId: string; name: string }>;
+  /** The full text of one email (state only carries a short preview, to stay fast). */
+  getBody(key: string): Promise<string>;
+  checkForUpdates(): Promise<void>;
+  openFolder(which: 'logs' | 'data'): Promise<void>;
+  dismissNotice(): Promise<void>;
   saveSettings(patch: Partial<Settings>): Promise<void>;
   listModels(): Promise<string[]>;
   onState(cb: (state: AppState) => void): () => void;

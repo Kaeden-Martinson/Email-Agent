@@ -1,5 +1,6 @@
 import type { Account, Category, EmailMessage } from '../../shared/types';
 import { refresh, type OAuthConfig } from '../oauth';
+import { withRetry } from '../core/retry';
 import { tokens } from '../secrets';
 
 export interface MailProvider {
@@ -24,33 +25,58 @@ export interface MailProvider {
   send(to: string, subject: string, text: string): Promise<void>;
 }
 
-/** Bearer-token REST calls with automatic token refresh. */
+/** One refresh at a time per account: parallel requests share it (Microsoft rotates refresh tokens). */
+const refreshing = new Map<string, Promise<string>>();
+
+/** Bearer-token REST calls with automatic token refresh and polite retries. */
 export abstract class OAuthProvider {
   constructor(
     readonly account: Account,
     protected readonly oauth: OAuthConfig,
   ) {}
 
-  protected async token(): Promise<string> {
-    let t = tokens.get(this.account.id);
+  protected async token(force = false): Promise<string> {
+    const t = tokens.get(this.account.id);
     if (!t) throw new Error('Not signed in. Remove and reconnect this account.');
-    if (t.expiresAt - 60_000 < Date.now()) {
-      if (!t.refreshToken) throw new Error('Session expired. Remove and reconnect this account.');
-      t = await refresh(this.oauth, t.refreshToken);
-      tokens.set(this.account.id, t);
+    if (!force && t.expiresAt - 60_000 >= Date.now()) return t.accessToken;
+    if (!t.refreshToken) throw new Error('Session expired. Remove and reconnect this account.');
+    let pending = refreshing.get(this.account.id);
+    if (!pending) {
+      pending = refresh(this.oauth, t.refreshToken)
+        .then((fresh) => {
+          tokens.set(this.account.id, fresh);
+          return fresh.accessToken;
+        })
+        .catch((e: Error) => {
+          if (/invalid_grant|expired|revoked/i.test(e.message)) {
+            throw new Error(
+              this.account.kind === 'gmail'
+                ? 'Google ended this sign-in (while the app is in Testing, Google does this every 7 days). Remove and reconnect the mailbox.'
+                : 'The sign-in for this mailbox expired or was revoked. Remove and reconnect the mailbox.',
+            );
+          }
+          throw e;
+        })
+        .finally(() => refreshing.delete(this.account.id));
+      refreshing.set(this.account.id, pending);
     }
-    return t.accessToken;
+    return pending;
   }
 
   protected async api<T>(url: string, init: RequestInit & { headers?: Record<string, string> } = {}): Promise<T> {
-    const res = await fetch(url, {
-      ...init,
-      headers: {
-        Authorization: `Bearer ${await this.token()}`,
-        ...(init.body ? { 'Content-Type': 'application/json' } : {}),
-        ...init.headers,
-      },
-    });
+    const call = async (force: boolean) => {
+      const auth = `Bearer ${await this.token(force)}`;
+      return withRetry(() =>
+        fetch(url, {
+          ...init,
+          headers: { Authorization: auth, ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...init.headers },
+          signal: AbortSignal.timeout(60_000),
+        }),
+      );
+    };
+    let res = await call(false);
+    // An access token can be revoked before it expires: refresh once and retry.
+    if (res.status === 401) res = await call(true);
     if (!res.ok) {
       throw new Error(`${this.account.kind} API ${res.status}: ${(await res.text()).slice(0, 300)}`);
     }

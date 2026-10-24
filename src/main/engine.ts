@@ -5,6 +5,7 @@ import {
   type Account,
   type AccountPatch,
   type ActivityEntry,
+  type AppInfo,
   type AppState,
   type Briefing,
   type ConnectRequest,
@@ -44,6 +45,8 @@ import { buildThread, type ThreadView } from './core/thread';
 import { createProvider, discover, signIn, verifyImap } from './providers';
 import { channelSecrets, passwords, tokens } from './secrets';
 import { mergeSettings, type Store } from './store';
+import { compareVersions, parseFeed } from './core/version';
+import { log } from './logger';
 import { Notifier } from './notifier';
 import { Tracker } from './tracker';
 import type { Formatted } from './core/notify';
@@ -72,6 +75,8 @@ export const IRREVERSIBLE: Record<string, string> = {
  */
 export class Engine extends EventEmitter {
   status: AppState['status'] = { syncing: false };
+  /** Version, packaging, update and notice details, filled in by main.ts. */
+  appInfo: AppInfo = { version: '0.0.0', packaged: false, devMode: false };
   readonly tracker: Tracker;
   readonly asker: Asker;
   readonly notifier: Notifier;
@@ -130,7 +135,8 @@ export class Engine extends EventEmitter {
   state(): AppState {
     const order = { new: 0, snoozed: 1, done: 2 };
     const updates = Object.values(this.d.updates)
-      .map((u) => ({ ...u, message: { ...u.message, body: u.message.body.slice(0, 4000) } }))
+      // Bodies are fetched on demand (getBody); pushing them on every change was the main cost of state().
+      .map((u) => ({ ...u, message: { ...u.message, body: '' } }))
       .sort(
         (a, b) =>
           order[a.status] - order[b.status] ||
@@ -156,6 +162,7 @@ export class Engine extends EventEmitter {
       items: this.d.items.filter((i) => i.status === 'open' || (i.at ?? i.createdAt) > Date.now() - 14 * DAY),
       search: this.asker.status(),
       notifier: this.notifier.status(),
+      app: this.appInfo,
       signIn: { gmail: !!clients.google.clientId, outlook: !!clients.microsoft.clientId },
     };
   }
@@ -242,6 +249,8 @@ export class Engine extends EventEmitter {
 
   async sync(): Promise<void> {
     if (this.status.syncing) return;
+    const startedAt = Date.now();
+    const before = Object.keys(this.d.updates).length;
     this.status = { ...this.status, syncing: true, message: 'Checking mail…' };
     this.emit('changed');
     try {
@@ -261,8 +270,11 @@ export class Engine extends EventEmitter {
       if (this.status.message?.startsWith('Reading') || this.status.message === 'Checking mail…' || this.status.message === 'Checking follow-ups…') {
         this.status.message = undefined;
       }
+    } catch (e) {
+      log.error('sync.failed', { error: e });
     } finally {
       this.status = { ...this.status, syncing: false, lastRunAt: Date.now() };
+      log.info('sync.done', { ms: Date.now() - startedAt, newEmails: Object.keys(this.d.updates).length - before, accounts: this.watched().length });
       this.changed();
     }
   }
@@ -292,6 +304,7 @@ export class Engine extends EventEmitter {
       account.lastError = undefined;
     } catch (e) {
       account.lastError = errorText(e);
+      log.warn('fetch.failed', { account: account.id, kind: account.kind, error: e });
     }
     this.changed();
   }
@@ -328,6 +341,7 @@ export class Engine extends EventEmitter {
           return;
         }
         u.triageError = errorText(e);
+        log.warn('triage.failed', { key: u.key, error: e });
         this.changed();
         continue;
       }
@@ -617,6 +631,7 @@ export class Engine extends EventEmitter {
       }
     }
     this.record(e);
+    log.info('action', { action: e.action, trigger: e.trigger, status: e.status, approved: e.approved ?? false, error: e.error });
     return e;
   }
 
@@ -1055,6 +1070,38 @@ export class Engine extends EventEmitter {
     }
     this.record(e);
     if (e.status === 'failed') throw new Error(e.error);
+  }
+
+  // ---- app ----
+
+  getBody(key: string): string {
+    return this.get(key).u.message.body;
+  }
+
+  /** Reads the configured update feed; only reports what it finds. */
+  async checkForUpdates(): Promise<void> {
+    const feed = this.s.updates.feedUrl.trim();
+    if (!feed) throw new Error('No update feed is configured yet. Set one in Settings once releases are published.');
+    if (!/^https:\/\//.test(feed)) throw new Error('The update feed must be an https address.');
+    try {
+      const res = await fetch(feed, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(15_000) });
+      if (!res.ok) throw new Error(`The update feed answered ${res.status}.`);
+      const rel = parseFeed(await res.json());
+      const available = compareVersions(rel.version, this.appInfo.version) > 0;
+      this.appInfo.update = { checkedAt: Date.now(), available, latest: rel.version, url: rel.url, notes: rel.notes };
+      log.info('update.checked', { current: this.appInfo.version, latest: rel.version, available });
+    } catch (e) {
+      this.appInfo.update = { checkedAt: Date.now(), available: false, error: errorText(e) };
+      log.warn('update.failed', { error: e });
+      throw e;
+    } finally {
+      this.changed();
+    }
+  }
+
+  dismissNotice(): void {
+    this.appInfo.notice = undefined;
+    this.changed();
   }
 
   // ---- notifications ----

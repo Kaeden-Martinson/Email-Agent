@@ -152,12 +152,36 @@ ollama pull llama3.1:8b
 
 Then choose it under **Settings → Model → Find installed**. Any chat model works, such as `qwen2.5:7b` or `gemma4:e4b`. Expect roughly 10–40 seconds per email on a mid-range GPU.
 
-### Run
+### Run from source (development)
 
 ```bash
 npm install
 npm start
 ```
+
+Running from source turns on developer mode: Ctrl+Shift+I opens DevTools, and logs are echoed to the console. You can add `--dev` to an installed copy for the same behavior.
+
+### Build the Windows installer
+
+```bash
+npm run dist
+```
+
+This produces `release/Inbox Pilot Setup <version>.exe`, a per-user installer (no admin rights needed) with Start Menu and desktop shortcuts. It installs to your user profile and lets you pick the folder. Uninstalling **keeps** your data. `npm run dist:dir` builds an unpacked copy in `release/win-unpacked/` for quick testing.
+
+- **Data location:** always `%APPDATA%\inbox-pilot`, whether you run from source or install. Updates and reinstalls keep your mailboxes, rules, history and sign-ins.
+- **Start with Windows** (Settings → Privacy and startup, installed app only): Pilot starts hidden in the tray.
+- **Updates:** Settings → Updates checks an update feed you configure, either a simple JSON file `{ "version", "url", "notes" }` or a GitHub "latest release" API link. Pilot only tells you about a new version; you download and install it yourself.
+- **Code signing:** the installer is **unsigned**, so Windows SmartScreen will warn when you run it. To remove the warning, buy a code-signing certificate and add it to the `build.win` settings in `package.json` (see electron-builder's code-signing docs).
+
+### Reliability and troubleshooting
+
+- **Encrypted data:** Pilot's data is encrypted with Windows (DPAPI) by default (Settings → Privacy). Sign-in tokens always are.
+- **Backups:** one backup per day is kept for 7 days in `backups/`. If the data file is ever unreadable, it's kept aside (never overwritten) and the newest good backup is restored, with a notice.
+- **Saving:** writes are atomic, and Pilot waits for pending writes before quitting or when Windows signs out.
+- **Crashes:** if the window's renderer crashes, it reloads automatically. Unexpected errors are logged, not fatal.
+- **Logs:** structured logs are kept in `logs/` for 14 days. They never contain email text, addresses or passwords. Settings → Troubleshooting opens the logs and data folders.
+- **Rate limits:** Gmail and Outlook rate limits and server errors are retried with backoff (honoring Retry-After). An expired or revoked access token is refreshed once automatically, and refreshes are single-flight per mailbox.
 
 ### Tests
 

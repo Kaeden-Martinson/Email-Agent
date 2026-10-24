@@ -1,6 +1,6 @@
 {
   "name": "inbox-pilot",
-  "version": "0.1.0",
+  "version": "0.9.0",
   "description": "Desktop assistant that reads your Gmail and Outlook mail, triages it with a local AI model, and drafts or sends replies under rules you set.",
   "main": "dist/main/main.js",
   "private": true,
@@ -9,18 +9,55 @@
     "start": "npm run build && electron .",
     "demo": "npm run build && electron . --demo",
     "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
-    "test": "tsc -p tsconfig.test.json && node --test \"dist-test/test/**/*.test.js\""
+    "test": "tsc -p tsconfig.test.json && node --test \"dist-test/test/**/*.test.js\"",
+    "icon": "node scripts/make-icon.mjs",
+    "dist": "npm run build && npm run icon && electron-builder --win nsis",
+    "dist:dir": "npm run build && npm run icon && electron-builder --win dir"
   },
   "devDependencies": {
     "@types/mailparser": "^3.9.0",
     "@types/node": "^26.6.5",
     "@types/nodemailer": "^8.0.2",
     "electron": "^45.0.0",
+    "electron-builder": "^26.18.0",
     "typescript": "^7.0.2"
   },
   "dependencies": {
     "imapflow": "^2.9.1",
     "mailparser": "^3.12.4",
     "nodemailer": "^10.2.1"
+  },
+  "productName": "Inbox Pilot",
+  "author": "Inbox Pilot",
+  "build": {
+    "appId": "com.inboxpilot.app",
+    "productName": "Inbox Pilot",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json",
+      "oauth-clients.json",
+      "!dist-test/**"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Inbox Pilot",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    }
   }
 }

@@ -143,3 +143,19 @@
 - Defaults: desktop on at Sender; phone channels **off** and at **Minimal**; quiet hours off; ntfy topic is a generated random name; the UI explains that ntfy.sh and Telegram are cloud relays and how to self-host ntfy.
 - Verified: 139 tests pass. End to end through the real Notifier to ntfy.sh on a throwaway topic with fake data: test, urgent (high priority) and quiet-hours summary all delivered; the duplicate was suppressed; nothing leaked at Minimal; 2 held notifications became 1 summary. Telegram is untested (needs your bot token).
 - Also fixed: demo mode no longer runs the date backfill (it called the model on demo data).
+
+**2026-10-24 (overnight): reliability layer and stage 9 (installable Windows app)**
+
+- **Data safety:**
+  - New `Store` with async open, atomic serialized writes, encryption at rest (DPAPI via async safeStorage, verified by reading back before replacing the old file), daily backups kept for 7 days and encrypted when encryption is on, and versioned migrations (`core/migrate.ts`, schema 2).
+  - **Fixed a data-loss bug:** an unreadable `state.json` used to be silently replaced with an empty one. Now it's moved aside and the newest readable backup is restored, with a notice in the app.
+- Secrets moved to the async safeStorage API (fixing the Electron 45 deprecation), with re-encryption after key rotation and queued writes flushed at quit.
+- **Logging:** structured JSON logs (`logger.ts`) through `core/redact.ts`, which strips content fields and masks addresses and tokens. A scan of the real log found 0 matches for your address, Google tokens or the client secret.
+- **Provider calls:** `core/retry.ts` (429/5xx with backoff and Retry-After) in the shared OAuth API layer; a 401 triggers one forced refresh; refreshes are single-flight per account (Microsoft rotates refresh tokens, so parallel refreshes could sign you out); `invalid_grant` gives a clear "reconnect" message, including Google's 7-day Testing-mode expiry.
+- **Performance:** state pushes no longer include email bodies; "Show email" fetches the body on demand.
+- **Stage 9:**
+  - Stable data folder (`%APPDATA%\inbox-pilot` for source and installed builds); launch at login (installed app only, starts hidden in the tray); update checks against a configurable feed (notify only; parsing in `core/version.ts`); developer mode (source or `--dev`: DevTools and console logs).
+  - Crash recovery (renderer reload, uncaught errors logged); safe shutdown (waits for data and secret writes, saves on Windows session end).
+  - Generated icon; electron-builder NSIS config (per-user, keeps data on uninstall).
+- **Verified:** 153 tests pass. Store tested on a copy of the real data: migrate, encrypt, reopen, corrupt and restore from backup, encryption off. The packaged `Inbox Pilot.exe` ran in demo mode (version 0.9.0, packaged true, synced, encrypted data). Package contents checked (app, UI, dependencies and oauth-clients.json included; no source or tests). The installer `release/Inbox Pilot Setup 0.9.0.exe` was built. **Not run:** installing changes your system, so that's left for you. The real app migrated to encrypted storage with all 28 emails, and its backup is encrypted.
+- **Not done (needs you):** code signing requires buying a certificate; publishing releases and an update feed requires choosing hosting (for example GitHub Releases).

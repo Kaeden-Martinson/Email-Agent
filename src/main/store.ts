@@ -2,7 +2,6 @@ import { app } from 'electron';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
-  DEFAULT_PERMISSIONS,
   NOTIFY_EVENTS,
   type NotifyEvent,
   type NoteRecord,
@@ -18,6 +17,9 @@ import {
   type Settings,
   type Update,
 } from '../shared/types';
+import { migrate, SCHEMA_VERSION } from './core/migrate';
+import { log } from './logger';
+import { decryptText, encryptText, vaultAvailable } from './vault';
 
 function allEvents(on: boolean): Record<NotifyEvent, boolean> {
   return Object.fromEntries(NOTIFY_EVENTS.map((e) => [e, on])) as Record<NotifyEvent, boolean>;
@@ -46,6 +48,9 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   ollama: { url: 'http://127.0.0.1:11434', model: 'llama3.1:8b', fastModel: '', embedModel: '' },
   previewMode: true,
+  encryptAtRest: true,
+  launchAtLogin: false,
+  updates: { check: true, feedUrl: '' },
   google: { clientId: '', clientSecret: '' },
   microsoft: { clientId: '', tenant: 'common' },
   autoReply: {
@@ -58,6 +63,7 @@ export const DEFAULT_SETTINGS: Settings = {
 
 interface Persisted {
   version: 1;
+  schemaVersion: number;
   accounts: Account[];
   updates: Record<string, Update>;
   settings: Settings;
@@ -99,6 +105,7 @@ export function mergeSettings(base: Settings, patch: Partial<Settings> | undefin
     briefing: { ...base.briefing, ...p.briefing, sections: { ...base.briefing.sections, ...p.briefing?.sections } },
     notifications: mergeNotifications(base.notifications, p.notifications),
     ollama: { ...base.ollama, ...p.ollama },
+    updates: { ...base.updates, ...p.updates },
     google: { ...base.google, ...p.google },
     microsoft: { ...base.microsoft, ...p.microsoft },
     autoReply: {
@@ -127,29 +134,43 @@ function mergeNotifications(base: Settings['notifications'], p: Partial<Settings
   };
 }
 
-/** Fills fields added in later versions so older state files keep working. */
-function normalizeAccount(a: Account): Account {
-  return {
-    ...a,
-    providerName: a.providerName ?? (a.kind === 'gmail' ? 'Gmail' : 'Outlook'),
-    watching: a.watching ?? true,
-    permissions: { ...DEFAULT_PERMISSIONS, ...a.permissions },
-  };
-}
+/** Today's local date, YYYY-MM-DD. */
+const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
-/** App state kept as one JSON file in the user-data folder. Secrets live separately in secrets.ts. */
+const KEEP_BACKUPS = 7;
+
+/**
+ * App state in one file in the user-data folder: state.enc (encrypted with the OS keystore, the default)
+ * or state.json. Writes are atomic and serialized; one backup per day is kept for a week; an unreadable
+ * file is moved aside (never overwritten) and the newest readable backup is used instead.
+ */
 export class Store {
-  readonly data: Persisted;
-  private file = path.join(app.getPath('userData'), 'state.json');
+  data!: Persisted;
+  /** Set when the data could not be read and a backup or a fresh start was used; shown to the user. */
+  recovered?: string;
+  private dir = app.getPath('userData');
+  private plain = path.join(this.dir, 'state.json');
+  private enc = path.join(this.dir, 'state.enc');
+  private backups = path.join(this.dir, 'backups');
   private timer?: NodeJS.Timeout;
+  private writes: Promise<void> = Promise.resolve();
+  private lastBackupDay = '';
 
-  constructor() {
-    this.data = this.load();
+  private constructor() {}
+
+  static async open(): Promise<Store> {
+    const s = new Store();
+    s.data = await s.load();
+    return s;
   }
 
-  private load(): Persisted {
-    const fresh: Persisted = {
+  private fresh(): Persisted {
+    return {
       version: 1,
+      schemaVersion: SCHEMA_VERSION,
       accounts: [],
       updates: {},
       settings: DEFAULT_SETTINGS,
@@ -166,29 +187,100 @@ export class Store {
       notify: { log: {}, held: [], phoneTimes: [], status: {} },
       owedCheckedAt: {},
     };
-    try {
-      const raw = JSON.parse(fs.readFileSync(this.file, 'utf8')) as Partial<Persisted>;
-      return {
-        ...fresh,
-        ...raw,
-        accounts: (raw.accounts ?? []).map(normalizeAccount),
-        settings: mergeSettings(DEFAULT_SETTINGS, raw.settings),
-      };
-    } catch {
-      return fresh;
+  }
+
+  private async read(file: string): Promise<Partial<Persisted>> {
+    const buf = fs.readFileSync(file);
+    const text = file.endsWith('.enc') ? (await decryptText(buf)).text : buf.toString('utf8');
+    return JSON.parse(text) as Partial<Persisted>;
+  }
+
+  private async load(): Promise<Persisted> {
+    const backups = fs.existsSync(this.backups)
+      ? fs.readdirSync(this.backups).filter((f) => /^state-\d{4}-\d{2}-\d{2}\.(json|enc)$/.test(f)).sort().reverse().map((f) => path.join(this.backups, f))
+      : [];
+    const candidates = [this.enc, this.plain].filter((f) => fs.existsSync(f));
+    for (const file of [...candidates, ...backups]) {
+      try {
+        const raw = migrate((await this.read(file)) as Record<string, unknown>) as Partial<Persisted>;
+        if (!candidates.includes(file)) {
+          this.recovered = `Pilot's data file couldn't be read, so it was restored from the backup of ${path.basename(file).slice(6, 16)}.`;
+          log.warn('store.restored_from_backup', { backup: path.basename(file) });
+        }
+        return { ...this.fresh(), ...raw, settings: mergeSettings(DEFAULT_SETTINGS, raw.settings) } as Persisted;
+      } catch (e) {
+        if (candidates.includes(file)) {
+          const aside = `${file}.unreadable-${Date.now()}`;
+          fs.renameSync(file, aside);
+          log.error('store.unreadable', { file: path.basename(file), keptAs: path.basename(aside), error: e });
+        }
+      }
     }
+    if (candidates.length) this.recovered = "Pilot's data couldn't be read and no backup was usable, so it started fresh. The unreadable file was kept.";
+    return this.fresh();
   }
 
   save(): void {
     clearTimeout(this.timer);
-    this.timer = setTimeout(() => this.flush(), 300);
+    this.timer = setTimeout(() => void this.flush(), 400);
   }
 
-  flush(): void {
+  /** Resolves when everything changed so far is on disk. */
+  flush(): Promise<void> {
     clearTimeout(this.timer);
-    const tmp = `${this.file}.tmp`;
-    fs.mkdirSync(path.dirname(this.file), { recursive: true });
-    fs.writeFileSync(tmp, JSON.stringify(this.data));
-    fs.renameSync(tmp, this.file);
+    const snapshot = JSON.stringify(this.data);
+    const encrypt = this.data.settings.encryptAtRest;
+    this.writes = this.writes.then(() => this.write(snapshot, encrypt)).catch((e) => log.error('store.write_failed', { error: e }));
+    return this.writes;
+  }
+
+  private async write(json: string, encrypt: boolean): Promise<void> {
+    fs.mkdirSync(this.dir, { recursive: true });
+    this.backupOncePerDay();
+    const useEnc = encrypt && (await vaultAvailable());
+    const target = useEnc ? this.enc : this.plain;
+    const other = useEnc ? this.plain : this.enc;
+    const body = useEnc ? await encryptText(json) : json;
+    const tmp = `${target}.tmp`;
+    fs.writeFileSync(tmp, body);
+    if (useEnc) {
+      // Prove the encrypted copy reads back before relying on it.
+      const check = await decryptText(fs.readFileSync(tmp));
+      if (check.text !== json) throw new Error('Encrypted data did not read back correctly; kept the previous file.');
+    }
+    fs.renameSync(tmp, target);
+    if (fs.existsSync(other)) fs.unlinkSync(other);
+    if (useEnc) await this.encryptPlainBackups();
+  }
+
+  /** With encryption on, backups made before it was turned on are encrypted too (plain copies removed). */
+  private async encryptPlainBackups(): Promise<void> {
+    if (!fs.existsSync(this.backups)) return;
+    for (const f of fs.readdirSync(this.backups).filter((x) => /^state-.*\.json$/.test(x))) {
+      const plain = path.join(this.backups, f);
+      const enc = plain.replace(/\.json$/, '.enc');
+      const json = fs.readFileSync(plain, 'utf8');
+      const buf = await encryptText(json);
+      if ((await decryptText(buf)).text !== json) continue; // keep the plain copy if the round trip fails
+      fs.writeFileSync(enc, buf);
+      fs.unlinkSync(plain);
+    }
+  }
+
+  private backupOncePerDay(): void {
+    const day = today();
+    if (this.lastBackupDay === day) return;
+    const current = [this.enc, this.plain].find((f) => fs.existsSync(f));
+    if (!current) return;
+    fs.mkdirSync(this.backups, { recursive: true });
+    const dest = path.join(this.backups, `state-${day}${path.extname(current)}`);
+    if (!fs.existsSync(dest)) fs.copyFileSync(current, dest);
+    const all = fs.readdirSync(this.backups).filter((f) => f.startsWith('state-')).sort();
+    for (const old of all.slice(0, Math.max(0, all.length - KEEP_BACKUPS))) fs.unlinkSync(path.join(this.backups, old));
+    this.lastBackupDay = day;
+  }
+
+  dataDir(): string {
+    return this.dir;
   }
 }

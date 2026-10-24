@@ -13,11 +13,19 @@ import type {
 } from '../shared/types';
 import { seedDemo } from './demo';
 import { Engine } from './engine';
+import { initLogger, log, logsDir } from './logger';
 import { cancelAuthorize } from './oauth';
+import { flushSecrets, initSecrets } from './secrets';
 import { Store } from './store';
 
+// One data folder whether run from source or installed (an installed app would otherwise use "Inbox Pilot").
+app.setPath('userData', path.join(app.getPath('appData'), 'inbox-pilot'));
 const DEMO = process.argv.includes('--demo');
 if (DEMO) app.setPath('userData', path.join(app.getPath('userData'), 'demo'));
+/** Developer mode: DevTools (Ctrl+Shift+I) and logs echoed to the console. On when running from source. */
+const DEV = !app.isPackaged || process.argv.includes('--dev');
+/** Started by Windows at sign-in: stay in the tray. */
+const HIDDEN = process.argv.includes('--hidden');
 
 let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -67,6 +75,19 @@ function createWindow(icon: Electron.NativeImage): void {
   win.loadFile(path.join(__dirname, '../web/renderer/index.html'));
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (e) => e.preventDefault());
+  if (HIDDEN) win.hide();
+  // Crash recovery: if the window's renderer dies, log it and reload instead of leaving a blank window.
+  win.webContents.on('render-process-gone', (_e, details) => {
+    log.error('renderer.gone', { reason: details.reason, exitCode: details.exitCode });
+    if (details.reason !== 'clean-exit') setTimeout(() => win?.reload(), 1000);
+  });
+  win.on('unresponsive', () => log.warn('window.unresponsive'));
+  win.webContents.on('before-input-event', (e, input) => {
+    if (DEV && input.control && input.shift && input.key.toLowerCase() === 'i') {
+      win?.webContents.toggleDevTools();
+      e.preventDefault();
+    }
+  });
   // Closing the window keeps the assistant running in the tray.
   win.on('close', (e) => {
     if (!quitting) {
@@ -155,17 +176,38 @@ function registerIpc(engine: Engine): void {
     if (!['open', 'done', 'dismissed'].includes(status)) throw new Error('Invalid status');
     return engine.setItem(String(id), status);
   });
-  ipcMain.handle('saveSettings', (_e, patch: Partial<Settings>) => engine.saveSettings(patch));
+  ipcMain.handle('saveSettings', (_e, patch: Partial<Settings>) => {
+    engine.saveSettings(patch);
+    applyLoginItem(engine.state().settings);
+  });
+  ipcMain.handle('getBody', (_e, key: string) => engine.getBody(String(key)));
+  ipcMain.handle('checkForUpdates', () => engine.checkForUpdates());
+  ipcMain.handle('openFolder', (_e, which: string) => shell.openPath(which === 'logs' ? logsDir() : app.getPath('userData')).then(() => undefined));
+  ipcMain.handle('dismissNotice', () => engine.dismissNotice());
   ipcMain.handle('listModels', () => engine.listModels());
+}
+
+/** Launch at login is only offered by the installed app (from source it would register electron.exe). */
+function applyLoginItem(settings: Settings): void {
+  if (!app.isPackaged || DEMO) return;
+  app.setLoginItemSettings({ openAtLogin: settings.launchAtLogin, args: ['--hidden'] });
 }
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on('second-instance', showWindow);
-  app.whenReady().then(() => {
+  // Keep running through unexpected errors; they're logged for troubleshooting.
+  process.on('uncaughtException', (e) => log.error('uncaught', { error: e }));
+  process.on('unhandledRejection', (e) => log.error('unhandled_rejection', { error: e }));
+  app.on('child-process-gone', (_e, d) => log.warn('child.gone', { type: d.type, reason: d.reason }));
+
+  app.whenReady().then(async () => {
     app.setAppUserModelId('com.inboxpilot.app');
-    const store = new Store();
+    initLogger(DEV);
+    log.info('app.start', { version: app.getVersion(), packaged: app.isPackaged, demo: DEMO, hidden: HIDDEN });
+    await initSecrets();
+    const store = await Store.open();
     if (DEMO) seedDemo(store);
     const engine = new Engine(store, DEMO, (f) => {
       if (!Notification.isSupported()) return;
@@ -173,6 +215,8 @@ if (!app.requestSingleInstanceLock()) {
       n.on('click', showWindow);
       n.show();
     });
+    engine.appInfo = { version: app.getVersion(), packaged: app.isPackaged, devMode: DEV, notice: store.recovered };
+    applyLoginItem(store.data.settings);
     const icon = makeIcon();
 
     registerIpc(engine);
@@ -187,11 +231,29 @@ if (!app.requestSingleInstanceLock()) {
     });
     // Every notification (desktop and phone) now goes through engine.notifier.
 
-    app.on('before-quit', () => {
+    // Safe shutdown: wait for pending writes (data and secrets) before exiting.
+    let flushed = false;
+    app.on('before-quit', (e) => {
       quitting = true;
-      store.flush();
+      if (flushed) return;
+      e.preventDefault();
+      void Promise.all([store.flush(), flushSecrets()]).finally(() => {
+        flushed = true;
+        log.info('app.quit');
+        app.quit();
+      });
     });
+    // Windows sign-out or shutdown: save immediately.
+    win?.on('session-end', () => void store.flush());
+
     engine.start();
+    // Update check on launch and daily, when a feed is configured.
+    const checkUpdates = () => {
+      const u = store.data.settings.updates;
+      if (u.check && u.feedUrl && !DEMO) void engine.checkForUpdates().catch(() => {});
+    };
+    setTimeout(checkUpdates, 30_000);
+    setInterval(checkUpdates, 24 * 3_600_000);
   });
   // Stay alive in the tray when the window is closed.
   app.on('window-all-closed', () => {});

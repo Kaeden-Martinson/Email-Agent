@@ -50,6 +50,8 @@ let onboardStep: 'name' | 'mail' = 'name';
 /** Reply text being edited, by update key. Survives re-renders. */
 const editors = new Map<string, string>();
 const showOriginal = new Set<string>();
+/** Email bodies fetched on demand (state carries no bodies). */
+const bodies = new Map<string, string>();
 /** Cards with the conversation panel open. */
 const showThread = new Set<string>();
 /** Mailboxes whose permissions panel is expanded. */
@@ -130,12 +132,20 @@ const go = (v: View) => {
 
 // ---- rendering ----
 
+/** One-time notices from the app, e.g. data restored from a backup. */
+function renderNotice(): HTMLElement | null {
+  const n = state.app.notice;
+  if (!n) return null;
+  return h('div', { class: 'banner approve-banner' }, h('strong', {}, 'Heads up: '), n,
+    h('div', { class: 'actions' }, btn('Dismiss', () => void run(() => api.dismissNotice()))));
+}
+
 function render(): void {
   if (!state.settings.onboarded) {
     root.replaceChildren(renderOnboarding());
     return;
   }
-  root.replaceChildren(h('div', { class: 'layout' }, renderNav(), h('main', {}, renderHeader(), renderView())));
+  root.replaceChildren(h('div', { class: 'layout' }, renderNav(), h('main', {}, renderHeader(), renderNotice(), renderView())));
 }
 
 /** On a state push, re-render unless the user is typing; the form views keep their own values. */
@@ -692,7 +702,15 @@ function card(u: Update): HTMLElement {
             }, 'ghost')
           : null,
         btn(showOriginal.has(u.key) ? 'Hide email' : 'Show email', () => {
-          if (!showOriginal.delete(u.key)) showOriginal.add(u.key);
+          if (!showOriginal.delete(u.key)) {
+            showOriginal.add(u.key);
+            if (!bodies.has(u.key)) {
+              void api.getBody(u.key).then((b) => {
+                bodies.set(u.key, b || m.snippet || '(empty)');
+                render();
+              });
+            }
+          }
           render();
         }, 'ghost'),
         btn('Re-read', () => void run(() => api.redraft(u.key), 'Summary refreshed'), 'ghost'),
@@ -720,7 +738,7 @@ function card(u: Update): HTMLElement {
     autoLine(u),
     proposalsFor(u),
     showThread.has(u.key) && u.thread ? conversation(u) : null,
-    showOriginal.has(u.key) ? h('pre', { class: 'original' }, m.body || m.snippet) : null,
+    showOriginal.has(u.key) ? h('pre', { class: 'original' }, bodies.get(u.key) ?? 'Loading…') : null,
     editors.has(u.key) ? replyEditor(u) : null,
     remindFor === `u:${u.key}` ? remindBox({ kind: 'update', key: u.key }) : null,
     h('div', { class: 'actions' }, actions),
@@ -1258,6 +1276,12 @@ function renderToday(): HTMLElement {
   const waitingOn = state.followUps.filter((f) => f.status === 'waiting');
   const proposed = state.activity.filter((a) => a.status === 'proposed').length;
 
+  const up = state.app.update;
+  if (up?.available && up.url) {
+    wrap.append(h('div', { class: 'banner approve-banner' },
+      h('strong', {}, `Pilot ${up.latest} is available. `), `You have ${state.app.version}.`,
+      h('div', { class: 'actions' }, btn('Download', () => void run(() => api.openUrl(up.url!)), 'primary'))));
+  }
   wrap.append(h('div', { class: 'today-head' },
     h('h2', {}, greeting()),
     h('div', { class: 'hint' }, new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }))));
@@ -1689,6 +1713,13 @@ function renderSettings(): HTMLElement {
   const ollamaUrl = text(s.ollama.url);
   const model = h('input', { type: 'text', value: s.ollama.model, list: 'models' });
   const fastModel = h('input', { type: 'text', value: s.ollama.fastModel, list: 'models', placeholder: 'Same as above' });
+  const [encryptEl, encrypt] = check("Encrypt Pilot's data on this PC", s.encryptAtRest,
+    'Your summaries, email text and settings are stored encrypted with Windows (DPAPI), like your sign-ins. Only your Windows account can read them.');
+  const [loginEl, login] = check('Start Pilot when I sign in to Windows', s.launchAtLogin,
+    state.app.packaged ? 'It starts quietly in the tray.' : 'Available in the installed app (not when running from source).');
+  if (!state.app.packaged) login.disabled = true;
+  const [updCheckEl, updCheck] = check('Check for new versions', s.updates.check, 'Pilot only tells you about an update; installing it is up to you.');
+  const feed = text(s.updates.feedUrl);
   const [previewEl, preview] = check('Preview mode: automatic actions wait for my approval', s.previewMode,
     'Labels, auto-archive, auto-replies and auto-unsubscribes are proposed in Activity instead of done. Recommended until you trust them. Replies you send yourself are never affected.');
   const modelList = h('datalist', { id: 'models' });
@@ -1713,6 +1744,9 @@ function renderSettings(): HTMLElement {
       followUpDays: Math.min(30, Math.max(1, Number(followUpDays.value) || 3)),
       ollama: { url: ollamaUrl.value.trim(), model: model.value.trim(), fastModel: fastModel.value.trim(), embedModel: s.ollama.embedModel },
       previewMode: preview.checked,
+      encryptAtRest: encrypt.checked,
+      launchAtLogin: login.checked,
+      updates: { check: updCheck.checked, feedUrl: feed.value.trim() },
       google: { clientId: gId.value.trim(), clientSecret: gSecret.value.trim() },
       microsoft: { clientId: mId.value.trim(), tenant: mTenant.value.trim() || 'common' },
     };
@@ -1724,6 +1758,26 @@ function renderSettings(): HTMLElement {
       field('When a mailbox starts being watched, look back (hours)', lookback),
       field('Suggest a follow-up after (working days without a reply)', followUpDays)),
     h('fieldset', {}, h('legend', {}, 'Automation'), previewEl),
+    h('fieldset', {}, h('legend', {}, 'Privacy and startup'), encryptEl, loginEl),
+    h('fieldset', {}, h('legend', {}, 'Updates'),
+      updCheckEl,
+      field('Update feed', feed, 'An https address with the latest version (a GitHub "latest release" link works). Set once releases are published.'),
+      h('div', { class: 'row' },
+        btn('Check now', () => void run(() => api.checkForUpdates(), 'Checked for updates')),
+        h('span', { class: 'hint' },
+          state.app.update
+            ? state.app.update.error
+              ? `Last check failed: ${state.app.update.error}`
+              : state.app.update.available
+                ? `Version ${state.app.update.latest} is available.`
+                : `You're up to date (checked ${relTime(state.app.update.checkedAt)}).`
+            : ''))),
+    h('fieldset', {}, h('legend', {}, 'Troubleshooting'),
+      h('div', { class: 'hint' }, `Inbox Pilot ${state.app.version}${state.app.packaged ? '' : ' (running from source)'}${state.app.devMode ? ' · developer mode: Ctrl+Shift+I opens DevTools' : ''}`),
+      h('div', { class: 'row' },
+        btn('Open logs folder', () => void run(() => api.openFolder('logs'))),
+        btn('Open data folder', () => void run(() => api.openFolder('data')))),
+      h('div', { class: 'hint' }, 'Logs never contain email text, addresses or passwords. A backup of your data is kept for each of the last 7 days.')),
     h('fieldset', {}, h('legend', {}, 'Local AI (Ollama)'),
       field('Ollama address', ollamaUrl),
       field('Model', h('div', { class: 'row' }, model, modelList, btn('Find installed', loadModels)),
