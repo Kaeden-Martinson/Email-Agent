@@ -73,6 +73,21 @@ export function seedDemo(store: Store): void {
   items[1].reply = { state: 'drafted', text: items[1].triage!.draftReply, at: now - 60 * 60_000, auto: true };
   items[3].message.unsubscribe = { url: 'https://example.com/unsub', oneClick: true };
 
+  // A conversation, so the thread view and open questions can be tried.
+  items[0].thread = [
+    { id: 'p1', from: { name: 'Priya Shah', email: 'priya@acme.co' }, at: now - 3 * 86_400_000, fromMe: false, text: 'Hi Alex, attaching the first draft. Can you review section 7 and confirm the start date?' },
+    { id: 'p2', from: { name: 'Alex', email: 'alex@gmail.com' }, at: now - 2 * 86_400_000, fromMe: true, text: 'Start date of Nov 3 works. I will send comments on section 7 by Thursday.' },
+    { id: '1', from: { name: 'Priya Shah', email: 'priya@acme.co' }, at: now - 25 * 60_000, fromMe: false, text: 'Hi, attached are the redlines. The main open item is the indemnity clause in section 7. We need your sign-off by Friday 5pm.' },
+  ];
+  Object.assign(items[0].triage!, {
+    openQuestions: ['Sign off on the indemnity clause (section 7) by Friday 5pm'],
+    userPromises: ['Send comments on section 7 by Thursday'],
+    sources: [2, 3],
+    source: 'full',
+    reason: 'Read with the 3-message conversation',
+    ms: 21_400,
+  });
+
   // A few promotions from one store, so Subscriptions has something to suggest.
   for (let i = 0; i < 4; i++) {
     const u = mk(10 + i, ['ShopMart', 'deals@shopmart.example'], `Flash sale #${i + 1}: up to 60% off`, 600 + i * 1440, {

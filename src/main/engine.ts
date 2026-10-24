@@ -33,6 +33,7 @@ import {
   ruleSkipsModel,
   suggestRules,
 } from './core/rules';
+import { buildThread, type ThreadView } from './core/thread';
 import { createProvider, discover, signIn, verifyImap } from './providers';
 import { passwords, tokens } from './secrets';
 import { mergeSettings, type Store } from './store';
@@ -305,8 +306,22 @@ export class Engine extends EventEmitter {
     } else {
       // An "important" rule on obvious bulk mail still deserves a real (light) read.
       const mode = forceFull ? 'full' : route.route === 'fast' ? 'light' : route.route;
-      const t = await triage(u.message, account, this.s, mode);
-      t.reason = forceFull ? 'Re-read in full at your request' : route.route === 'fast' ? 'Your rule asked for a closer look' : route.reason;
+      const view = mode === 'full' ? await this.loadThread(u, account) : undefined;
+      const t = await triage(u.message, account, this.s, mode, view?.thread);
+      if (view?.repliedAfter) {
+        // Checked in code from the mailbox, not left to the model: nothing is waiting on you.
+        Object.assign(t, { needsReply: false, draftReply: '', openQuestions: [], repliedAlready: true });
+        if (t.category === 'reply') t.category = 'fyi';
+      }
+      t.reason = view?.repliedAfter
+        ? 'You already replied in this conversation'
+        : forceFull
+          ? 'Re-read in full at your request'
+          : route.route === 'fast'
+            ? 'Your rule asked for a closer look'
+            : view && view.thread.length > 1
+              ? `Read with the ${view.thread.length}-message conversation`
+              : route.reason;
       u.triage = rule ? applyRule(t, rule) : t;
       this.status.ollamaOk = true;
     }
@@ -316,6 +331,19 @@ export class Engine extends EventEmitter {
       if (rule.effect.hide && u.status === 'new') u.status = 'done';
     }
     u.triage.ms = Date.now() - started;
+  }
+
+  /** The conversation for personal mail. A failure here never blocks triage; it falls back to one message. */
+  private async loadThread(u: Update, account: Account): Promise<ThreadView | undefined> {
+    try {
+      const messages = await createProvider(account, this.s).fetchThread(u.message);
+      const view = buildThread(messages, u.message, account.email);
+      u.thread = view.thread.length > 1 ? view.thread : undefined;
+      return view;
+    } catch {
+      u.thread = undefined;
+      return undefined;
+    }
   }
 
   private unsnooze(): void {

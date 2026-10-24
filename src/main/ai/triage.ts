@@ -1,4 +1,5 @@
-import { CATEGORIES, type Account, type Category, type EmailMessage, type Settings, type Triage } from '../../shared/types';
+import { CATEGORIES, type Account, type Category, type EmailMessage, type Settings, type ThreadMessage, type Triage } from '../../shared/types';
+import { formatThread, stripQuoted } from '../core/thread';
 import { chatJson } from './ollama';
 
 const SCHEMA = {
@@ -10,14 +11,25 @@ const SCHEMA = {
     actionItems: { type: 'array', items: { type: 'string' } },
     needsReply: { type: 'boolean' },
     draftReply: { type: 'string' },
+    openQuestions: { type: 'array', items: { type: 'string' } },
+    userPromises: { type: 'array', items: { type: 'string' } },
+    sources: { type: 'array', items: { type: 'integer' } },
   },
-  required: ['category', 'priority', 'summary', 'actionItems', 'needsReply', 'draftReply'],
+  required: ['category', 'priority', 'summary', 'actionItems', 'needsReply', 'draftReply', 'openQuestions', 'userPromises', 'sources'],
 };
 
 /** light = short read of automated/bulk mail (smaller context, no draft); full = personal mail. */
 export type TriageMode = 'light' | 'full';
 
-function systemPrompt(account: Account, s: Settings, mode: TriageMode): string {
+const CONVERSATION_RULES = `
+You are given the whole conversation, oldest first, with each message numbered. Triage the NEWEST message in that context:
+- A question asked earlier and answered later is not open. Only count what is still unanswered as of the newest message.
+- openQuestions: questions or requests addressed to the user that are still unanswered. Empty if none.
+- userPromises: things the user said they would do earlier in the conversation and have not visibly done yet. Empty if none.
+- sources: the numbers of the messages your summary relies on.
+- draftReply must answer only the open questions, must not repeat what the user already said, and must stay consistent with the user's earlier messages and promises.`;
+
+function systemPrompt(account: Account, s: Settings, mode: TriageMode, hasThread: boolean): string {
   const who = s.userName ? `${s.userName} <${account.email}>` : account.email;
   const draft =
     mode === 'light'
@@ -34,11 +46,22 @@ Return JSON with:
 - summary: one or two plain sentences: what happened, why it matters, and what the user needs to do and by when (if anything).
 - actionItems: short to-dos for the user, including any deadline mentioned. Empty if there are none.
 - needsReply: true only if a real person expects a written reply from the user.
-${draft}`;
+${draft}
+- openQuestions, userPromises: short phrases. sources: message numbers (1 if there is only one message).${hasThread ? CONVERSATION_RULES : ''}`;
 }
 
-function userPrompt(msg: EmailMessage, mode: TriageMode): string {
+function userPrompt(msg: EmailMessage, mode: TriageMode, thread?: readonly ThreadMessage[]): string {
   const from = msg.from.name ? `${msg.from.name} <${msg.from.email}>` : msg.from.email;
+  if (thread && thread.length > 1) {
+    return [
+      `Subject: ${msg.subject}`,
+      `The newest message is [${thread.length}], from ${from}.`,
+      '',
+      '<conversation>',
+      formatThread(thread),
+      '</conversation>',
+    ].join('\n');
+  }
   return [
     `From: ${from}`,
     `To: ${msg.to.join(', ')}`,
@@ -47,13 +70,16 @@ function userPrompt(msg: EmailMessage, mode: TriageMode): string {
     msg.isBulk ? 'Note: the headers mark this as bulk or mailing-list mail.' : '',
     '',
     '<email_body>',
-    msg.body.slice(0, mode === 'light' ? 1500 : 6000),
+    stripQuoted(msg.body).slice(0, mode === 'light' ? 1500 : 6000),
     '</email_body>',
   ].join('\n');
 }
 
 /** Turns raw model output into a safe Triage. Pure, so the guard rails are unit-tested. */
-export function normalizeTriage(r: Partial<Triage>, msg: EmailMessage, model: string, mode: TriageMode): Triage {
+const phrases = (v: unknown) =>
+  Array.isArray(v) ? v.map((x) => String(x).trim().slice(0, 200)).filter(Boolean).slice(0, 5) : [];
+
+export function normalizeTriage(r: Partial<Triage>, msg: EmailMessage, model: string, mode: TriageMode, threadLength = 1): Triage {
   let category: Category = CATEGORIES.includes(r.category as Category) ? (r.category as Category) : 'fyi';
   // Mailing-list mail is never a personal conversation.
   if (msg.isBulk && category === 'reply') category = 'fyi';
@@ -70,18 +96,31 @@ export function normalizeTriage(r: Partial<Triage>, msg: EmailMessage, model: st
     draftReply: needsReply ? String(r.draftReply ?? '').trim() : '',
     model,
     source: mode,
+    openQuestions: phrases(r.openQuestions),
+    userPromises: phrases(r.userPromises),
+    // Only message numbers that exist in the conversation shown to the model.
+    sources: Array.isArray(r.sources)
+      ? [...new Set(r.sources.map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= threadLength))]
+      : [],
   };
 }
 
-export async function triage(msg: EmailMessage, account: Account, s: Settings, mode: TriageMode = 'full'): Promise<Triage> {
+export async function triage(
+  msg: EmailMessage,
+  account: Account,
+  s: Settings,
+  mode: TriageMode = 'full',
+  thread?: readonly ThreadMessage[],
+): Promise<Triage> {
+  const hasThread = mode === 'full' && !!thread && thread.length > 1;
   const model = mode === 'light' && s.ollama.fastModel ? s.ollama.fastModel : s.ollama.model;
   const r = await chatJson<Partial<Triage>>(
     s.ollama.url,
     model,
-    systemPrompt(account, s, mode),
-    userPrompt(msg, mode),
+    systemPrompt(account, s, mode, hasThread),
+    userPrompt(msg, mode, hasThread ? thread : undefined),
     // Same context size for both modes: changing it makes Ollama reload the model.
     SCHEMA,
   );
-  return normalizeTriage(r, msg, model, mode);
+  return normalizeTriage(r, msg, model, mode, hasThread ? thread!.length : 1);
 }

@@ -131,6 +131,15 @@ describe('normalizeTriage (guard rails on model output)', () => {
   it('replaces unknown categories', () => {
     assert.equal(normalizeTriage({ category: 'urgent!!' as never }, message(), 'm', 'full').category, 'fyi');
   });
+  it('keeps only source numbers that exist in the conversation', () => {
+    const t = normalizeTriage({ category: 'reply', sources: [0, 1, 2, 2, 7, 1.5] as number[] }, message(), 'm', 'full', 3);
+    assert.deepEqual(t.sources, [1, 2]);
+  });
+  it('trims and caps open questions and promises', () => {
+    const t = normalizeTriage({ openQuestions: ['  a  ', '', 'b', 'c', 'd', 'e', 'f'], userPromises: 'not an array' as never }, message(), 'm', 'full');
+    assert.deepEqual(t.openQuestions, ['a', 'b', 'c', 'd', 'e']);
+    assert.deepEqual(t.userPromises, []);
+  });
   it('light reads never produce drafts', () => {
     const t = normalizeTriage({ category: 'reply', needsReply: true, draftReply: 'x' }, message(), 'm', 'light');
     assert.equal(t.needsReply, false);

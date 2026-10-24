@@ -247,3 +247,12 @@ table.stats th, table.stats td { text-align: left; padding: 4px 8px; border-bott
 table.stats th { color: var(--muted); font-weight: 500; }
 .add-rule select { width: auto; flex: none; }
 .add-rule input[type="text"] { width: auto; min-width: 0; }
+
+/* conversations */
+.thread-facts { margin-top: 6px; font-size: 13px; }
+.conversation { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.thread-msg { background: var(--bg); border-radius: 6px; padding: 8px 12px; border-left: 3px solid transparent; }
+.thread-msg.me { background: var(--chip); }
+.thread-msg.used { border-left-color: var(--accent); }
+.thread-head { display: flex; align-items: baseline; gap: 6px; font-size: 13px; }
+.thread-text { white-space: pre-wrap; font-size: 13px; margin-top: 3px; }

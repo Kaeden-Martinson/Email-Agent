@@ -92,6 +92,11 @@ export class GmailProvider extends OAuthProvider implements MailProvider {
     return out;
   }
 
+  async fetchThread(msg: EmailMessage): Promise<EmailMessage[]> {
+    const t = await this.api<{ messages?: GmailMessage[] }>(`${BASE}/threads/${msg.threadId}?format=full`);
+    return (t.messages ?? []).map((m) => this.parse(m));
+  }
+
   private parse(m: GmailMessage): EmailMessage {
     const headers = m.payload?.headers ?? [];
     const h = (name: string) => headers.find((x) => x.name.toLowerCase() === name)?.value;

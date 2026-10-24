@@ -37,6 +37,8 @@ let onboardStep: 'name' | 'mail' = 'name';
 /** Reply text being edited, by update key. Survives re-renders. */
 const editors = new Map<string, string>();
 const showOriginal = new Set<string>();
+/** Cards with the conversation panel open. */
+const showThread = new Set<string>();
 /** Mailboxes whose permissions panel is expanded. */
 const openPerms = new Set<string>();
 /** The add-mailbox flow in progress, if any. */
@@ -654,6 +656,12 @@ function card(u: Update): HTMLElement {
           : btn('Unsnooze', () => void run(() => api.act(u.key, 'reopen'))),
         editors.has(u.key) ? null : btn(t?.draftReply ? 'Review reply' : 'Reply', openEditor),
         canOpen ? btn('Open in mail', () => void run(() => api.open(u.key)), 'ghost') : null,
+        u.thread?.length
+          ? btn(showThread.has(u.key) ? 'Hide conversation' : `Conversation (${u.thread.length})`, () => {
+              if (!showThread.delete(u.key)) showThread.add(u.key);
+              render();
+            }, 'ghost')
+          : null,
         btn(showOriginal.has(u.key) ? 'Hide email' : 'Show email', () => {
           if (!showOriginal.delete(u.key)) showOriginal.add(u.key);
           render();
@@ -673,14 +681,33 @@ function card(u: Update): HTMLElement {
     h('div', { class: 'subject' }, m.subject || '(no subject)'),
     h('p', { class: 'summary' }, t ? t.summary : u.triageError ? `Couldn't summarize this one: ${u.triageError}` : m.snippet),
     t?.actionItems.length ? h('ul', { class: 'todos' }, t.actionItems.map((a) => h('li', {}, a))) : null,
+    t?.openQuestions?.length && !t.repliedAlready
+      ? h('div', { class: 'thread-facts' }, h('strong', {}, 'Still waiting on you: '), t.openQuestions.join(' · '))
+      : null,
+    t?.userPromises?.length ? h('div', { class: 'thread-facts' }, h('strong', {}, 'You promised: '), t.userPromises.join(' · ')) : null,
     t ? whyLine(u) : null,
     u.reply ? replyLine(u.reply) : null,
     autoLine(u),
     proposalsFor(u),
+    showThread.has(u.key) && u.thread ? conversation(u) : null,
     showOriginal.has(u.key) ? h('pre', { class: 'original' }, m.body || m.snippet) : null,
     editors.has(u.key) ? replyEditor(u) : null,
     h('div', { class: 'actions' }, actions),
     t && isOpen ? correctionBar(u) : null);
+}
+
+/** The messages behind a summary: quoted history stripped, the ones the AI relied on highlighted. */
+function conversation(u: Update): HTMLElement {
+  const used = new Set(u.triage?.sources ?? []);
+  return h('div', { class: 'conversation' },
+    h('div', { class: 'hint' }, used.size ? 'Highlighted messages are the ones the summary is based on.' : 'Quoted history is hidden.'),
+    u.thread!.map((msg, i) =>
+      h('div', { class: `thread-msg ${msg.fromMe ? 'me' : ''} ${used.has(i + 1) ? 'used' : ''}` },
+        h('div', { class: 'thread-head' },
+          h('strong', {}, `[${i + 1}] ${msg.fromMe ? 'You' : msg.from.name || msg.from.email}`),
+          h('span', { class: 'hint' }, ` · ${new Date(msg.at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`),
+          used.has(i + 1) ? h('span', { class: 'chip' }, 'used for summary') : null),
+        h('div', { class: 'thread-text' }, msg.text))));
 }
 
 const SOURCE_LABEL: Record<TriageSource, string> = {

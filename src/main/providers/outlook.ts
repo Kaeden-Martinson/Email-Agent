@@ -5,6 +5,8 @@ import { OAuthProvider, type MailProvider } from './base';
 import { cleanBody, htmlToText, isBulkMail, LABEL_NAMES, parseListUnsubscribe } from './mime';
 
 const GRAPH = 'https://graph.microsoft.com/v1.0/me';
+const SELECT =
+  'id,conversationId,subject,bodyPreview,body,receivedDateTime,webLink,from,replyTo,toRecipients,internetMessageId,internetMessageHeaders,isRead';
 
 interface GraphAddress {
   emailAddress?: { name?: string; address?: string };
@@ -66,10 +68,22 @@ export class OutlookProvider extends OAuthProvider implements MailProvider {
       $filter: `receivedDateTime ge ${new Date(sinceMs).toISOString()}`,
       $orderby: 'receivedDateTime desc',
       $top: String(max),
-      $select:
-        'id,conversationId,subject,bodyPreview,body,receivedDateTime,webLink,from,replyTo,toRecipients,internetMessageId,internetMessageHeaders,isRead',
+      $select: SELECT,
     });
     const res = await this.api<{ value: GraphMessage[] }>(`${GRAPH}/mailFolders/inbox/messages?${params}`, {
+      headers: { Prefer: 'outlook.body-content-type="text"' },
+    });
+    return res.value.map((m) => this.parse(m));
+  }
+
+  /** /me/messages spans every folder, so this includes your replies in Sent Items. */
+  async fetchThread(msg: EmailMessage): Promise<EmailMessage[]> {
+    const params = new URLSearchParams({
+      $filter: `conversationId eq '${msg.threadId.replace(/'/g, "''")}'`,
+      $top: '25',
+      $select: SELECT,
+    });
+    const res = await this.api<{ value: GraphMessage[] }>(`${GRAPH}/messages?${params}`, {
       headers: { Prefer: 'outlook.body-content-type="text"' },
     });
     return res.value.map((m) => this.parse(m));

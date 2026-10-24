@@ -29,6 +29,10 @@ Email content never leaves the PC. The AI runs in Ollama on this machine, and th
 
 Every email shows a **Why:** line with its reason, its stage and how long it took. **Settings → How your mail was read** shows counts, average time and how often you had to correct each stage. On the first real inbox (28 emails), stage 2 handled 18 instantly without burying any important mail.
 
+### Conversations
+
+Personal email is read together with its whole conversation, up to the last 8 messages, with quoted history stripped. Each email shows what's **still waiting on you** and what **you promised** earlier, and a **Conversation** panel shows the messages, highlighting the ones the summary is based on. If you've already replied after a message, Pilot checks that directly in your mailbox and won't draft another reply.
+
 ### Teaching Pilot
 
 Each email has **More important**, **Less important** and **Junk**. These change *only that email*. To change all future mail, use **Always from this sender…**, which creates a rule for that sender or their company domain. Domain rules for shared webmail such as gmail.com aren't allowed. After two corrections in the same direction for one sender, the **Rules** page suggests a rule; you can edit, switch off or delete any rule there.

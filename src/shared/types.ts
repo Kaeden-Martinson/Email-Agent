@@ -160,6 +160,23 @@ export interface Triage {
   ruleId?: string;
   /** The user changed the category or priority by hand. */
   corrected?: boolean;
+  /** Questions in the conversation still waiting on the user. */
+  openQuestions?: string[];
+  /** Things the user promised earlier in the conversation. */
+  userPromises?: string[];
+  /** 1-based positions in Update.thread the summary is based on. */
+  sources?: number[];
+  /** The user already replied after this message, so no reply is needed. */
+  repliedAlready?: boolean;
+}
+
+/** One message of a conversation, with quoted history stripped. */
+export interface ThreadMessage {
+  id: string;
+  from: Address;
+  at: number;
+  fromMe: boolean;
+  text: string;
 }
 
 /** A sorting rule. Rules always win over the AI. */
@@ -243,6 +260,8 @@ export interface Update {
   status: UpdateStatus;
   snoozeUntil?: number;
   reply?: ReplyRecord;
+  /** The conversation up to this message, oldest first (personal mail only). */
+  thread?: ThreadMessage[];
   /** What the autopilot did on its own. */
   auto?: { archived?: boolean; labeled?: boolean; error?: string };
 }

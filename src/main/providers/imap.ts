@@ -114,6 +114,37 @@ export class ImapProvider implements MailProvider {
     });
   }
 
+  /**
+   * IMAP has no conversations, so find messages sharing the thread's root Message-ID in the inbox and
+   * the Sent folder (References / In-Reply-To headers). Best effort: servers vary.
+   */
+  fetchThread(msg: EmailMessage): Promise<EmailMessage[]> {
+    const root = msg.references?.split(/\s+/).find(Boolean) ?? msg.messageIdHeader;
+    if (!root) return Promise.resolve([]);
+    return this.withClient(async (c) => {
+      const sent = await this.specialFolder(c, '\\Sent', ['sent', 'sent items', 'sent messages']);
+      const out: EmailMessage[] = [];
+      for (const folder of ['INBOX', sent].filter((f): f is string => !!f)) {
+        const lock = await c.getMailboxLock(folder);
+        try {
+          const validity = c.mailbox ? String(c.mailbox.uidValidity) : '0';
+          const uids =
+            (await c.search({ or: [{ header: { references: root } }, { header: { 'message-id': root } }] }, { uid: true })) || [];
+          const pick = uids.slice(-10);
+          if (!pick.length) continue;
+          for await (const m of c.fetch(pick, { uid: true, source: true, internalDate: true }, { uid: true })) {
+            if (!m.source) continue;
+            const at = m.internalDate ? new Date(m.internalDate).getTime() : Date.now();
+            out.push(await this.parse(folder === 'INBOX' ? `${validity}-${m.uid}` : `sent:${m.uid}`, m.source, at));
+          }
+        } finally {
+          lock.release();
+        }
+      }
+      return out;
+    });
+  }
+
   private async parse(id: string, source: Buffer, receivedAt: number): Promise<EmailMessage> {
     const p = await simpleParser(source);
     const refs = Array.isArray(p.references) ? p.references : p.references ? [p.references] : [];

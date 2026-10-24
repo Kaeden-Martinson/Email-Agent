@@ -94,3 +94,13 @@
 - **Verified in the running app (demo mode):** proposals → approve → done → undo; corrections; rule creation; stats. **Not yet verified against live Gmail:** label/archive undo on a real message, because no autopilot action has been enabled on your mailbox.
 
 **Next:** stage 4 (thread understanding), then 5 (follow-ups), 6 (deadlines and command center), 7 (ask my inbox).
+
+**2026-10-24: stage 4 delivered (thread understanding)**
+
+- `core/thread.ts`: quote stripping (Gmail "On … wrote:", including the two-line form; Outlook From/Sent blocks; "Original Message"; `>` lines; forwards kept), `buildThread` (oldest first, ends at the current message, last 8 messages, detects your later reply), and `formatThread` (numbered conversation for the model).
+- `fetchThread` for Gmail (threads API), Outlook (`conversationId` across all folders, so it includes Sent Items) and IMAP (best effort: References/Message-ID in the inbox and Sent).
+- Personal mail is triaged with its conversation. The model returns `openQuestions`, `userPromises` and `sources`. Whether you already replied is decided **in code from the mailbox**, which suppresses redundant drafts.
+- UI: "Still waiting on you", "You promised", and a Conversation panel with the source messages highlighted.
+- Verified: 73 tests pass. A real-model run on a 3-message thread flagged only the unanswered question, captured the earlier promise and ignored an injected instruction (about 22 s). Live Gmail `fetchThread` returns real threads (about 100 ms each).
+- Not yet verified: thread-aware triage on a real reply chain in your mailbox, because none exist yet.
+- Follow-up found: Electron 45 deprecates `safeStorage.decryptString`; move `secrets.ts` to the async API before upgrading Electron.

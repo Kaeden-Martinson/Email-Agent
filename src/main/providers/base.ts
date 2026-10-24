@@ -6,6 +6,8 @@ export interface MailProvider {
   readonly account: Account;
   /** Inbox messages received at or after `sinceMs`, newest first. */
   fetchSince(sinceMs: number, max: number): Promise<EmailMessage[]>;
+  /** Every message in this message's conversation the provider can find, including ones you sent. */
+  fetchThread(msg: EmailMessage): Promise<EmailMessage[]>;
   /** Replies in-thread; `send: false` saves a draft instead. */
   reply(msg: EmailMessage, text: string, send: boolean): Promise<void>;
   /** Moves out of the inbox. Resolves with the message's new id when the provider changes it (Outlook, IMAP). */
