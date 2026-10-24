@@ -1,11 +1,11 @@
 # Inbox Pilot privacy policy (draft)
 
 > **Draft for review.** Before publishing:
-> - Replace the bracketed placeholders and have it reviewed.
+> - Have it reviewed.
 > - Google requires the privacy policy to be hosted on the **same domain** as the app's public homepage.
 > - This draft reflects Inbox Pilot 0.10.0 as built. Update it whenever data handling changes.
 
-*Last updated: [DATE]*
+*Last updated: October 24, 2026*
 
 Inbox Pilot ("Pilot", "we") is a desktop email assistant that runs on your computer. This policy explains what Pilot does with your information. In short: **your email is processed on your computer and is not sent to us.** We do not operate servers that receive your email.
 
@@ -14,6 +14,7 @@ Inbox Pilot ("Pilot", "we") is a desktop email assistant that runs on your compu
 When you connect a Google, Microsoft or other email account, Pilot accesses:
 - **Email messages and their metadata** (sender, recipients, subject, date, labels or folders, message body, and the text of PDF attachments) in the mailboxes you choose to watch, and your sent messages (to track replies you're waiting on).
 - **Your email address,** to identify the mailbox.
+- **Your calendar's free/busy times,** only if you choose Connect calendar: when you are busy, never event titles, attendees or details. They are used only to suggest free times in reply drafts you review; Pilot never creates or changes calendar events.
 
 Depending on the access you grant and the permissions you enable for each mailbox, Pilot may also, **only when you allow it**:
 - archive messages
@@ -70,4 +71,4 @@ We will update this policy when Pilot's data handling changes and note the date 
 
 ## Contact
 
-[NAME / EMAIL / ADDRESS]
+Questions or requests: open an issue at https://github.com/__OWNER__/inbox-pilot/issues

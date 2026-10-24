@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Inbox Pilot privacy policy</title>
+    <style>
+      :root { --bg: #f6f7f9; --panel: #fff; --text: #1c2330; --muted: #5b6577; --accent: #2563eb; --line: #e4e7ec; }
+      @media (prefers-color-scheme: dark) { :root { --bg: #111418; --panel: #1a1f26; --text: #e6e9ee; --muted: #9aa4b2; --accent: #6b9bff; --line: #2a313b; } }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.6 "Segoe UI", system-ui, -apple-system, sans-serif; }
+      main { max-width: 760px; margin: 0 auto; padding: 56px 20px 80px; }
+      h1 { font-size: 38px; line-height: 1.15; margin: 0 0 12px; }
+      h2 { font-size: 22px; margin: 40px 0 8px; }
+      p.lede { font-size: 20px; color: var(--muted); margin: 0 0 28px; }
+      ul { padding-left: 20px; }
+      li { margin: 6px 0; }
+      .cta { display: inline-block; background: var(--accent); color: #fff; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 600; }
+      .box { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; }
+      footer { margin-top: 56px; font-size: 14px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+      a { color: var(--accent); }
+    </style>
+  </head>
+  <body>
+    <main>
+<h1>Inbox Pilot privacy policy</h1>
+<p><em>Last updated: October 24, 2026</em></p>
+<p>Inbox Pilot ("Pilot", "we") is a desktop email assistant that runs on your computer. This policy explains what Pilot does with your information. In short: <strong>your email is processed on your computer and is not sent to us.</strong> We do not operate servers that receive your email.</p>
+<h2>What Pilot accesses</h2>
+<p>When you connect a Google, Microsoft or other email account, Pilot accesses:</p>
+<ul>
+<li><strong>Email messages and their metadata</strong> (sender, recipients, subject, date, labels or folders, message body, and the text of PDF attachments) in the mailboxes you choose to watch, and your sent messages (to track replies you're waiting on).</li>
+<li><strong>Your email address,</strong> to identify the mailbox.</li>
+<li><strong>Your calendar's free/busy times,</strong> only if you choose Connect calendar: when you are busy, never event titles, attendees or details. They are used only to suggest free times in reply drafts you review; Pilot never creates or changes calendar events.</li>
+</ul>
+<p>Depending on the access you grant and the permissions you enable for each mailbox, Pilot may also, <strong>only when you allow it</strong>:</p>
+<ul>
+<li>archive messages</li>
+<li>apply labels or categories</li>
+<li>save reply drafts</li>
+<li>send replies you approve, or replies to senders you've marked as trusted</li>
+<li>send one-click unsubscribe requests</li>
+</ul>
+<p>If you connect a mailbox <strong>read-only</strong>, Pilot can only read it.</p>
+<h2>How Pilot uses this data</h2>
+<p>Pilot uses your email data only to provide its features to you:</p>
+<ul>
+<li>summaries</li>
+<li>priorities</li>
+<li>reply drafts</li>
+<li>deadline and bill tracking</li>
+<li>follow-up reminders</li>
+<li>search and answers about your mail</li>
+<li>the actions you authorize</li>
+</ul>
+<p>Email content is analyzed by an AI model that runs <strong>on your own computer</strong> (Ollama). Pilot does not use your data for advertising, does not sell it, and does not use it to train AI models.</p>
+<h2>Where your data is stored</h2>
+<p>Pilot stores summaries, settings, recent messages and its history in your Windows user profile (<code>%APPDATA%\inbox-pilot</code>), encrypted with Windows' built-in data protection by default. Sign-in tokens and passwords are always stored encrypted. You can delete all Pilot data at any time by removing a mailbox in the app (which deletes its sign-in and stored messages) or by deleting that folder.</p>
+<h2>When data leaves your computer</h2>
+<ul>
+<li><strong>Your email provider</strong> (Google, Microsoft or your mail server), to read and act on your mail as you direct.</li>
+<li><strong>Phone notifications,</strong> only if you turn them on:</li>
+</ul>
+<p>  - At the default "Minimal" level, no email content is included.</p>
+<p>  - At the "Sender" or "Full" level, email senders, subjects and summaries are sent through the notification service you chose (ntfy or Telegram) under that service's privacy policy.</p>
+<ul>
+<li><strong>Setup lookups:</strong> when you add a mailbox, only the address's <strong>domain</strong> (for example "example.com") is looked up to find server settings, using Mozilla's public autoconfig database and Cloudflare DNS.</li>
+<li><strong>One-click unsubscribe requests</strong> go to the sender's unsubscribe address when you, or automatic mode, unsubscribe.</li>
+</ul>
+<p>We do not receive any of this data.</p>
+<h2>Google user data</h2>
+<p>Inbox Pilot's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements. Specifically:</p>
+<ul>
+<li>Google user data is used only to provide or improve user-facing features that are prominent in Pilot's interface.</li>
+<li>It is not transferred to others except as needed to provide those features (for example, to a notification service you configure), to comply with law, or as part of a merger or acquisition with notice to you.</li>
+<li>It is not used for advertising.</li>
+<li>No human reads it, unless you give consent for specific messages, it's needed for security purposes, or the law requires it.</li>
+</ul>
+<h2>Children</h2>
+<p>Pilot is not directed to children under 13.</p>
+<h2>Changes</h2>
+<p>We will update this policy when Pilot's data handling changes and note the date above.</p>
+<h2>Contact</h2>
+<p>Questions or requests: open an issue at <a href="https://github.com/__OWNER__/inbox-pilot/issues">https://github.com/__OWNER__/inbox-pilot/issues</a></p>
+      <footer><a href="./">Inbox Pilot home</a></footer>
+    </main>
+  </body>
+</html>
