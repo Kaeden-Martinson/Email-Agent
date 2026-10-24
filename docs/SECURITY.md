@@ -1,12 +1,13 @@
 # Pilot: data flows and security
 
-This page says exactly what data Pilot touches, where it goes, and how it is protected. It describes the code in this repository as of version 0.9.0.
+This page says exactly what data Pilot touches, where it goes, and how it is protected. It describes the code in this repository as of version 0.10.0.
 
 ## Where data goes
 
 | Data | Goes to | When | Notes |
 |---|---|---|---|
 | Your mail (read, archive, label, drafts, send) | Google (Gmail API) or Microsoft (Graph), or your IMAP/SMTP server | Only for mailboxes you connect and watch | Over HTTPS/TLS with your OAuth token or app password. Read-only connections can never write or send. |
+| PDF attachments (up to two per email, 10 MB each) | Downloaded read-only from your mail provider, read **on your PC** with pdf.js | When the AI reads an email that has a PDF | Only the extracted text is kept (capped at 6,000 characters, inside the encrypted data file); the file itself is not saved. |
 | Email text for summaries, drafts, extraction and answers | **Your local Ollama** (`http://127.0.0.1:11434` by default) | Each new email; when you Ask | Stays on your PC. If you point the Ollama address at another machine, mail goes there instead, so keep it local. |
 | Embeddings (only if you turn on semantic search) | Local Ollama, stored in `embeddings.json` | In the background after syncs | Numeric vectors derived from your mail, stored on your PC. |
 | Phone notifications | ntfy (ntfy.sh or your own server) or Telegram | Only if you turn on a phone channel | At **Minimal** (the default), no email content is sent, only "you have an important email" or counts. At Sender or Full, senders, subjects and summaries go through that service. |
@@ -31,7 +32,7 @@ DPAPI ties encryption to your Windows account. Another Windows user on the same 
 
 ## Safety controls (enforced in code, not by the AI)
 
-- **Untrusted email content:** email text is passed to the model as data, inside delimiters, with instructions to ignore commands found in it. The model's output is constrained to a JSON schema and validated (`normalizeTriage`, `verifyItem`, `cleanAnswer`).
+- **Untrusted email content:** email text, including text from PDF attachments, is passed to the model as data, inside delimiters, with instructions to ignore commands found in it. The model's output is constrained to a JSON schema and validated (`normalizeTriage`, `verifyItem`, `cleanAnswer`).
 - **Automation is off by default** and set per mailbox. Preview mode (on by default) turns automatic actions into proposals you approve.
 - **Hard reply blockers** (`core/policy.ts`): never to bulk mail, no-reply senders, yourself, threads already answered, or junk categories.
   - Auto-send only goes to your trusted senders, under a daily cap.
@@ -40,6 +41,8 @@ DPAPI ties encryption to your Windows account. Another Windows user on the same 
 - **Read-only connections** are checked before every mailbox write (`core/access.ts`).
 - **Scopes:** full access never requests Gmail's `https://mail.google.com/` (permanent delete) scope.
 - **Every action is logged in Activity.** It's marked done only after the provider confirms, and archive and label can be undone.
+- **Rules only sort.** Rules written in plain English are parsed by the local model, then checked in code: every address, domain and subject phrase must appear in what you typed, and the only possible effects are important, low priority or hidden. You see a preview before anything is saved.
+- **Reply versions never commit you.** The three suggested replies are drafts for you to edit and send; the prompt forbids agreeing to meetings, payments or deadlines and inventing facts.
 - **Financial data:** Pilot extracts bill amounts but never initiates payments or opens payment links on its own.
 - **Header injection:** reply subjects from untrusted email are stripped of CR/LF before building messages.
 - **The renderer is sandboxed:** context isolation is on, Node integration off, sandbox on, a strict Content Security Policy is set, navigation and new windows are blocked, and only https links open externally.

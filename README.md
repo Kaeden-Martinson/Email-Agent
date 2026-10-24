@@ -89,7 +89,17 @@ It suggests a nudge after a stated deadline, or after 3 working days by default 
 
 ### Teaching Pilot
 
-Each email has **More important**, **Less important** and **Junk**. These change *only that email*. To change all future mail, use **Always from this sender…**, which creates a rule for that sender or their company domain. Domain rules for shared webmail such as gmail.com aren't allowed. After two corrections in the same direction for one sender, the **Rules** page suggests a rule; you can edit, switch off or delete any rule there.
+Each email has **More important**, **Less important** and **Junk**. These change *only that email*. To change all future mail, use **Always from this sender…**, which creates a rule for that sender or their company domain. Domain rules for shared webmail such as gmail.com aren't allowed. After two corrections in the same direction for one sender, or when you keep archiving or replying to a sender's mail (three times in 60 days), the **Rules** page suggests a rule; **Not now** hides a suggestion. You can edit, switch off or delete any rule there.
+
+**Describe a rule** on the Rules page takes plain English, such as `emails from billing@acme.com are important` or `hide anything with "webinar" in the subject`. Pilot shows what the rule means and which current emails it would change before you save it. Rules can match a sender, a domain, words in the subject, or a domain plus subject words. They only sort mail; they never send, delete or unsubscribe.
+
+### Working faster
+
+- **Keyboard:** `j`/`k` move between emails, `e` archive, `d` done, `s` snooze, `r` reply, `o` open in your mail, `g` then `u`/`t`/`d` to jump to Updates/Today/Deadlines, `Ctrl+K` to Ask, `?` for the list.
+- **Undo:** Done, Snooze and Archive show an **Undo** button in the message at the bottom for 8 seconds.
+- **Similar emails are grouped:** repeats of the same alert or notification within a week show as one card with "+N similar" and a **Mark all done** button.
+- **Three reply versions:** in the reply box, **Suggest 3 versions** writes brief, friendly and formal replies aware of the whole conversation. They say you'll check rather than invent an answer.
+- **PDF attachments:** bills, invoices and tickets attached as PDFs are read locally, so their due dates and amounts reach Deadlines and Ask my inbox. The card says which attachment was read.
 
 ### Activity, preview mode and undo
 
@@ -239,8 +249,7 @@ src/
 
 ## Ideas for next steps
 
-- Request read-only access when a mailbox's permissions don't need send or archive
 - Calendar awareness, so drafts can propose real free times
-- Per-sender rules ("always low priority", "always draft")
 - Learning your tone from your sent mail
-- An installer via electron-builder, plus launch at login
+- Reading other attachment types (Word documents, images with OCR)
+- Publishing the Google app (needs the homepage and privacy policy hosted, for example on GitHub Pages)

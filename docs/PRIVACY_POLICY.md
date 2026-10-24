@@ -3,7 +3,7 @@
 > **Draft for review.** Before publishing:
 > - Replace the bracketed placeholders and have it reviewed.
 > - Google requires the privacy policy to be hosted on the **same domain** as the app's public homepage.
-> - This draft reflects Inbox Pilot 0.9.0 as built. Update it whenever data handling changes.
+> - This draft reflects Inbox Pilot 0.10.0 as built. Update it whenever data handling changes.
 
 *Last updated: [DATE]*
 
@@ -12,7 +12,7 @@ Inbox Pilot ("Pilot", "we") is a desktop email assistant that runs on your compu
 ## What Pilot accesses
 
 When you connect a Google, Microsoft or other email account, Pilot accesses:
-- **Email messages and their metadata** (sender, recipients, subject, date, labels or folders, message body) in the mailboxes you choose to watch, and your sent messages (to track replies you're waiting on).
+- **Email messages and their metadata** (sender, recipients, subject, date, labels or folders, message body, and the text of PDF attachments) in the mailboxes you choose to watch, and your sent messages (to track replies you're waiting on).
 - **Your email address,** to identify the mailbox.
 
 Depending on the access you grant and the permissions you enable for each mailbox, Pilot may also, **only when you allow it**:

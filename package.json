@@ -1,6 +1,6 @@
 {
   "name": "inbox-pilot",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Desktop assistant that reads your Gmail and Outlook mail, triages it with a local AI model, and drafts or sends replies under rules you set.",
   "main": "dist/main/main.js",
   "private": true,

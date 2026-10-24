@@ -184,3 +184,14 @@
 - **Bug found by the new tests:** merged items could point back at an older email when the newer one wasn't in the store. The newest-mention time is now kept on the item.
 - **Final regression in the app (demo):** every page opens, Show email loads bodies on demand, and the new Settings sections render. The installer was rebuilt from the final code. The real app restarted on the final build: synced, 0 errors in the log, data encrypted.
 - Status report: `docs/STATUS.md`.
+
+**2026-10-24: improvements without spending money (version 0.10.0)**
+
+- **Model fallback:** Ollama 0.40.4 can't load `gemma4:e4b` ("error loading model"). Pilot now recognizes that error, switches to an installed chat model (qwen2.5 > llama3 > gemma3…, never embedding or coder models) and tells you. This covers triage, reply versions and rule parsing. The default for new installs is `qwen2.5:7b` (pulled on this PC).
+- **Reply versions:** brief, friendly and formal. Tested on the real model with a 3-message thread containing an injection: about 10 s, injection ignored, and after tightening the prompt no invented facts ("I'll check on the budget approval and get back to you"). The same rule was added to normal drafts.
+- **Learning from behavior:** archives, Done and sent replies are recorded (sender, priority, time only; 60 days). Three consistent actions suggest a rule; suggestions can be dismissed. "Mark all done" on a group counts once.
+- **Grouping:** similar emails (same sender domain, subject without numbers or codes, within 7 days) show as one card with "+N similar".
+- **Plain-English rules:** subject-word matching was added to rules. The model's reading is checked against your words in code (no invented addresses), with a preview of affected emails. Real-model test: 6 of 6 sentences parsed correctly; "delete everything from spam.io and reply" became a hide-only rule.
+- **PDF attachments:** Gmail, Outlook and IMAP download up to two PDFs read-only; pdf.js extracts capped text locally; it feeds triage, date and amount verification, and Ask. Verified inside the packaged app archive. **Not yet seen on a real email** (none with a PDF arrived during testing).
+- **Keyboard shortcuts and an Undo toast**, checked in the demo app (selection, Done → Undo, shortcuts overlay, rule preview).
+- **Verified:** 200 tests pass; the installer `release/Inbox Pilot Setup 0.10.0.exe` was built and silently installed over 0.9.0; the installed app started as 0.10.0 and synced Gmail with no errors. **Not yet seen live:** the automatic model switch on your installed copy (no new mail arrived during the check; it will switch on the next email that needs the AI).
