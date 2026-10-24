@@ -1,4 +1,5 @@
-import type { Category, EmailMessage, Settings } from '../../shared/types';
+import type { AttachmentInfo, Category, EmailMessage, PdfFile, Settings } from '../../shared/types';
+import { isPdf } from '../core/pdf';
 import { oauthClients } from '../clients';
 import { scopesFor, type Access } from '../core/access';
 import type { OAuthConfig } from '../oauth';
@@ -26,7 +27,7 @@ interface GmailPart {
   mimeType?: string;
   filename?: string;
   headers?: { name: string; value: string }[];
-  body?: { data?: string };
+  body?: { data?: string; attachmentId?: string; size?: number };
   parts?: GmailPart[];
 }
 
@@ -59,6 +60,17 @@ export async function gmailProfileEmail(accessToken: string): Promise<string> {
   const res = await fetch(`${BASE}/profile`, { headers: { Authorization: `Bearer ${accessToken}` } });
   if (!res.ok) throw new Error(`Gmail profile request failed (${res.status}). Is the Gmail API enabled?`);
   return ((await res.json()) as { emailAddress: string }).emailAddress;
+}
+
+/** Files attached to the message (parts with a filename and a downloadable body). */
+function attachmentsOf(root: GmailPart | undefined): { attachments?: AttachmentInfo[]; hasAttachments?: boolean } {
+  const out: AttachmentInfo[] = [];
+  const walk = (p: GmailPart) => {
+    if (p.filename && p.body?.attachmentId) out.push({ id: p.body.attachmentId, name: p.filename, mimeType: p.mimeType ?? '', size: p.body.size ?? 0 });
+    for (const c of p.parts ?? []) walk(c);
+  };
+  if (root) walk(root);
+  return out.length ? { attachments: out.slice(0, 20), hasAttachments: true } : {};
 }
 
 function findBody(part: GmailPart, mimeType: string): string | undefined {
@@ -133,7 +145,17 @@ export class GmailProvider extends OAuthProvider implements MailProvider {
       references: h('references'),
       isBulk: isBulkMail(h('list-unsubscribe'), h('precedence'), h('auto-submitted')),
       unsubscribe: parseListUnsubscribe(h('list-unsubscribe'), h('list-unsubscribe-post')),
+      ...attachmentsOf(m.payload),
     };
+  }
+
+  async fetchPdfs(msg: EmailMessage, max: number, maxBytes: number): Promise<PdfFile[]> {
+    const out: PdfFile[] = [];
+    for (const a of (msg.attachments ?? []).filter((x) => isPdf(x.name, x.mimeType) && x.size <= maxBytes).slice(0, max)) {
+      const r = await this.api<{ data?: string }>(`${BASE}/messages/${msg.id}/attachments/${a.id}`);
+      if (r.data) out.push({ name: a.name, data: Buffer.from(r.data, 'base64url') });
+    }
+    return out;
   }
 
   async reply(msg: EmailMessage, text: string, send: boolean): Promise<void> {

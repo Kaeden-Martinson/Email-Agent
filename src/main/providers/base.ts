@@ -1,4 +1,4 @@
-import type { Account, Category, EmailMessage } from '../../shared/types';
+import type { Account, Category, EmailMessage, PdfFile } from '../../shared/types';
 import { refresh, type OAuthConfig } from '../oauth';
 import { withRetry } from '../core/retry';
 import { tokens } from '../secrets';
@@ -21,6 +21,8 @@ export interface MailProvider {
   /** Tags the message in the mailbox (label, category or keyword). */
   label(msg: EmailMessage, category: Category): Promise<void>;
   unlabel(msg: EmailMessage, category: Category): Promise<void>;
+  /** Downloads up to `max` PDF attachments no larger than `maxBytes` each. Read-only. */
+  fetchPdfs(msg: EmailMessage, max: number, maxBytes: number): Promise<PdfFile[]>;
   /** Sends a new plain-text email (used for mailto: unsubscribes). */
   send(to: string, subject: string, text: string): Promise<void>;
 }

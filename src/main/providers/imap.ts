@@ -3,7 +3,8 @@ import { simpleParser, type AddressObject } from 'mailparser';
 import nodemailer from 'nodemailer';
 import MailComposer from 'nodemailer/lib/mail-composer';
 import type Mail from 'nodemailer/lib/mailer';
-import type { Account, Address, Category, EmailMessage, ServerConfig } from '../../shared/types';
+import type { Account, Address, Category, EmailMessage, PdfFile, ServerConfig } from '../../shared/types';
+import { isPdf } from '../core/pdf';
 import { passwords } from '../secrets';
 import type { MailProvider } from './base';
 import { cleanBody, formatAddress, htmlToText, isBulkMail, LABEL_NAMES, parseListUnsubscribe, reSubject } from './mime';
@@ -175,6 +176,7 @@ export class ImapProvider implements MailProvider {
       return line?.slice(line.indexOf(':') + 1).replace(/\r?\n\s+/g, ' ').trim();
     };
     const text = p.text ?? (typeof p.html === 'string' ? htmlToText(p.html) : '');
+    const files = p.attachments.filter((a) => a.contentDisposition === 'attachment' || (a.filename && !a.related));
     return {
       id,
       accountId: this.account.id,
@@ -191,7 +193,25 @@ export class ImapProvider implements MailProvider {
       references: refs.join(' ') || undefined,
       isBulk: isBulkMail(header('list-unsubscribe'), header('precedence'), header('auto-submitted')),
       unsubscribe: parseListUnsubscribe(header('list-unsubscribe'), header('list-unsubscribe-post')),
+      ...(files.length
+        ? { hasAttachments: true, attachments: files.slice(0, 20).map((a, i) => ({ id: String(i), name: a.filename ?? '', mimeType: a.contentType, size: a.size })) }
+        : {}),
     };
+  }
+
+  /** IMAP has no per-attachment download, so the message is fetched again and its PDFs taken from it. */
+  fetchPdfs(msg: EmailMessage, max: number, maxBytes: number): Promise<PdfFile[]> {
+    if (!/^\d+-\d+$/.test(msg.id)) return Promise.resolve([]); // only messages still in the inbox
+    return this.inInbox(async (c, uidValidity) => {
+      const m = await c.fetchOne(String(this.uidOf(msg, uidValidity)), { source: true }, { uid: true });
+      if (!m || !m.source) return [];
+      const p = await simpleParser(m.source);
+      return p.attachments
+        .filter((a) => a.contentDisposition !== 'inline' || a.filename)
+        .filter((a) => isPdf(a.filename ?? '', a.contentType) && a.size <= maxBytes)
+        .slice(0, max)
+        .map((a) => ({ name: a.filename ?? 'attachment.pdf', data: a.content }));
+    });
   }
 
   /** IMAP keywords: Thunderbird and Apple Mail show them; servers without keyword support refuse quietly. */

@@ -1,4 +1,5 @@
-import type { Address, Category, EmailMessage, Settings } from '../../shared/types';
+import type { Address, Category, EmailMessage, PdfFile, Settings } from '../../shared/types';
+import { isPdf } from '../core/pdf';
 import { oauthClients } from '../clients';
 import { scopesFor, type Access } from '../core/access';
 import type { OAuthConfig } from '../oauth';
@@ -7,7 +8,7 @@ import { cleanBody, htmlToText, isBulkMail, LABEL_NAMES, parseListUnsubscribe } 
 
 const GRAPH = 'https://graph.microsoft.com/v1.0/me';
 const SELECT =
-  'id,conversationId,subject,bodyPreview,body,receivedDateTime,webLink,from,replyTo,toRecipients,internetMessageId,internetMessageHeaders,isRead';
+  'id,conversationId,subject,bodyPreview,body,receivedDateTime,webLink,from,replyTo,toRecipients,internetMessageId,internetMessageHeaders,isRead,hasAttachments';
 
 interface GraphAddress {
   emailAddress?: { name?: string; address?: string };
@@ -16,6 +17,7 @@ interface GraphAddress {
 interface GraphMessage {
   id: string;
   conversationId: string;
+  hasAttachments?: boolean;
   subject?: string;
   bodyPreview?: string;
   body?: { contentType?: string; content?: string };
@@ -130,7 +132,23 @@ export class OutlookProvider extends OAuthProvider implements MailProvider {
       messageIdHeader: m.internetMessageId,
       isBulk: isBulkMail(h('list-unsubscribe'), h('precedence'), h('auto-submitted')),
       unsubscribe: parseListUnsubscribe(h('list-unsubscribe'), h('list-unsubscribe-post')),
+      hasAttachments: m.hasAttachments || undefined,
     };
+  }
+
+  async fetchPdfs(msg: EmailMessage, max: number, maxBytes: number): Promise<PdfFile[]> {
+    if (!msg.hasAttachments) return [];
+    const list = await this.api<{ value?: { id: string; name?: string; contentType?: string; size?: number; '@odata.type'?: string }[] }>(
+      `${GRAPH}/messages/${msg.id}/attachments?$select=id,name,contentType,size`,
+    );
+    const out: PdfFile[] = [];
+    for (const a of (list.value ?? [])
+      .filter((x) => x['@odata.type'] === '#microsoft.graph.fileAttachment' && isPdf(x.name ?? '', x.contentType ?? '') && (x.size ?? 0) <= maxBytes)
+      .slice(0, max)) {
+      const f = await this.api<{ contentBytes?: string }>(`${GRAPH}/messages/${msg.id}/attachments/${a.id}`);
+      if (f.contentBytes) out.push({ name: a.name ?? 'attachment.pdf', data: Buffer.from(f.contentBytes, 'base64') });
+    }
+    return out;
   }
 
   async reply(msg: EmailMessage, text: string, send: boolean, opts: { all?: boolean } = {}): Promise<void> {

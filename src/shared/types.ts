@@ -113,6 +113,12 @@ export interface ConnectRequest extends Discovery {
   access?: 'full' | 'readonly';
 }
 
+/** A downloaded PDF attachment. */
+export interface PdfFile {
+  name: string;
+  data: Uint8Array;
+}
+
 export interface Address {
   name: string;
   email: string;
@@ -136,6 +142,21 @@ export interface EmailMessage {
   isBulk: boolean;
   unsubscribe?: Unsubscribe;
   unread?: boolean;
+  /** Attached files, when the provider lists them up front (Gmail, IMAP). */
+  attachments?: AttachmentInfo[];
+  hasAttachments?: boolean;
+  /** Text read from PDF attachments (capped). Empty string = looked, nothing readable. */
+  attachmentText?: string;
+  /** Names of the PDFs that text came from. */
+  attachmentNames?: string[];
+}
+
+export interface AttachmentInfo {
+  /** Provider's id for downloading it. */
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
 }
 
 export type Category = 'action' | 'reply' | 'fyi' | 'newsletter' | 'promo' | 'notification' | 'spam';

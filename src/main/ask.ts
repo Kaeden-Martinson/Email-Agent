@@ -52,7 +52,7 @@ export class Asker {
   private docText(u: Update): string {
     const t = u.triage;
     const facts = this.store.data.items.filter((i) => i.sourceKeys.includes(u.key)).map((i) => i.title);
-    return [t?.summary, ...(t?.actionItems ?? []), ...facts, stripQuoted(u.message.body).slice(0, 3000)].filter(Boolean).join('\n');
+    return [t?.summary, ...(t?.actionItems ?? []), ...facts, stripQuoted(u.message.body).slice(0, 3000), u.message.attachmentText?.slice(0, 2000)].filter(Boolean).join('\n');
   }
 
   private docs(): SearchDoc[] {

@@ -17,6 +17,7 @@ import {
   type Reminder,
   type ReminderTarget,
   type PipelineStats,
+  type EmailMessage,
   type Rule,
   type RulePreview,
   type SuggestedRule,
@@ -35,7 +36,7 @@ import { triage } from './ai/triage';
 import { oauthClients } from './clients';
 import { accessBlocker } from './core/access';
 import { autoUnsubscribeEligible, composeReply, decideAutoReply, shouldAutoArchive } from './core/policy';
-import { mentionsDatesOrMoney } from './core/extract';
+import { mentionsDatesOrMoney, messageText } from './core/extract';
 import { prefilter, processingRank } from './core/prefilter';
 import {
   applyRule,
@@ -57,6 +58,7 @@ import { channelSecrets, passwords, tokens } from './secrets';
 import { mergeSettings, type Store } from './store';
 import { compareVersions, parseFeed } from './core/version';
 import { log } from './logger';
+import { extractPdfText, isPdf, PDF_LIMITS } from './core/pdf';
 import { Notifier } from './notifier';
 import { Tracker } from './tracker';
 import type { Formatted } from './core/notify';
@@ -421,7 +423,7 @@ export class Engine extends EventEmitter {
         t.source === 'fast' ||
         t.source === 'rule' ||
         prefilter(u.message).route === 'fast' ||
-        !mentionsDatesOrMoney(`${u.message.subject}\n${u.message.body}`, new Date(u.message.receivedAt));
+        (!this.mayHavePdf(u.message) && !mentionsDatesOrMoney(messageText(u.message), new Date(u.message.receivedAt)));
       if (skip) {
         t.keyItems = []; // nothing to extract; don't look again
         continue;
@@ -430,6 +432,12 @@ export class Engine extends EventEmitter {
       this.status.message = 'Finding dates and bills in earlier mail…';
       this.emit('changed');
       try {
+        await this.readPdfs(u, account);
+        if (!mentionsDatesOrMoney(messageText(u.message), new Date(u.message.receivedAt))) {
+          t.keyItems = [];
+          this.changed();
+          continue;
+        }
         // Only the dates and amounts are taken; the existing summary, category and priority stay as they are.
         const fresh = await triage(u.message, account, this.s, 'light');
         t.keyItems = fresh.keyItems ?? [];
@@ -469,6 +477,7 @@ export class Engine extends EventEmitter {
       // An "important" rule on obvious bulk mail still deserves a real (light) read.
       const mode = forceFull ? 'full' : route.route === 'fast' ? 'light' : route.route;
       const view = mode === 'full' ? await this.loadThread(u, account) : undefined;
+      await this.readPdfs(u, account);
       const t = await triage(u.message, account, this.s, mode, view?.thread);
       if (view?.repliedAfter) {
         // Checked in code from the mailbox, not left to the model: nothing is waiting on you.
@@ -493,6 +502,40 @@ export class Engine extends EventEmitter {
       if (rule.effect.hide && u.status === 'new') u.status = 'done';
     }
     u.triage.ms = Date.now() - started;
+  }
+
+  private mayHavePdf(m: EmailMessage): boolean {
+    if (m.attachmentText !== undefined) return false; // already read
+    return m.attachments ? m.attachments.some((a) => isPdf(a.name, a.mimeType) && a.size <= PDF_LIMITS.maxBytes) : !!m.hasAttachments;
+  }
+
+  /**
+   * Reads up to two PDF attachments (bills, invoices, tickets) locally, once per email. Download is read-only;
+   * nothing is saved but the capped text. A failure never blocks triage.
+   */
+  private async readPdfs(u: Update, account: Account): Promise<void> {
+    const m = u.message;
+    if (this.demo || !this.mayHavePdf(m)) return;
+    const texts: string[] = [];
+    const names: string[] = [];
+    try {
+      for (const f of await createProvider(account, this.s).fetchPdfs(m, 2, PDF_LIMITS.maxBytes)) {
+        try {
+          const text = await extractPdfText(f.data);
+          if (text) {
+            texts.push(text);
+            names.push(f.name);
+          }
+        } catch (e) {
+          log.warn('pdf.unreadable', { error: e });
+        }
+      }
+    } catch (e) {
+      log.warn('pdf.download_failed', { error: e });
+    }
+    if (names.length) log.info('pdf.read', { files: names.length, chars: texts.join('').length });
+    m.attachmentText = texts.join('\n\n').slice(0, PDF_LIMITS.maxChars);
+    m.attachmentNames = names.length ? names : undefined;
   }
 
   /** The conversation for personal mail. A failure here never blocks triage; it falls back to one message. */

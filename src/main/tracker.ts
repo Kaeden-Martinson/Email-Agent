@@ -11,7 +11,7 @@ import type {
   Settings,
   Update,
 } from '../shared/types';
-import { verifyItem, worthTracking } from './core/extract';
+import { messageText, verifyItem, worthTracking } from './core/extract';
 import { expectsReply, extractCommitments, followUpDue, isPersonalRecipient, replyArrived } from './core/followups';
 import { domainOf } from './core/rules';
 import { deadlineIn, describeWhen, parseWhen } from './core/when';
@@ -122,7 +122,7 @@ export class Tracker {
    * about the same bill or event (same kind, day, amount and sender domain) become one item.
    */
   ingestItems(u: Update): void {
-    const text = `${u.message.subject}\n${u.message.body}`;
+    const text = messageText(u.message);
     const base = new Date(u.message.receivedAt);
     const sender = u.message.from.email.toLowerCase();
     const day = (at?: number) => (at === undefined ? '' : new Date(at).toDateString());

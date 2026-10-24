@@ -1,4 +1,4 @@
-import type { Account, EmailMessage, Settings } from '../../shared/types';
+import type { Account, EmailMessage, Settings, PdfFile } from '../../shared/types';
 import { authorize } from '../oauth';
 import type { TokenSet } from '../secrets';
 import type { MailProvider } from './base';
@@ -56,4 +56,7 @@ class DemoProvider implements MailProvider {
   async markRead(): Promise<void> {}
   async label(): Promise<void> {}
   async send(): Promise<void> {}
+  async fetchPdfs(): Promise<PdfFile[]> {
+    return [];
+  }
 }

@@ -231,3 +231,12 @@ export function verifyItem(raw: KeyItemDraft, emailText: string, base: Date): Ve
     notes,
   };
 }
+
+/** Subject, body and any text read from PDF attachments: what dates and amounts are checked against. */
+export function messageText(m: { subject: string; body: string; attachmentText?: string }): string {
+  return m.attachmentText ? `${m.subject}
+${m.body}
+
+${m.attachmentText}` : `${m.subject}
+${m.body}`;
+}

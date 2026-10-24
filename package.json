@@ -25,7 +25,8 @@
   "dependencies": {
     "imapflow": "^2.9.1",
     "mailparser": "^3.12.4",
-    "nodemailer": "^10.2.1"
+    "nodemailer": "^10.2.1",
+    "pdfjs-dist": "^6.4.299"
   },
   "productName": "Inbox Pilot",
   "author": "Inbox Pilot",
@@ -40,7 +41,12 @@
       "dist/**/*",
       "package.json",
       "oauth-clients.json",
-      "!dist-test/**"
+      "!dist-test/**",
+      "!node_modules/pdfjs-dist/{build,web,image_decoders,types,wasm,iccs}/**",
+      "!node_modules/pdfjs-dist/legacy/{web,image_decoders}/**",
+      "!node_modules/pdfjs-dist/legacy/build/*.{min.mjs,map}",
+      "!node_modules/pdfjs-dist/legacy/build/pdf.sandbox*",
+      "!**/*.map"
     ],
     "asar": true,
     "win": {

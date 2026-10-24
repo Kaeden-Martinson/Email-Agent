@@ -774,6 +774,7 @@ function card(u: Update): HTMLElement {
       h('span', { class: 'meta' }, `${relTime(m.receivedAt)}${state.accounts.length > 1 && account ? ` · ${account.email}` : ''}`)),
     h('div', { class: 'subject' }, m.subject || '(no subject)'),
     h('p', { class: 'summary' }, t ? t.summary : u.triageError ? `Couldn't summarize this one: ${u.triageError}` : m.snippet),
+    m.attachmentNames?.length ? h('div', { class: 'hint' }, `Read the attached ${m.attachmentNames.join(', ')}`) : null,
     t?.actionItems.length ? h('ul', { class: 'todos' }, t.actionItems.map((a) => h('li', {}, a))) : null,
     t?.openQuestions?.length && !t.repliedAlready
       ? h('div', { class: 'thread-facts' }, h('strong', {}, 'Still waiting on you: '), t.openQuestions.join(' · '))
