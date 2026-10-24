@@ -4,16 +4,24 @@ import type { Account, ActivityAction, ProviderKind } from '../../shared/types';
 
 export type Access = 'full' | 'readonly';
 
-export function scopesFor(kind: Exclude<ProviderKind, 'imap'>, access: Access): string[] {
+/**
+ * `calendar` adds free/busy access only: when you're busy, never event titles, people or details
+ * (Microsoft's narrowest equivalent, Calendars.ReadBasic, excludes bodies and attendees).
+ */
+export function scopesFor(kind: Exclude<ProviderKind, 'imap'>, access: Access, calendar = false): string[] {
   if (kind === 'gmail') {
-    return access === 'readonly'
-      ? ['https://www.googleapis.com/auth/gmail.readonly']
-      : // gmail.modify covers read, labels/archive, drafts and send; nothing broader (no delete-forever).
-        ['https://www.googleapis.com/auth/gmail.modify'];
+    return [
+      access === 'readonly'
+        ? 'https://www.googleapis.com/auth/gmail.readonly'
+        : // gmail.modify covers read, labels/archive, drafts and send; nothing broader (no delete-forever).
+          'https://www.googleapis.com/auth/gmail.modify',
+      ...(calendar ? ['https://www.googleapis.com/auth/calendar.freebusy'] : []),
+    ];
   }
-  return access === 'readonly'
-    ? ['offline_access', 'User.Read', 'Mail.Read']
-    : ['offline_access', 'User.Read', 'Mail.ReadWrite', 'Mail.Send'];
+  return [
+    ...(access === 'readonly' ? ['offline_access', 'User.Read', 'Mail.Read'] : ['offline_access', 'User.Read', 'Mail.ReadWrite', 'Mail.Send']),
+    ...(calendar ? ['Calendars.ReadBasic'] : []),
+  ];
 }
 
 /** Actions that change the mailbox (or send mail from it). */

@@ -52,13 +52,14 @@ import {
   suggestRules,
   type Signal,
 } from './core/rules';
-import { buildThread, type ThreadView } from './core/thread';
+import { buildThread, stripQuoted, type ThreadView } from './core/thread';
 import { createProvider, discover, signIn, verifyImap } from './providers';
 import { channelSecrets, passwords, tokens } from './secrets';
 import { mergeSettings, type Store } from './store';
 import { compareVersions, parseFeed } from './core/version';
 import { log } from './logger';
 import { extractPdfText, isPdf, PDF_LIMITS } from './core/pdf';
+import { asksForTime, formatSlot, freeSlots, type Interval } from './core/slots';
 import { Notifier } from './notifier';
 import { Tracker } from './tracker';
 import type { Formatted } from './core/notify';
@@ -202,7 +203,7 @@ export class Engine extends EventEmitter {
       const password = req.password;
       saveSecret = (id) => passwords.set(id, password);
     } else {
-      const result = await signIn(req.kind, this.s, email, req.access ?? 'full');
+      const result = await signIn(req.kind, this.s, email, req.access ?? 'full', !!req.calendar);
       email = result.email.toLowerCase();
       saveSecret = (id) => tokens.set(id, result.tokenSet);
     }
@@ -228,6 +229,7 @@ export class Engine extends EventEmitter {
     Object.assign(account, {
       needsReconnect: undefined,
       access,
+      calendar: req.kind !== 'imap' && !!req.calendar,
       imap: req.imap,
       smtp: req.smtp,
       saveSentCopy: req.saveSentCopy,
@@ -1266,10 +1268,35 @@ export class Engine extends EventEmitter {
   }
 
   /** Alternatives for the user to pick and edit; uses the stored conversation, or loads it. */
+  private busyCache = new Map<string, { at: number; busy: Interval[] }>();
+
+  /** Your free times over the next working days, from free/busy only. Cached for 10 minutes. */
+  async freeTimes(key: string): Promise<string[]> {
+    const { account } = this.get(key);
+    if (!account.calendar) throw new Error(`Calendar isn't connected for ${account.email}. Use Connect calendar on the Mailboxes page.`);
+    const provider = createProvider(account, this.s);
+    if (!provider.fetchBusy) throw new Error('This kind of mailbox has no calendar Pilot can read.');
+    let cached = this.busyCache.get(account.id);
+    if (!cached || Date.now() - cached.at > 10 * 60_000) {
+      cached = { at: Date.now(), busy: await provider.fetchBusy(Date.now(), Date.now() + 21 * DAY) };
+      this.busyCache.set(account.id, cached);
+    }
+    const slots = freeSlots(cached.busy, new Date());
+    if (!slots.length) throw new Error('No free hour found in working hours over the next week.');
+    return slots.map((s) => formatSlot(s));
+  }
+
   async replyOptions(key: string): Promise<{ tone: string; text: string }[]> {
     const { u, account } = this.get(key);
     const thread = u.thread ?? (await this.loadThread(u, account))?.thread;
-    const options = await this.withModelFallback(() => suggestReplies(u.message, account, this.s, thread));
+    let times: string[] | undefined;
+    if (account.calendar && asksForTime(`${u.message.subject}\n${stripQuoted(u.message.body)}`)) {
+      times = await this.freeTimes(key).catch((e) => {
+        log.warn('calendar.failed', { error: e });
+        return undefined;
+      });
+    }
+    const options = await this.withModelFallback(() => suggestReplies(u.message, account, this.s, thread, times));
     if (!options.length) throw new Error("The AI didn't produce usable replies. Try again.");
     return options;
   }

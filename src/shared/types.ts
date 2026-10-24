@@ -90,6 +90,8 @@ export interface Account {
   lastError?: string;
   /** The sign-in expired or was revoked; the mailbox needs Reconnect (data is kept). */
   needsReconnect?: boolean;
+  /** Free/busy calendar access was granted, so reply drafts can offer your free times. */
+  calendar?: boolean;
 }
 
 /** What the Pilot worked out from an email address. */
@@ -111,6 +113,8 @@ export interface ConnectRequest extends Discovery {
   password?: string;
   /** Google/Microsoft: ask for read-only permission instead of full access. */
   access?: 'full' | 'readonly';
+  /** Also ask for free/busy calendar access (Gmail, Outlook). */
+  calendar?: boolean;
 }
 
 /** A downloaded PDF attachment. */
@@ -657,6 +661,8 @@ export interface Api {
   /** The full text of one email (state only carries a short preview, to stay fast). */
   getBody(key: string): Promise<string>;
   /** Three alternative replies (Brief, Friendly, Formal), conversation-aware. Nothing is sent. */
+  /** Free times from the mailbox's calendar (free/busy only). */
+  freeTimes(key: string): Promise<string[]>;
   replyOptions(key: string): Promise<{ tone: string; text: string }[]>;
   checkForUpdates(): Promise<void>;
   openFolder(which: 'logs' | 'data'): Promise<void>;

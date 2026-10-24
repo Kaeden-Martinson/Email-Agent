@@ -184,6 +184,7 @@ function registerIpc(engine: Engine): void {
     applyLoginItem(engine.state().settings);
   });
   ipcMain.handle('getBody', (_e, key: string) => engine.getBody(String(key)));
+  ipcMain.handle('freeTimes', (_e, key: string) => engine.freeTimes(String(key)));
   ipcMain.handle('replyOptions', (_e, key: string) => engine.replyOptions(String(key)));
   ipcMain.handle('checkForUpdates', () => engine.checkForUpdates());
   ipcMain.handle('openFolder', (_e, which: string) => shell.openPath(which === 'logs' ? logsDir() : app.getPath('userData')).then(() => undefined));

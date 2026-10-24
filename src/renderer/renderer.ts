@@ -471,7 +471,7 @@ function mailboxCard(a: Account): HTMLElement {
         status),
       a.needsReconnect && a.kind !== 'imap'
         ? btn('Reconnect', () =>
-            void run(() => api.connect({ email: a.email, kind: a.kind, providerName: a.providerName, access: a.access ?? 'full' }), 'Reconnected. Checking mail…'), 'primary')
+            void run(() => api.connect({ email: a.email, kind: a.kind, providerName: a.providerName, access: a.access ?? 'full', calendar: a.calendar }), 'Reconnected. Checking mail…'), 'primary')
         : null,
       a.watching
         ? btn('Pause', () => update({ watching: false }, `Paused ${a.email}`))
@@ -510,8 +510,18 @@ function permissionsPanel(a: Account): HTMLElement {
           "Pilot can read and summarize this mailbox but can't change it or send from it, so archiving, labels, drafts and replies are off.",
           a.kind !== 'imap'
             ? h('div', { class: 'actions' }, btn('Reconnect with full access', () =>
-                void run(() => api.connect({ email: a.email, kind: a.kind, providerName: a.providerName, access: 'full' }), 'Reconnected with full access')))
+                void run(() => api.connect({ email: a.email, kind: a.kind, providerName: a.providerName, access: 'full', calendar: a.calendar }), 'Reconnected with full access')))
             : null)
+      : null,
+    a.kind !== 'imap'
+      ? h('div', { class: 'banner' },
+          h('strong', {}, a.calendar ? 'Calendar connected. ' : 'Calendar: not connected. '),
+          a.calendar
+            ? 'When an email asks to find a time, reply suggestions offer your free times. Pilot sees only when you are busy, never event details, and never books anything.'
+            : 'Let reply suggestions offer your free times. Pilot asks only for free/busy access: when you are busy, never event titles or details.',
+          h('div', { class: 'actions' }, a.calendar
+            ? btn('Disconnect calendar', () => void run(() => api.connect({ email: a.email, kind: a.kind, providerName: a.providerName, access: a.access ?? 'full', calendar: false }), 'Calendar disconnected'), 'ghost')
+            : btn('Connect calendar', () => void run(() => api.connect({ email: a.email, kind: a.kind, providerName: a.providerName, access: a.access ?? 'full', calendar: true }), 'Calendar connected'))))
       : null,
     h('h4', {}, 'What Pilot may do here'),
     toggle('Read new mail and add it to my updates', 'This is the Start watching / Pause switch.', a.watching,
@@ -1458,7 +1468,7 @@ function renderToday(): HTMLElement {
     wrap.append(h('div', { class: 'banner approve-banner' },
       h('strong', {}, `${a.email} needs to be reconnected. `), 'The sign-in expired (Google does this weekly while the app is in Testing). Your data is kept.',
       h('div', { class: 'actions' }, btn('Reconnect', () =>
-        void run(() => api.connect({ email: a.email, kind: a.kind, providerName: a.providerName, access: a.access ?? 'full' }), 'Reconnected. Checking mail…'), 'primary'))));
+        void run(() => api.connect({ email: a.email, kind: a.kind, providerName: a.providerName, access: a.access ?? 'full', calendar: a.calendar }), 'Reconnected. Checking mail…'), 'primary'))));
   }
   const up = state.app.update;
   if (up?.available && up.url) {
@@ -1908,9 +1918,20 @@ function replyEditor(u: Update): HTMLElement {
       editors.delete(u.key);
       render();
     }, send ? 'Reply sent' : 'Draft saved to your mailbox');
+  const insertTimes = () =>
+    void run(async () => {
+      const times = await api.freeTimes(u.key);
+      const current = editors.get(u.key) ?? '';
+      const block = `I'm free at any of these times:\n${times.map((t) => `- ${t}`).join('\n')}`;
+      // Above the signature, if there is one.
+      const at = sig && current.endsWith(sig) ? current.length - sig.length : current.length;
+      editors.set(u.key, `${current.slice(0, at).trimEnd()}\n\n${block}\n\n${current.slice(at)}`.trim());
+      render();
+    });
   return h('div', { class: 'editor' },
     h('div', { class: 'hint' }, `Reply to ${to.name ? `${to.name} <${to.email}>` : to.email}`),
     altRow,
+    accountOf(u)?.calendar ? h('div', { class: 'alts' }, h('span', { class: 'hint' }, 'Calendar:'), btn('Insert my free times', insertTimes, 'tiny')) : null,
     ta,
     h('div', { class: 'actions' },
       btn('Send', () => finish(true), 'primary'),

@@ -1,5 +1,6 @@
 import type { Address, Category, EmailMessage, PdfFile, Settings } from '../../shared/types';
 import { isPdf } from '../core/pdf';
+import type { Interval } from '../core/slots';
 import { oauthClients } from '../clients';
 import { scopesFor, type Access } from '../core/access';
 import type { OAuthConfig } from '../oauth';
@@ -31,7 +32,7 @@ interface GraphMessage {
   internetMessageHeaders?: { name: string; value: string }[];
 }
 
-export function microsoftOAuth(s: Settings, loginHint?: string, access: Access = 'full'): OAuthConfig {
+export function microsoftOAuth(s: Settings, loginHint?: string, access: Access = 'full', calendar = false): OAuthConfig {
   const { microsoft } = oauthClients(s);
   if (!microsoft.clientId) {
     throw new Error('Microsoft sign-in is not set up in this copy of Inbox Pilot yet (oauth-clients.json is missing a Microsoft client).');
@@ -40,7 +41,7 @@ export function microsoftOAuth(s: Settings, loginHint?: string, access: Access =
     authUrl: `https://login.microsoftonline.com/${microsoft.tenant}/oauth2/v2.0/authorize`,
     tokenUrl: `https://login.microsoftonline.com/${microsoft.tenant}/oauth2/v2.0/token`,
     clientId: microsoft.clientId,
-    scopes: scopesFor('outlook', access),
+    scopes: scopesFor('outlook', access, calendar),
     redirectHost: 'localhost',
     extraAuthParams: loginHint ? { login_hint: loginHint } : { prompt: 'select_account' },
   };
@@ -134,6 +135,17 @@ export class OutlookProvider extends OAuthProvider implements MailProvider {
       unsubscribe: parseListUnsubscribe(h('list-unsubscribe'), h('list-unsubscribe-post')),
       hasAttachments: m.hasAttachments || undefined,
     };
+  }
+
+  async fetchBusy(from: number, to: number): Promise<Interval[]> {
+    const utc = (ms: number) => ({ dateTime: new Date(ms).toISOString().slice(0, 19), timeZone: 'UTC' });
+    const r = await this.api<{ value?: { scheduleItems?: { status?: string; start: { dateTime: string }; end: { dateTime: string } }[] }[] }>(
+      `${GRAPH}/calendar/getSchedule`,
+      { method: 'POST', body: JSON.stringify({ schedules: [this.account.email], startTime: utc(from), endTime: utc(to), availabilityViewInterval: 30 }) },
+    );
+    return (r.value?.[0]?.scheduleItems ?? [])
+      .filter((i) => i.status !== 'free')
+      .map((i) => ({ start: Date.parse(`${i.start.dateTime}Z`), end: Date.parse(`${i.end.dateTime}Z`) }));
   }
 
   async fetchPdfs(msg: EmailMessage, max: number, maxBytes: number): Promise<PdfFile[]> {

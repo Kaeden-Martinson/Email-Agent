@@ -11,6 +11,12 @@ describe('scopesFor', () => {
     assert.ok(!scopesFor('gmail', 'full').includes('https://mail.google.com/'));
     assert.deepEqual(scopesFor('outlook', 'full'), ['offline_access', 'User.Read', 'Mail.ReadWrite', 'Mail.Send']);
   });
+  it('calendar adds free/busy only, never full calendar access', () => {
+    assert.deepEqual(scopesFor('gmail', 'readonly', true), ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/calendar.freebusy']);
+    assert.ok(!scopesFor('gmail', 'full', true).some((s) => /calendar(\.readonly|\.events)?$/.test(s)));
+    assert.ok(scopesFor('outlook', 'full', true).includes('Calendars.ReadBasic'));
+    assert.ok(!scopesFor('outlook', 'full', true).some((s) => /Calendars\.(Read|ReadWrite)$/.test(s)));
+  });
 });
 
 describe('accessBlocker', () => {

@@ -1,5 +1,6 @@
 import type { AttachmentInfo, Category, EmailMessage, PdfFile, Settings } from '../../shared/types';
 import { isPdf } from '../core/pdf';
+import type { Interval } from '../core/slots';
 import { oauthClients } from '../clients';
 import { scopesFor, type Access } from '../core/access';
 import type { OAuthConfig } from '../oauth';
@@ -40,7 +41,7 @@ interface GmailMessage {
   payload?: GmailPart;
 }
 
-export function googleOAuth(s: Settings, loginHint?: string, access: Access = 'full'): OAuthConfig {
+export function googleOAuth(s: Settings, loginHint?: string, access: Access = 'full', calendar = false): OAuthConfig {
   const { google } = oauthClients(s);
   if (!google.clientId) {
     throw new Error('Google sign-in is not set up in this copy of Inbox Pilot yet (oauth-clients.json is missing a Google client).');
@@ -50,7 +51,7 @@ export function googleOAuth(s: Settings, loginHint?: string, access: Access = 'f
     tokenUrl: 'https://oauth2.googleapis.com/token',
     clientId: google.clientId,
     clientSecret: google.clientSecret || undefined,
-    scopes: scopesFor('gmail', access),
+    scopes: scopesFor('gmail', access, calendar),
     redirectHost: '127.0.0.1',
     extraAuthParams: { access_type: 'offline', prompt: 'consent', ...(loginHint ? { login_hint: loginHint } : {}) },
   };
@@ -147,6 +148,23 @@ export class GmailProvider extends OAuthProvider implements MailProvider {
       unsubscribe: parseListUnsubscribe(h('list-unsubscribe'), h('list-unsubscribe-post')),
       ...attachmentsOf(m.payload),
     };
+  }
+
+  async fetchBusy(from: number, to: number): Promise<Interval[]> {
+    try {
+      const r = await this.api<{ calendars?: Record<string, { busy?: { start: string; end: string }[]; errors?: unknown[] }> }>(
+        'https://www.googleapis.com/calendar/v3/freeBusy',
+        { method: 'POST', body: JSON.stringify({ timeMin: new Date(from).toISOString(), timeMax: new Date(to).toISOString(), items: [{ id: 'primary' }] }) },
+      );
+      return (r.calendars?.primary?.busy ?? []).map((b) => ({ start: Date.parse(b.start), end: Date.parse(b.end) }));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (/has not been used|is disabled|accessNotConfigured|SERVICE_DISABLED/i.test(msg)) {
+        throw new Error('The Google Calendar API is turned off in your Google Cloud project. Enable it at console.cloud.google.com → APIs & Services → Library → Google Calendar API.');
+      }
+      if (/insufficient|scope|403/i.test(msg)) throw new Error('Pilot has no calendar access for this mailbox. Use Connect calendar on the Mailboxes page.');
+      throw e;
+    }
   }
 
   async fetchPdfs(msg: EmailMessage, max: number, maxBytes: number): Promise<PdfFile[]> {

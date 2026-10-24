@@ -39,6 +39,7 @@ const api: Api = {
   setChannelSecret: (channel, secret) => ipcRenderer.invoke('setChannelSecret', channel, secret),
   detectTelegramChat: () => ipcRenderer.invoke('detectTelegramChat'),
   getBody: (key) => ipcRenderer.invoke('getBody', key),
+  freeTimes: (key) => ipcRenderer.invoke('freeTimes', key),
   replyOptions: (key) => ipcRenderer.invoke('replyOptions', key),
   checkForUpdates: () => ipcRenderer.invoke('checkForUpdates'),
   openFolder: (which) => ipcRenderer.invoke('openFolder', which),
