@@ -2,16 +2,13 @@ import { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, shell, Tr
 import * as path from 'node:path';
 import type {
   AccountPatch,
-  Briefing,
   Commitment,
   ConnectRequest,
   CorrectionKind,
   FollowUp,
   KeyItem,
-  Reminder,
   ReminderTarget,
   Settings,
-  Update,
   UpdateAction,
 } from '../shared/types';
 import { seedDemo } from './demo';
@@ -145,6 +142,15 @@ function registerIpc(engine: Engine): void {
   ipcMain.handle('search', (_e, q: string) => engine.search(String(q)));
   ipcMain.handle('ask', (_e, q: string) => engine.ask(String(q)));
   ipcMain.handle('enableSemantic', (_e, model: string) => engine.enableSemantic(String(model)));
+  ipcMain.handle('testNotification', (_e, channel: string) => {
+    if (!['desktop', 'ntfy', 'telegram'].includes(channel)) throw new Error('Unknown channel');
+    return engine.testNotification(channel as 'desktop' | 'ntfy' | 'telegram');
+  });
+  ipcMain.handle('setChannelSecret', (_e, channel: string, secret: string) => {
+    if (channel !== 'ntfy' && channel !== 'telegram') throw new Error('Unknown channel');
+    return engine.setChannelSecret(channel, String(secret));
+  });
+  ipcMain.handle('detectTelegramChat', () => engine.detectTelegramChat());
   ipcMain.handle('setItem', (_e, id: string, status: KeyItem['status']) => {
     if (!['open', 'done', 'dismissed'].includes(status)) throw new Error('Invalid status');
     return engine.setItem(String(id), status);
@@ -161,7 +167,12 @@ if (!app.requestSingleInstanceLock()) {
     app.setAppUserModelId('com.inboxpilot.app');
     const store = new Store();
     if (DEMO) seedDemo(store);
-    const engine = new Engine(store, DEMO);
+    const engine = new Engine(store, DEMO, (f) => {
+      if (!Notification.isSupported()) return;
+      const n = new Notification({ title: f.title, body: f.body });
+      n.on('click', showWindow);
+      n.show();
+    });
     const icon = makeIcon();
 
     registerIpc(engine);
@@ -174,26 +185,7 @@ if (!app.requestSingleInstanceLock()) {
       clearTimeout(pending);
       pending = setTimeout(() => win?.webContents.send('state', engine.state()), 100);
     });
-    engine.on('notify', (u: Update) => {
-      if (!Notification.isSupported()) return;
-      const n = new Notification({ title: u.message.subject || 'Important email', body: u.triage?.summary ?? '' });
-      n.on('click', showWindow);
-      n.show();
-    });
-
-    engine.on('reminder', (r: Reminder) => {
-      if (!Notification.isSupported()) return;
-      const n = new Notification({ title: 'Reminder', body: r.title });
-      n.on('click', showWindow);
-      n.show();
-    });
-    engine.on('briefing', (b: Briefing) => {
-      if (!Notification.isSupported()) return;
-      const name = store.data.settings.userName;
-      const n = new Notification({ title: name ? `Good morning, ${name}` : 'Your morning briefing', body: b.text });
-      n.on('click', showWindow);
-      n.show();
-    });
+    // Every notification (desktop and phone) now goes through engine.notifier.
 
     app.on('before-quit', () => {
       quitting = true;

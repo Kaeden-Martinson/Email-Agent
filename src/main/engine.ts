@@ -42,9 +42,11 @@ import {
 } from './core/rules';
 import { buildThread, type ThreadView } from './core/thread';
 import { createProvider, discover, signIn, verifyImap } from './providers';
-import { passwords, tokens } from './secrets';
+import { channelSecrets, passwords, tokens } from './secrets';
 import { mergeSettings, type Store } from './store';
+import { Notifier } from './notifier';
 import { Tracker } from './tracker';
+import type { Formatted } from './core/notify';
 
 const DAY = 24 * 60 * 60_000;
 
@@ -72,20 +74,25 @@ export class Engine extends EventEmitter {
   status: AppState['status'] = { syncing: false };
   readonly tracker: Tracker;
   readonly asker: Asker;
+  readonly notifier: Notifier;
   private timer?: NodeJS.Timeout;
   private briefingTimer?: NodeJS.Timeout;
 
   constructor(
     private readonly store: Store,
     private readonly demo = false,
+    desktop: (f: Formatted) => void = () => {},
   ) {
     super();
     this.status.demo = demo;
+    this.notifier = new Notifier({ store, settings: () => this.s, changed: () => this.changed(), desktop });
     this.tracker = new Tracker({
       store,
       settings: () => this.s,
       changed: () => this.changed(),
-      onReminder: (r: Reminder) => this.emit('reminder', r),
+      onReminder: (r: Reminder) => void this.notifier.notify({ event: 'reminder', key: `reminder:${r.id}`, subject: r.title }),
+      onReply: (f: FollowUp) =>
+        void this.notifier.notify({ event: 'reply', key: `reply:${f.id}`, sender: f.to.email, subject: f.subject, detail: `They replied to: "${f.asked}"` }),
     });
     this.asker = new Asker(store, () => this.s);
   }
@@ -105,6 +112,8 @@ export class Engine extends EventEmitter {
     this.briefingTimer = setInterval(() => {
       void this.maybeBrief();
       void this.tracker.tick();
+      void this.notifyDue();
+      void this.notifier.tick();
     }, 60_000);
   }
 
@@ -146,6 +155,7 @@ export class Engine extends EventEmitter {
       owed: this.tracker.owed(),
       items: this.d.items.filter((i) => i.status === 'open' || (i.at ?? i.createdAt) > Date.now() - 14 * DAY),
       search: this.asker.status(),
+      notifier: this.notifier.status(),
       signIn: { gmail: !!clients.google.clientId, outlook: !!clients.microsoft.clientId },
     };
   }
@@ -324,7 +334,15 @@ export class Engine extends EventEmitter {
       this.tracker.noteConversationPromises(u);
       this.tracker.ingestItems(u);
       this.changed();
-      if (u.triage!.priority === 1 && account.permissions.notify && u.status === 'new') this.emit('notify', u);
+      if (u.triage!.priority === 1 && account.permissions.notify && u.status === 'new') {
+        void this.notifier.notify({
+          event: 'urgent',
+          key: `urgent:${u.key}`,
+          sender: u.message.from.name || u.message.from.email,
+          subject: u.message.subject,
+          detail: u.triage!.summary,
+        });
+      }
       await this.autopilot(u, account);
     }
   }
@@ -334,6 +352,7 @@ export class Engine extends EventEmitter {
    * Only recent, non-bulk mail that mentions dates or money is looked at, and nothing else about it changes.
    */
   private async backfillItems(): Promise<void> {
+    if (this.demo) return; // demo mode stays offline
     const watched = new Map(this.watched().map((a) => [a.id, a]));
     const since = Date.now() - 30 * DAY;
     let budget = 3;
@@ -453,6 +472,24 @@ export class Engine extends EventEmitter {
     this.d.corrections = this.d.corrections.slice(-2000);
     this.d.activity = this.d.activity.slice(-2000);
     this.tracker.prune();
+    this.notifier.prune();
+  }
+
+  /** Deadlines in the next 24 hours, follow-ups that came due, and new approvals: each notified once. */
+  private async notifyDue(): Promise<void> {
+    const now = Date.now();
+    for (const i of this.tracker.upcomingItems(1)) {
+      const when = new Date(i.at!).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: i.allDay ? undefined : 'numeric', minute: i.allDay ? undefined : '2-digit' });
+      const amount = i.amount !== undefined ? ` · ${i.amount.toFixed(2)} ${i.currency ?? ''}` : '';
+      await this.notifier.notify({ event: 'deadline', key: `deadline:${i.id}`, sender: i.sender, subject: i.title, detail: `${when}${amount}` });
+    }
+    for (const f of this.d.followUps.filter((x) => x.status === 'waiting' && x.dueAt <= now)) {
+      await this.notifier.notify({ event: 'followup', key: `followup:${f.id}`, sender: f.to.email, subject: f.subject, detail: `You asked: "${f.asked}"` });
+    }
+    const proposed = this.d.activity.filter((a) => a.status === 'proposed');
+    if (proposed.length) {
+      await this.notifier.notify({ event: 'approval', key: `approval:${proposed[proposed.length - 1].id}`, count: proposed.length });
+    }
   }
 
   /** If the chosen model isn't installed, switch to an installed chat model instead of failing every email. */
@@ -851,6 +888,8 @@ export class Engine extends EventEmitter {
   private async maybeBrief(): Promise<void> {
     const b = this.s.briefing;
     if (!b.enabled || this.status.syncing || this.d.lastBriefingDay === this.todayKey() || !this.watched().length) return;
+    const dow = new Date().getDay();
+    if (b.days === 'weekdays' && (dow === 0 || dow === 6)) return;
     const [hh, mm] = b.time.split(':').map(Number);
     const due = new Date();
     due.setHours(hh || 0, mm || 0, 0, 0);
@@ -896,6 +935,15 @@ export class Engine extends EventEmitter {
     this.d.lastBriefingDay = this.todayKey();
     this.changed();
     this.emit('briefing', briefing);
+    // Below "full", notifications carry only these counts, never the written briefing.
+    const sec = this.s.briefing.sections;
+    const parts = [
+      sec.urgent && `${needYou.length} need${needYou.length === 1 ? 's' : ''} you`,
+      sec.deadlines && `${this.tracker.upcomingItems(3).length} due soon`,
+      sec.followups && `${this.tracker.overdueCount()} follow-up${this.tracker.overdueCount() === 1 ? '' : 's'} due`,
+      sec.approvals && `${this.d.activity.filter((a) => a.status === 'proposed').length} awaiting approval`,
+    ].filter(Boolean);
+    await this.notifier.notify({ event: 'briefing', key: `briefing:${this.todayKey()}:${briefing.at}`, safe: parts.join(' · ') || 'Your briefing is ready.', detail: text });
   }
 
   // ---- actions from the UI ----
@@ -1007,6 +1055,25 @@ export class Engine extends EventEmitter {
     }
     this.record(e);
     if (e.status === 'failed') throw new Error(e.error);
+  }
+
+  // ---- notifications ----
+
+  testNotification(channel: 'desktop' | 'ntfy' | 'telegram') {
+    return this.notifier.test(channel);
+  }
+
+  setChannelSecret(channel: 'ntfy' | 'telegram', secret: string): void {
+    const value = secret.trim();
+    if (value) channelSecrets.set(channel, value);
+    else channelSecrets.delete(channel);
+    this.changed();
+  }
+
+  async detectTelegramChat(): Promise<{ chatId: string; name: string }> {
+    const found = await this.notifier.detectTelegramChat();
+    this.saveSettings({ notifications: { ...this.s.notifications, telegram: { ...this.s.notifications.telegram, chatId: found.chatId } } });
+    return found;
   }
 
   // ---- ask my inbox ----

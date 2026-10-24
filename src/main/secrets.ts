@@ -48,3 +48,5 @@ function slot<T>(suffix: string) {
 
 export const tokens = slot<TokenSet>('');
 export const passwords = slot<string>(':password');
+/** Notification channel credentials, keyed by channel name ("ntfy", "telegram"). */
+export const channelSecrets = slot<string>(':channel-secret');

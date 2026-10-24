@@ -133,3 +133,13 @@
 - Semantic search is **opt-in**: gemma4 can't produce embeddings, so Settings offers a confirmed ~270 MB download of `nomic-embed-text`. It has not been downloaded (your decision), so semantic search is untested end to end; keyword search is fully working.
 - UI: Ask page (Ctrl+K), results as you type with highlighted words, answers with clickable citation chips that open the quoted source, an "Open email" link, and clear "Not in your email" and "No sources cited" states.
 - Verified: 130 tests pass. On the real inbox: TT admissions (cited both TT emails), next deadline (cited the email and the tracked date), refund ("couldn't find anything", correct), Payoneer amount ($90.00, cited both). The demo UI rendered an answer citing an email, a tracked date and a commitment; citation chips open and close their sources.
+
+**2026-10-24: stage 8 delivered (notifications)**
+
+- `core/notify.ts`: wording at three privacy levels. **Minimal** says only that something happened, **Sender** adds who and the subject, **Full** adds the summary. Briefings below Full are count-only. Also quiet-hours checks (overnight ranges) and the "while you were away" summary.
+- `notifier.ts`: one hub for desktop, ntfy and Telegram, with per-channel event toggles and privacy level, de-duplication by key, quiet hours (held, then one summary), and a phone rate limit (default 10 per hour). Tokens are stored encrypted (`channelSecrets`) and never sent to the UI. ntfy uses JSON publishing (any server, optional token); Telegram uses a bot token plus "Find my chat" (getUpdates).
+- Events routed through the hub: important email (still gated per mailbox), reminders, the briefing, deadlines within 24 hours, follow-ups that come due, replies you were waiting on, and approvals waiting. The old direct desktop notifications in main.ts were removed so nothing is shown twice.
+- Configurable briefing: days (every day or weekdays), sections, and per-channel delivery.
+- Defaults: desktop on at Sender; phone channels **off** and at **Minimal**; quiet hours off; ntfy topic is a generated random name; the UI explains that ntfy.sh and Telegram are cloud relays and how to self-host ntfy.
+- Verified: 139 tests pass. End to end through the real Notifier to ntfy.sh on a throwaway topic with fake data: test, urgent (high priority) and quiet-hours summary all delivered; the duplicate was suppressed; nothing leaked at Minimal; 2 held notifications became 1 summary. Telegram is untested (needs your bot token).
+- Also fixed: demo mode no longer runs the date backfill (it called the model on demo data).

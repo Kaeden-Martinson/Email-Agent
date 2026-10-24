@@ -32,6 +32,8 @@ export interface TrackerDeps {
   changed: () => void;
   /** Called when a reminder comes due. */
   onReminder: (r: Reminder) => void;
+  /** Called when someone replies to an email you were waiting on. */
+  onReply: (f: FollowUp) => void;
 }
 
 /**
@@ -185,7 +187,10 @@ export class Tracker {
       try {
         const reply = replyArrived(await provider.fetchThread(this.asMessage(f)), f.sentAt, false, account.email);
         f.checkedAt = now;
-        if (reply) Object.assign(f, { status: 'replied', repliedAt: reply.receivedAt });
+        if (reply) {
+          Object.assign(f, { status: 'replied', repliedAt: reply.receivedAt });
+          this.deps.onReply(f);
+        }
       } catch {
         // Try again next sync.
       }

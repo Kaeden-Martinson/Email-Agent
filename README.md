@@ -33,6 +33,20 @@ Every email shows a **Why:** line with its reason, its stage and how long it too
 
 Personal email is read together with its whole conversation, up to the last 8 messages, with quoted history stripped. Each email shows what's **still waiting on you** and what **you promised** earlier, and a **Conversation** panel shows the messages, highlighting the ones the summary is based on. If you've already replied after a message, Pilot checks that directly in your mailbox and won't draft another reply.
 
+### Notifications
+
+On the **Notifications** page:
+- Choose where alerts go (this PC, the **ntfy** phone app, or your own **Telegram** bot) and what triggers them: important email, reminders, the morning briefing, bills and deadlines 24 hours ahead, follow-ups that come due, replies you were waiting on, and approvals.
+- Each channel has a **privacy level**:
+  - **Minimal:** "you have an important email", with no details. This is the phone default.
+  - **Sender:** who and the subject. This is the desktop default.
+  - **Full:** includes the summary.
+- **Quiet hours** hold notifications and send one short summary afterwards. Important email can be allowed through.
+- Duplicates are never sent, and phone alerts are rate-limited.
+- Phone channels are off until you set them up. ntfy.sh and Telegram are cloud relays; for fully private delivery, run your own ntfy server. Tokens are stored encrypted on your PC.
+
+The **morning briefing** can be set to every day or weekdays only, with the sections you want.
+
 ### Ask my inbox
 
 Press **Ctrl+K**, or open **Ask**, to search or ask questions in plain English: "What did Tennessee Tech say about admissions?", "When is my next deadline?", "from:chase last month".

@@ -3,6 +3,9 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
   DEFAULT_PERMISSIONS,
+  NOTIFY_EVENTS,
+  type NotifyEvent,
+  type NoteRecord,
   type Account,
   type ActivityEntry,
   type Briefing,
@@ -16,13 +19,31 @@ import {
   type Update,
 } from '../shared/types';
 
+function allEvents(on: boolean): Record<NotifyEvent, boolean> {
+  return Object.fromEntries(NOTIFY_EVENTS.map((e) => [e, on])) as Record<NotifyEvent, boolean>;
+}
+
 export const DEFAULT_SETTINGS: Settings = {
   userName: '',
   onboarded: false,
   pollMinutes: 5,
   lookbackHours: 48,
   followUpDays: 3,
-  briefing: { enabled: true, time: '08:00' },
+  briefing: {
+    enabled: true,
+    time: '08:00',
+    days: 'everyday',
+    sections: { urgent: true, deadlines: true, followups: true, approvals: true },
+  },
+  notifications: {
+    enabled: true,
+    quiet: { enabled: false, start: '22:00', end: '07:00', allowUrgent: false },
+    desktop: { enabled: true, level: 'sender', events: allEvents(true) },
+    // Phone channels start off, and at "minimal" so no email details leave the PC unless you choose.
+    ntfy: { enabled: false, level: 'minimal', events: { ...allEvents(true), approval: false }, server: 'https://ntfy.sh', topic: '' },
+    telegram: { enabled: false, level: 'minimal', events: { ...allEvents(true), approval: false }, chatId: '' },
+    maxPerHour: 10,
+  },
   ollama: { url: 'http://127.0.0.1:11434', model: 'llama3.1:8b', fastModel: '', embedModel: '' },
   previewMode: true,
   google: { clientId: '', clientSecret: '' },
@@ -57,6 +78,14 @@ interface Persisted {
   commitments: Commitment[];
   reminders: Reminder[];
   items: KeyItem[];
+  notify: {
+    /** Notification key -> when sent (de-duplication). */
+    log: Record<string, number>;
+    /** Held during quiet hours or over the rate limit; sent later as one summary. */
+    held: NoteRecord[];
+    phoneTimes: number[];
+    status: Partial<Record<'desktop' | 'ntfy' | 'telegram', { lastSentAt?: number; lastError?: string }>>;
+  };
   /** When each owed reply's conversation was last checked for your reply. */
   owedCheckedAt: Record<string, number>;
 }
@@ -67,7 +96,8 @@ export function mergeSettings(base: Settings, patch: Partial<Settings> | undefin
   return {
     ...base,
     ...p,
-    briefing: { ...base.briefing, ...p.briefing },
+    briefing: { ...base.briefing, ...p.briefing, sections: { ...base.briefing.sections, ...p.briefing?.sections } },
+    notifications: mergeNotifications(base.notifications, p.notifications),
     ollama: { ...base.ollama, ...p.ollama },
     google: { ...base.google, ...p.google },
     microsoft: { ...base.microsoft, ...p.microsoft },
@@ -77,6 +107,23 @@ export function mergeSettings(base: Settings, patch: Partial<Settings> | undefin
       tone: autoReply.tone,
       disclose: autoReply.disclose,
     },
+  };
+}
+
+function mergeNotifications(base: Settings['notifications'], p: Partial<Settings['notifications']> | undefined): Settings['notifications'] {
+  const n = p ?? {};
+  const channel = <T extends { events: Record<NotifyEvent, boolean> }>(b: T, o: Partial<T> | undefined): T => ({
+    ...b,
+    ...o,
+    events: { ...b.events, ...o?.events },
+  });
+  return {
+    ...base,
+    ...n,
+    quiet: { ...base.quiet, ...n.quiet },
+    desktop: channel(base.desktop, n.desktop),
+    ntfy: channel(base.ntfy, n.ntfy),
+    telegram: channel(base.telegram, n.telegram),
   };
 }
 
@@ -116,6 +163,7 @@ export class Store {
       commitments: [],
       reminders: [],
       items: [],
+      notify: { log: {}, held: [], phoneTimes: [], status: {} },
       owedCheckedAt: {},
     };
     try {

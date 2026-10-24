@@ -7,6 +7,10 @@ import type {
   FollowUp,
   KeyItem,
   KeyItemKind,
+  NotificationSettings,
+  NotifyChannel,
+  NotifyEvent,
+  PrivacyLevel,
   OwedReply,
   Reminder,
   ReminderTarget,
@@ -35,7 +39,7 @@ declare global {
   }
 }
 
-type View = 'today' | 'ask' | 'updates' | 'deadlines' | 'followups' | 'mailboxes' | 'subscriptions' | 'activity' | 'sorting' | 'rules' | 'settings';
+type View = 'today' | 'ask' | 'updates' | 'deadlines' | 'followups' | 'mailboxes' | 'subscriptions' | 'activity' | 'sorting' | 'rules' | 'notifications' | 'settings';
 
 const api = window.api;
 const root = document.getElementById('app')!;
@@ -189,6 +193,7 @@ function renderNav(): HTMLElement {
     item('activity', 'Activity', proposed ? String(proposed) : undefined),
     item('sorting', 'Rules', state.suggestedRules.length ? `${state.suggestedRules.length} new` : undefined),
     item('rules', 'Replies'),
+    item('notifications', 'Notifications', state.notifier.held ? `${state.notifier.held} held` : undefined),
     item('settings', 'Settings'),
   );
 }
@@ -205,6 +210,7 @@ function renderHeader(): HTMLElement {
     activity: 'Activity',
     sorting: 'Rules',
     rules: 'Replies',
+    notifications: 'Notifications',
     settings: 'Settings',
   };
   const s = state.status;
@@ -230,6 +236,7 @@ function renderView(): HTMLElement {
     case 'activity': return renderActivity();
     case 'sorting': return renderSorting();
     case 'rules': return renderRules();
+    case 'notifications': return renderNotifications();
     case 'settings': return renderSettings();
   }
 }
@@ -1054,6 +1061,151 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// ---- notifications ----
+
+const EVENT_LABEL: Record<NotifyEvent, string> = {
+  urgent: 'Important emails',
+  reminder: 'Reminders',
+  briefing: 'Morning briefing',
+  deadline: 'Bills and deadlines (24 hours ahead)',
+  followup: 'Follow-ups that are due',
+  reply: 'Replies you were waiting on',
+  approval: 'Actions waiting for approval',
+};
+
+const LEVEL_LABEL: Record<PrivacyLevel, string> = {
+  minimal: 'Minimal: no email details',
+  sender: 'Sender and subject',
+  full: 'Full: include the summary',
+};
+
+/** What an important-email notification looks like at each level (example data). */
+const LEVEL_PREVIEW: Record<PrivacyLevel, string> = {
+  minimal: 'Pilot · Important email — You have an important new email.',
+  sender: 'Pilot · Important email — Chase · "Your payment is overdue"',
+  full: 'Pilot · Important email — Chase · "Your payment is overdue" — Your card payment of $84.50 is overdue; pay by Friday.',
+};
+
+const ns = () => state.settings.notifications;
+
+function saveNotifications(patch: Partial<NotificationSettings>, done?: string): void {
+  void run(() => api.saveSettings({ notifications: { ...ns(), ...patch } }), done);
+}
+
+function saveChannel<C extends NotifyChannel>(c: C, patch: Partial<NotificationSettings[C]>, done?: string): void {
+  saveNotifications({ [c]: { ...ns()[c], ...patch } } as Partial<NotificationSettings>, done);
+}
+
+function toggleRow(label: string, checked: boolean, onchange: (v: boolean) => void, hint?: string): HTMLElement {
+  return h('label', { class: 'check' },
+    h('input', { type: 'checkbox', checked, onchange: (e: Event) => onchange((e.target as HTMLInputElement).checked) }),
+    h('span', {}, label, hint ? h('div', { class: 'hint' }, hint) : null));
+}
+
+function channelStatusLine(c: NotifyChannel): HTMLElement | null {
+  const st = state.notifier.channels[c];
+  if (st.lastError) return h('div', { class: 'err' }, `Last attempt failed: ${st.lastError}`);
+  if (st.lastSentAt) return h('div', { class: 'hint' }, `Last sent ${relTime(st.lastSentAt)}.`);
+  return null;
+}
+
+function channelCard(c: NotifyChannel, title: string, intro: HTMLElement | null, setup: (HTMLElement | null)[]): HTMLElement {
+  const ch = ns()[c];
+  const level = h('select', { onchange: (e: Event) => saveChannel(c, { level: (e.target as HTMLSelectElement).value as PrivacyLevel }) },
+    (Object.keys(LEVEL_LABEL) as PrivacyLevel[]).map((l) => h('option', { value: l, selected: ch.level === l }, LEVEL_LABEL[l])));
+  return h('fieldset', { class: 'notify-card' }, h('legend', {}, title),
+    toggleRow(`Send notifications ${c === 'desktop' ? 'on this PC' : `with ${title}`}`, ch.enabled, (v) => saveChannel(c, { enabled: v })),
+    intro,
+    ch.enabled ? h('div', {},
+      ...setup,
+      field('How much to show', level),
+      h('div', { class: 'preview' }, h('span', { class: 'hint' }, 'Example: '), LEVEL_PREVIEW[ch.level]),
+      h('div', { class: 'field' }, h('label', {}, 'Notify me about'),
+        h('div', { class: 'events' }, (Object.keys(EVENT_LABEL) as NotifyEvent[]).map((ev) =>
+          toggleRow(EVENT_LABEL[ev], ch.events[ev], (v) => saveChannel(c, { events: { ...ch.events, [ev]: v } }))))),
+      h('div', { class: 'row' }, btn('Send a test', () => void run(() => api.testNotification(c), 'Test sent. Check your device.'))),
+      channelStatusLine(c)) : null);
+}
+
+function secretField(c: 'ntfy' | 'telegram', label: string, hint: string): HTMLElement {
+  const has = state.notifier.channels[c].hasSecret;
+  const input = h('input', { type: 'password', placeholder: has ? 'Saved (hidden). Type to replace.' : '', autocomplete: 'off' });
+  return field(label, h('div', { class: 'row' }, input,
+    btn('Save', () => void run(async () => { await api.setChannelSecret(c, input.value); input.value = ''; }, 'Saved securely on this PC')),
+    has ? btn('Remove', () => void run(() => api.setChannelSecret(c, ''), 'Removed'), 'ghost') : null), hint);
+}
+
+function randomTopic(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(9));
+  return `pilot-${[...bytes].map((b) => b.toString(36).padStart(2, '0')).join('').slice(0, 16)}`;
+}
+
+function renderNotifications(): HTMLElement {
+  const n = ns();
+  const b = state.settings.briefing;
+  const wrap = h('div', { class: 'settings' });
+
+  wrap.append(
+    h('fieldset', {}, h('legend', {}, 'All notifications'),
+      toggleRow('Notifications on', n.enabled, (v) => saveNotifications({ enabled: v }), 'Turn everything off here; your settings below are kept.'),
+      state.notifier.held ? h('div', { class: 'hint' }, `${state.notifier.held} notification${state.notifier.held === 1 ? ' is' : 's are'} held and will arrive as one summary after quiet hours.`) : null),
+
+    h('fieldset', {}, h('legend', {}, 'Quiet hours'),
+      toggleRow('Hold notifications during quiet hours', n.quiet.enabled, (v) => saveNotifications({ quiet: { ...n.quiet, enabled: v } }),
+        'Anything that comes in is sent as one short summary when quiet hours end.'),
+      h('div', { class: 'row' },
+        field('From', h('input', { type: 'time', value: n.quiet.start, onchange: (e: Event) => saveNotifications({ quiet: { ...n.quiet, start: valueOf(e) || '22:00' } }) })),
+        field('Until', h('input', { type: 'time', value: n.quiet.end, onchange: (e: Event) => saveNotifications({ quiet: { ...n.quiet, end: valueOf(e) || '07:00' } }) }))),
+      toggleRow('Let important emails through anyway', n.quiet.allowUrgent, (v) => saveNotifications({ quiet: { ...n.quiet, allowUrgent: v } }))),
+
+    h('fieldset', {}, h('legend', {}, 'Morning briefing'),
+      toggleRow('Send a daily briefing', b.enabled, (v) => void run(() => api.saveSettings({ briefing: { ...b, enabled: v } }))),
+      h('div', { class: 'row' },
+        field('Time', h('input', { type: 'time', value: b.time, onchange: (e: Event) => void run(() => api.saveSettings({ briefing: { ...b, time: valueOf(e) || '08:00' } })) })),
+        field('Days', h('select', { onchange: (e: Event) => void run(() => api.saveSettings({ briefing: { ...b, days: (e.target as HTMLSelectElement).value as 'everyday' | 'weekdays' } })) },
+          h('option', { value: 'everyday', selected: b.days === 'everyday' }, 'Every day'),
+          h('option', { value: 'weekdays', selected: b.days === 'weekdays' }, 'Weekdays only')))),
+      h('div', { class: 'field' }, h('label', {}, 'Include'),
+        (Object.entries({ urgent: 'What needs you', deadlines: 'Bills and deadlines', followups: 'Follow-ups', approvals: 'Approvals waiting' }) as [keyof typeof b.sections, string][]).map(([k, label]) =>
+          toggleRow(label, b.sections[k], (v) => void run(() => api.saveSettings({ briefing: { ...b, sections: { ...b.sections, [k]: v } } }))))),
+      h('div', { class: 'hint' }, 'Which devices get the briefing is set per channel below ("Morning briefing"). On phones at Minimal or Sender level, the briefing shows counts only.')),
+
+    channelCard('desktop', 'This PC', null, []),
+
+    channelCard('ntfy', 'ntfy (phone)',
+      h('p', { class: 'hint' },
+        'Free push notifications to the ntfy app (Android, iPhone). Install ntfy on your phone and subscribe to the topic below. ntfy.sh is a public relay: anyone who knows the topic name can read it, so Pilot makes a hard-to-guess name and the default "Minimal" level sends no email details. For fully private delivery, run your own ntfy server and enter its address.'),
+      [
+        field('Server', h('input', { type: 'text', value: n.ntfy.server, onchange: (e: Event) => saveChannel('ntfy', { server: valueOf(e).trim() || 'https://ntfy.sh' }) })),
+        field('Topic', h('div', { class: 'row' },
+          h('input', { type: 'text', value: n.ntfy.topic, placeholder: 'pilot-…', onchange: (e: Event) => saveChannel('ntfy', { topic: valueOf(e).trim().replace(/[^\w-]/g, '').slice(0, 64) }) }),
+          btn('Generate', () => saveChannel('ntfy', { topic: randomTopic() }, 'New topic set. Subscribe to it in the ntfy app.'))),
+          n.ntfy.topic ? `In the ntfy app, tap + and subscribe to "${n.ntfy.topic}"${n.ntfy.server !== 'https://ntfy.sh' ? ` on ${n.ntfy.server}` : ''}.` : 'Generate a topic, then subscribe to it in the ntfy app.'),
+        secretField('ntfy', 'Access token (optional)', 'Only needed for a protected topic or your own server. Stored encrypted on this PC.'),
+        field('Phone notifications per hour', h('input', { type: 'number', value: String(n.maxPerHour), onchange: (e: Event) => saveNotifications({ maxPerHour: Math.max(1, Math.min(60, Number(valueOf(e)) || 10)) }) }),
+          'Beyond this, the rest arrive together as one summary. Applies to ntfy and Telegram together.'),
+      ]),
+
+    channelCard('telegram', 'Telegram (phone)',
+      h('p', { class: 'hint' }, 'Messages from your own Telegram bot. They pass through Telegram\'s servers, so keep "Minimal" unless you are comfortable with that.'),
+      [
+        h('ol', { class: 'steps' },
+          h('li', {}, 'In Telegram, message @BotFather, send /newbot, and copy the token it gives you.'),
+          h('li', {}, 'Paste the token below and save.'),
+          h('li', {}, 'Open your new bot in Telegram and press Start.'),
+          h('li', {}, 'Click "Find my chat".')),
+        secretField('telegram', 'Bot token', 'Stored encrypted on this PC; never shown again.'),
+        field('Chat', h('div', { class: 'row' },
+          h('span', { class: 'hint' }, n.telegram.chatId ? `Connected (chat ${n.telegram.chatId})` : 'Not connected yet'),
+          btn('Find my chat', () => void run(async () => {
+            const r = await api.detectTelegramChat();
+            toast(`Connected to ${r.name}.`);
+          })))),
+      ]),
+  );
+  return wrap;
+}
+
 // ---- today: the command center ----
 
 function greeting(): string {
@@ -1534,9 +1686,6 @@ function renderSettings(): HTMLElement {
   const poll = text(String(s.pollMinutes), 'number');
   const lookback = text(String(s.lookbackHours), 'number');
   const followUpDays = text(String(s.followUpDays), 'number');
-  const [briefingEl, briefingOn] = check('Brief me every morning', s.briefing.enabled,
-    'A Windows notification and a summary at the top of Updates: what needs you, deadlines and drafts waiting.');
-  const briefingTime = h('input', { type: 'time', value: s.briefing.time });
   const ollamaUrl = text(s.ollama.url);
   const model = h('input', { type: 'text', value: s.ollama.model, list: 'models' });
   const fastModel = h('input', { type: 'text', value: s.ollama.fastModel, list: 'models', placeholder: 'Same as above' });
@@ -1562,7 +1711,6 @@ function renderSettings(): HTMLElement {
       pollMinutes: Math.max(1, Number(poll.value) || 5),
       lookbackHours: Math.max(1, Number(lookback.value) || 48),
       followUpDays: Math.min(30, Math.max(1, Number(followUpDays.value) || 3)),
-      briefing: { enabled: briefingOn.checked, time: briefingTime.value || '08:00' },
       ollama: { url: ollamaUrl.value.trim(), model: model.value.trim(), fastModel: fastModel.value.trim(), embedModel: s.ollama.embedModel },
       previewMode: preview.checked,
       google: { clientId: gId.value.trim(), clientSecret: gSecret.value.trim() },
@@ -1576,9 +1724,6 @@ function renderSettings(): HTMLElement {
       field('When a mailbox starts being watched, look back (hours)', lookback),
       field('Suggest a follow-up after (working days without a reply)', followUpDays)),
     h('fieldset', {}, h('legend', {}, 'Automation'), previewEl),
-    h('fieldset', {}, h('legend', {}, 'Morning briefing'),
-      briefingEl,
-      field('Time', briefingTime)),
     h('fieldset', {}, h('legend', {}, 'Local AI (Ollama)'),
       field('Ollama address', ollamaUrl),
       field('Model', h('div', { class: 'row' }, model, modelList, btn('Find installed', loadModels)),

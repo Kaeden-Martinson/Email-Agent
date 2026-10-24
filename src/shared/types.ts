@@ -173,6 +173,54 @@ export interface Triage {
   keyItems?: KeyItemDraft[];
 }
 
+export type NotifyEvent = 'urgent' | 'reminder' | 'briefing' | 'deadline' | 'followup' | 'reply' | 'approval';
+
+export const NOTIFY_EVENTS: NotifyEvent[] = ['urgent', 'reminder', 'briefing', 'deadline', 'followup', 'reply', 'approval'];
+
+/** minimal = "you have an important email"; sender = who and subject; full = plus the summary. */
+export type PrivacyLevel = 'minimal' | 'sender' | 'full';
+
+export type NotifyChannel = 'desktop' | 'ntfy' | 'telegram';
+
+/** A notification as stored while held (see core/notify.ts NoteInput). */
+export interface NoteRecord {
+  event: NotifyEvent;
+  key: string;
+  sender?: string;
+  subject?: string;
+  detail?: string;
+  count?: number;
+  safe?: string;
+}
+
+export interface ChannelSettings {
+  enabled: boolean;
+  level: PrivacyLevel;
+  events: Record<NotifyEvent, boolean>;
+}
+
+export interface NotificationSettings {
+  enabled: boolean;
+  quiet: { enabled: boolean; start: string; end: string; allowUrgent: boolean };
+  desktop: ChannelSettings;
+  ntfy: ChannelSettings & { server: string; topic: string };
+  telegram: ChannelSettings & { chatId: string };
+  /** Phone notifications per hour before the rest are folded into one summary. */
+  maxPerHour: number;
+}
+
+export interface ChannelStatus {
+  /** A token/secret is stored (never sent to the UI). */
+  hasSecret: boolean;
+  lastSentAt?: number;
+  lastError?: string;
+}
+
+export interface NotifierStatus {
+  channels: Record<NotifyChannel, ChannelStatus>;
+  held: number;
+}
+
 export type KeyItemKind = 'bill' | 'deadline' | 'appointment' | 'event' | 'delivery' | 'other';
 
 export const KEY_ITEM_KINDS: KeyItemKind[] = ['bill', 'deadline', 'appointment', 'event', 'delivery', 'other'];
@@ -428,8 +476,14 @@ export interface Settings {
   lookbackHours: number;
   /** Nudge if nobody replied after this many working days. */
   followUpDays: number;
-  /** Daily briefing notification at `time` (HH:MM, local). */
-  briefing: { enabled: boolean; time: string };
+  /** Daily briefing at `time` (HH:MM, local), on the chosen days, with the chosen sections. */
+  briefing: {
+    enabled: boolean;
+    time: string;
+    days: 'everyday' | 'weekdays';
+    sections: { urgent: boolean; deadlines: boolean; followups: boolean; approvals: boolean };
+  };
+  notifications: NotificationSettings;
   /** fastModel: optional smaller model for simple emails; blank uses `model`. */
   ollama: { url: string; model: string; fastModel: string; embedModel: string };
   /** Preview (dry-run): automatic actions become proposals you approve in Activity. */
@@ -473,6 +527,7 @@ export interface AppState {
   owed: OwedReply[];
   items: KeyItem[];
   search: SearchStatus;
+  notifier: NotifierStatus;
   /** Whether Google / Microsoft sign-in is configured in this build. */
   signIn: { gmail: boolean; outlook: boolean };
 }
@@ -523,6 +578,10 @@ export interface Api {
   ask(question: string): Promise<AskResult>;
   /** Downloads a local embedding model through Ollama and turns on semantic search. */
   enableSemantic(model: string): Promise<void>;
+  testNotification(channel: NotifyChannel): Promise<void>;
+  /** Stores an ntfy access token or Telegram bot token encrypted; "" removes it. Never read back. */
+  setChannelSecret(channel: 'ntfy' | 'telegram', secret: string): Promise<void>;
+  detectTelegramChat(): Promise<{ chatId: string; name: string }>;
   saveSettings(patch: Partial<Settings>): Promise<void>;
   listModels(): Promise<string[]>;
   onState(cb: (state: AppState) => void): () => void;
