@@ -46,7 +46,7 @@ export const DEFAULT_SETTINGS: Settings = {
     telegram: { enabled: false, level: 'minimal', events: { ...allEvents(true), approval: false }, chatId: '' },
     maxPerHour: 10,
   },
-  ollama: { url: 'http://127.0.0.1:11434', model: 'llama3.1:8b', fastModel: '', embedModel: '' },
+  ollama: { url: 'http://127.0.0.1:11434', model: 'qwen2.5:7b', fastModel: '', embedModel: '' },
   previewMode: true,
   encryptAtRest: true,
   launchAtLogin: false,

@@ -618,6 +618,8 @@ export interface Api {
   detectTelegramChat(): Promise<{ chatId: string; name: string }>;
   /** The full text of one email (state only carries a short preview, to stay fast). */
   getBody(key: string): Promise<string>;
+  /** Three alternative replies (Brief, Friendly, Formal), conversation-aware. Nothing is sent. */
+  replyOptions(key: string): Promise<{ tone: string; text: string }[]>;
   checkForUpdates(): Promise<void>;
   openFolder(which: 'logs' | 'data'): Promise<void>;
   dismissNotice(): Promise<void>;

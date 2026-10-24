@@ -1,6 +1,16 @@
 /** Thrown when Ollama is down or the model is missing: stop the batch and retry next sync. */
 export class OllamaUnavailableError extends Error {}
 
+/** The model is installed but Ollama can't load it (incompatible build, not enough memory…). */
+export class ModelLoadError extends OllamaUnavailableError {
+  constructor(
+    readonly model: string,
+    detail: string,
+  ) {
+    super(`Ollama couldn't load the model "${model}": ${detail}`);
+  }
+}
+
 async function call<T>(baseUrl: string, path: string, init?: RequestInit, model?: string): Promise<T> {
   let res: Response;
   try {
@@ -12,7 +22,13 @@ async function call<T>(baseUrl: string, path: string, init?: RequestInit, model?
   if (res.status === 404 && model) {
     throw new OllamaUnavailableError(`Model "${model}" isn't installed. Run: ollama pull ${model}`);
   }
-  if (!res.ok) throw new Error(`Ollama ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  if (!res.ok) {
+    const text = (await res.text()).slice(0, 300);
+    if (model && res.status >= 500 && /llama-server|error loading model|failed to (?:load|initialize)|unable to load|out of memory/i.test(text)) {
+      throw new ModelLoadError(model, text.replace(/^\{"error":"|"\}$/g, '').slice(0, 160));
+    }
+    throw new Error(`Ollama ${res.status}: ${text.slice(0, 200)}`);
+  }
   return (await res.json()) as T;
 }
 

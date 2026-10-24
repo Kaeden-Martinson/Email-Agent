@@ -158,3 +158,29 @@ describe('normalizeTriage (guard rails on model output)', () => {
     assert.equal(t.source, 'light');
   });
 });
+
+import { normalizeOptions } from '../src/main/ai/replies';
+
+describe('reply options', () => {
+  it('keeps one option per tone, in a fixed order, without subject lines', () => {
+    const out = normalizeOptions({
+      options: [
+        { tone: 'Formal', text: 'Subject: Re: deck\n\nThank you; I will confirm shortly.' },
+        { tone: 'Brief', text: 'Will confirm soon.' },
+        { tone: 'Brief', text: 'duplicate' },
+        { tone: 'Sarcastic', text: 'no' },
+        { tone: 'Friendly', text: '  ' },
+      ],
+    });
+    assert.deepEqual(out.map((o) => o.tone), ['Brief', 'Formal']);
+    assert.equal(out[1].text, 'Thank you; I will confirm shortly.');
+  });
+  it('reads the keyed shape the schema asks for', () => {
+    const out = normalizeOptions({ brief: 'Will check.', friendly: 'Thanks! I will check and get back to you.', formal: '' });
+    assert.deepEqual(out.map((o) => o.tone), ['Brief', 'Friendly']);
+  });
+  it('handles junk output', () => {
+    assert.deepEqual(normalizeOptions(null), []);
+    assert.deepEqual(normalizeOptions({ options: 'x' }), []);
+  });
+});

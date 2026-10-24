@@ -24,8 +24,10 @@ import {
   type Update,
   type UpdateAction,
 } from '../shared/types';
-import { chatJson, listModels, OllamaUnavailableError, pullModel } from './ai/ollama';
+import { chatJson, listModels, ModelLoadError, OllamaUnavailableError, pullModel } from './ai/ollama';
+import { pickModel } from './core/models';
 import { Asker } from './ask';
+import { suggestReplies } from './ai/replies';
 import { triage } from './ai/triage';
 import { oauthClients } from './clients';
 import { accessBlocker } from './core/access';
@@ -81,6 +83,8 @@ export class Engine extends EventEmitter {
   readonly tracker: Tracker;
   readonly asker: Asker;
   readonly notifier: Notifier;
+  /** Models Ollama failed to load this session; skipped when choosing a model. */
+  private failedModels = new Set<string>();
   private timer?: NodeJS.Timeout;
   private briefingTimer?: NodeJS.Timeout;
 
@@ -349,7 +353,7 @@ export class Engine extends EventEmitter {
   }
 
   /** Rule-decided and obvious mail first (instant), then unread personal mail, then the rest; newest first. */
-  private async triagePending(): Promise<void> {
+  private async triagePending(retried = false): Promise<void> {
     const watched = new Map(this.watched().map((a) => [a.id, a]));
     const pending = Object.values(this.d.updates)
       .filter((u) => !u.triage && !u.triageError && u.status === 'new' && watched.has(u.message.accountId))
@@ -361,6 +365,9 @@ export class Engine extends EventEmitter {
       try {
         await this.classify(u, account);
       } catch (e) {
+        if (e instanceof ModelLoadError && !retried && (await this.switchModel(e))) {
+          return this.triagePending(true);
+        }
         if (e instanceof OllamaUnavailableError) {
           this.status.ollamaOk = false;
           this.status.message = e.message;
@@ -532,7 +539,7 @@ export class Engine extends EventEmitter {
     }
   }
 
-  /** If the chosen model isn't installed, switch to an installed chat model instead of failing every email. */
+  /** If the chosen model isn't installed (or failed to load), switch to an installed chat model. */
   private async ensureModel(): Promise<void> {
     let models: string[];
     try {
@@ -540,10 +547,34 @@ export class Engine extends EventEmitter {
     } catch {
       return; // Ollama is down; triage reports that.
     }
-    if (!models.length || models.includes(this.s.ollama.model)) return;
-    const chat = models.filter((m) => !/embed|bge|minilm/i.test(m));
-    const pick = chat.find((m) => /llama|qwen|gemma|mistral|phi/i.test(m)) ?? chat[0];
-    if (pick) this.d.settings = mergeSettings(this.s, { ollama: { ...this.s.ollama, model: pick } });
+    if (!models.length || (models.includes(this.s.ollama.model) && !this.failedModels.has(this.s.ollama.model))) return;
+    const pick = pickModel(models, this.failedModels);
+    if (pick && pick !== this.s.ollama.model) {
+      log.info('model.switched', { from: this.s.ollama.model, to: pick, reason: 'not installed or failed to load' });
+      this.d.settings = mergeSettings(this.s, { ollama: { ...this.s.ollama, model: pick } });
+    }
+  }
+
+  /** A model that won't load is skipped for the rest of the session; returns true if another was chosen. */
+  private async switchModel(e: ModelLoadError): Promise<boolean> {
+    this.failedModels.add(e.model);
+    log.warn('model.load_failed', { model: e.model, error: e.message });
+    let models: string[] = [];
+    try {
+      models = await listModels(this.s.ollama.url);
+    } catch {
+      return false;
+    }
+    const pick = pickModel(models, this.failedModels);
+    if (!pick) {
+      this.status.message = `${e.message}. Install another model, for example: ollama pull qwen2.5:7b`;
+      return false;
+    }
+    this.d.settings = mergeSettings(this.s, { ollama: { ...this.s.ollama, model: pick } });
+    this.status.message = `"${e.model}" wouldn't load in Ollama, so Pilot switched to "${pick}".`;
+    log.info('model.switched', { from: e.model, to: pick, reason: 'load failed' });
+    this.changed();
+    return true;
   }
 
   stats(): PipelineStats {
@@ -1108,6 +1139,15 @@ export class Engine extends EventEmitter {
 
   getBody(key: string): string {
     return this.get(key).u.message.body;
+  }
+
+  /** Alternatives for the user to pick and edit; uses the stored conversation, or loads it. */
+  async replyOptions(key: string): Promise<{ tone: string; text: string }[]> {
+    const { u, account } = this.get(key);
+    const thread = u.thread ?? (await this.loadThread(u, account))?.thread;
+    const options = await suggestReplies(u.message, account, this.s, thread);
+    if (!options.length) throw new Error("The AI didn't produce usable replies. Try again.");
+    return options;
   }
 
   /** Reads the configured update feed; only reports what it finds. */

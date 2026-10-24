@@ -21,6 +21,7 @@
     "src/shared/**/*",
     "src/main/notifier.ts",
     "src/main/tracker.ts",
-    "src/main/store.ts"
+    "src/main/store.ts",
+    "src/main/ai/replies.ts"
   ]
 }

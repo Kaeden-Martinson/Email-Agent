@@ -4,6 +4,7 @@ import { migrate, SCHEMA_VERSION } from '../src/main/core/migrate';
 import { redact, scrubText } from '../src/main/core/redact';
 import { backoffMs, retryAfterMs, withRetry } from '../src/main/core/retry';
 import { compareVersions, parseFeed } from '../src/main/core/version';
+import { pickModel } from '../src/main/core/models';
 
 describe('redact', () => {
   it('removes email content and credentials', () => {
@@ -112,5 +113,17 @@ describe('update checks', () => {
   it('rejects feeds without a version or a safe link', () => {
     assert.throws(() => parseFeed({ version: 'latest', url: 'https://x' }), /version/);
     assert.throws(() => parseFeed({ version: '1.0.0', url: 'http://insecure.example/setup.exe' }), /https/);
+  });
+});
+
+
+describe('pickModel', () => {
+  const installed = ['quill-editor:latest', 'nomic-embed-text:latest', 'gemma4:e4b', 'qwen2.5:7b'];
+  it('prefers reliable general chat models', () => {
+    assert.equal(pickModel(installed), 'qwen2.5:7b');
+  });
+  it('skips models that failed to load, embedding models and fine-tunes', () => {
+    assert.equal(pickModel(installed, new Set(['qwen2.5:7b'])), 'gemma4:e4b');
+    assert.equal(pickModel(installed, new Set(['qwen2.5:7b', 'gemma4:e4b'])), undefined);
   });
 });

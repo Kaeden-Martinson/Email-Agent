@@ -1664,8 +1664,37 @@ function ruleRow(r: Rule): HTMLElement {
     btn('Delete', () => void run(() => api.deleteRule(r.id), 'Rule deleted'), 'ghost danger'));
 }
 
+/** Reply alternatives per email: undefined = not asked, 'loading', or the options. */
+const replyAlts = new Map<string, 'loading' | { tone: string; text: string }[]>();
+
 function replyEditor(u: Update): HTMLElement {
   const to = u.message.replyTo ?? u.message.from;
+  const sig = accountOf(u)?.permissions.signature.trim();
+  const alts = replyAlts.get(u.key);
+  const useAlt = (text: string) => {
+    editors.set(u.key, text + (sig ? `\n\n${sig}` : ''));
+    render();
+  };
+  const altRow = h('div', { class: 'alts' },
+    h('span', { class: 'hint' }, 'Other versions:'),
+    alts === undefined
+      ? btn('Suggest 3 versions', () => {
+          replyAlts.set(u.key, 'loading');
+          render();
+          void run(async () => {
+            try {
+              replyAlts.set(u.key, await api.replyOptions(u.key));
+            } catch (e) {
+              replyAlts.delete(u.key);
+              throw e;
+            } finally {
+              render();
+            }
+          });
+        }, 'tiny')
+      : alts === 'loading'
+        ? h('span', { class: 'hint' }, 'Writing three versions on your PC…')
+        : alts.map((o) => btn(o.tone, () => useAlt(o.text), 'tiny')));
   const ta = h('textarea', {
     id: `reply-${u.key}`,
     rows: 7,
@@ -1680,6 +1709,7 @@ function replyEditor(u: Update): HTMLElement {
     }, send ? 'Reply sent' : 'Draft saved to your mailbox');
   return h('div', { class: 'editor' },
     h('div', { class: 'hint' }, `Reply to ${to.name ? `${to.name} <${to.email}>` : to.email}`),
+    altRow,
     ta,
     h('div', { class: 'actions' },
       btn('Send', () => finish(true), 'primary'),

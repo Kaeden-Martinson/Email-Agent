@@ -84,6 +84,46 @@ export function ruleEffectFor(kind: CorrectionKind): Rule['effect'] {
   return { priority: 3 };
 }
 
+/** What you did with an email, used to learn which senders matter to you. */
+export interface Signal {
+  sender: string;
+  kind: 'archived' | 'dismissed' | 'replied';
+  /** The email's priority when you acted. */
+  priority: number;
+  at: number;
+}
+
+/**
+ * Suggestions learned from behavior, needing more evidence than explicit corrections:
+ * three archives/dismissals of important-looking mail without ever replying → low priority;
+ * three replies to mail Pilot didn't mark urgent → always important. Suggestions only, never automatic.
+ */
+export function suggestFromSignals(signals: readonly Signal[], rules: readonly Rule[], threshold = 3): SuggestedRule[] {
+  const since = Date.now() - 60 * 86_400_000;
+  const by = new Map<string, { down: number; up: number; replied: number }>();
+  for (const s of signals) {
+    if (s.at < since) continue;
+    const g = by.get(s.sender) ?? { down: 0, up: 0, replied: 0 };
+    if (s.kind === 'replied') {
+      g.replied++;
+      if (s.priority >= 2) g.up++;
+    } else if (s.priority <= 2) {
+      g.down++;
+    }
+    by.set(s.sender, g);
+  }
+  const out: SuggestedRule[] = [];
+  for (const [sender, g] of by) {
+    if (rules.some((r) => r.match.sender === sender)) continue;
+    if (g.down >= threshold && g.replied === 0) {
+      out.push({ match: { sender }, effect: { priority: 3 }, because: `You archived or dismissed ${g.down} emails from ${sender} without replying.` });
+    } else if (g.up >= threshold && g.down === 0) {
+      out.push({ match: { sender }, effect: { priority: 1 }, because: `You replied to ${g.up} emails from ${sender} that weren't marked urgent.` });
+    }
+  }
+  return out;
+}
+
 /**
  * Suggests a sender rule after repeated same-direction corrections, never from a single one,
  * and never when a rule for that sender already exists.
