@@ -23,7 +23,7 @@ export const DEFAULT_SETTINGS: Settings = {
   lookbackHours: 48,
   followUpDays: 3,
   briefing: { enabled: true, time: '08:00' },
-  ollama: { url: 'http://127.0.0.1:11434', model: 'llama3.1:8b', fastModel: '' },
+  ollama: { url: 'http://127.0.0.1:11434', model: 'llama3.1:8b', fastModel: '', embedModel: '' },
   previewMode: true,
   google: { clientId: '', clientSecret: '' },
   microsoft: { clientId: '', tenant: 'common' },

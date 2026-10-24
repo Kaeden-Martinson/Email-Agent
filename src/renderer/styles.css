@@ -294,3 +294,24 @@ blockquote.evidence { margin: 8px 0 0; padding: 6px 10px; border-left: 3px solid
 .today-row.overdue { border-left: 3px solid var(--p1); }
 .today-row .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .today-when { color: var(--muted); font-size: 12px; min-width: 120px; }
+
+/* ask my inbox */
+.ask-form { display: flex; gap: 8px; margin-bottom: 6px; }
+.ask-input { flex: 1; font: inherit; font-size: 15px; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.ask-input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+#ask-results { margin-top: 14px; }
+.ask-examples { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.answer { border-color: var(--accent); }
+.answer-head { display: flex; align-items: center; gap: 10px; }
+.answer-head .hint { margin-left: auto; }
+.answer-text { margin: 8px 0 4px; font-size: 14.5px; line-height: 1.6; }
+button.cite { all: unset; cursor: pointer; display: inline-block; min-width: 16px; text-align: center; font-size: 11px; font-weight: 600; line-height: 16px; padding: 0 4px; margin: 0 1px; border-radius: 4px; background: var(--chip); color: var(--accent); vertical-align: 1px; }
+button.cite.active, .source.open .cite { background: var(--accent); color: var(--accent-text); }
+span.cite { display: inline-block; min-width: 16px; text-align: center; font-size: 11px; font-weight: 600; line-height: 16px; padding: 0 4px; border-radius: 4px; background: var(--chip); color: var(--accent); }
+.sources { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.source { border: 1px solid var(--line); border-radius: 6px; }
+.source-head { all: unset; box-sizing: border-box; cursor: pointer; display: flex; gap: 8px; align-items: baseline; width: 100%; padding: 6px 10px; font-size: 13px; }
+.source-body { padding: 0 10px 8px; }
+mark { background: #fde68a; color: inherit; border-radius: 2px; padding: 0 1px; }
+@media (prefers-color-scheme: dark) { mark { background: #854d0e; } }
+.snippet { margin-top: 2px; }

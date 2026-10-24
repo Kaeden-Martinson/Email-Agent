@@ -217,6 +217,46 @@ export interface KeyItem {
   status: 'open' | 'done' | 'dismissed';
 }
 
+export interface SearchHit {
+  key: string;
+  accountId: string;
+  subject: string;
+  from: string;
+  at: number;
+  snippet: string;
+}
+
+export interface Citation {
+  n: number;
+  kind: 'email' | 'item' | 'commitment';
+  key?: string;
+  title: string;
+  from: string;
+  at: number;
+  excerpt: string;
+}
+
+export interface AskResult {
+  question: string;
+  answer: string;
+  /** The model says the sources contain the answer. */
+  found: boolean;
+  /** Found and backed by at least one real citation. */
+  verified: boolean;
+  citations: Citation[];
+  /** The emails that matched, whether or not the AI used them. */
+  results: SearchHit[];
+  semantic: boolean;
+  ms: number;
+}
+
+export interface SearchStatus {
+  semantic: boolean;
+  model: string;
+  indexed: number;
+  total: number;
+}
+
 /** One message of a conversation, with quoted history stripped. */
 export interface ThreadMessage {
   id: string;
@@ -391,7 +431,7 @@ export interface Settings {
   /** Daily briefing notification at `time` (HH:MM, local). */
   briefing: { enabled: boolean; time: string };
   /** fastModel: optional smaller model for simple emails; blank uses `model`. */
-  ollama: { url: string; model: string; fastModel: string };
+  ollama: { url: string; model: string; fastModel: string; embedModel: string };
   /** Preview (dry-run): automatic actions become proposals you approve in Activity. */
   previewMode: boolean;
   /** Optional overrides for the OAuth clients built into the app. */
@@ -432,6 +472,7 @@ export interface AppState {
   reminders: Reminder[];
   owed: OwedReply[];
   items: KeyItem[];
+  search: SearchStatus;
   /** Whether Google / Microsoft sign-in is configured in this build. */
   signIn: { gmail: boolean; outlook: boolean };
 }
@@ -478,6 +519,10 @@ export interface Api {
   /** Saves a polite follow-up as a draft in your mailbox. Never sends. */
   draftNudge(followUpId: string): Promise<void>;
   setItem(id: string, status: KeyItem['status']): Promise<void>;
+  search(query: string): Promise<{ hits: SearchHit[]; semantic: boolean; terms: string[] }>;
+  ask(question: string): Promise<AskResult>;
+  /** Downloads a local embedding model through Ollama and turns on semantic search. */
+  enableSemantic(model: string): Promise<void>;
   saveSettings(patch: Partial<Settings>): Promise<void>;
   listModels(): Promise<string[]>;
   onState(cb: (state: AppState) => void): () => void;

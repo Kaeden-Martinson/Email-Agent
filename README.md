@@ -33,6 +33,16 @@ Every email shows a **Why:** line with its reason, its stage and how long it too
 
 Personal email is read together with its whole conversation, up to the last 8 messages, with quoted history stripped. Each email shows what's **still waiting on you** and what **you promised** earlier, and a **Conversation** panel shows the messages, highlighting the ones the summary is based on. If you've already replied after a message, Pilot checks that directly in your mailbox and won't draft another reply.
 
+### Ask my inbox
+
+Press **Ctrl+K**, or open **Ask**, to search or ask questions in plain English: "What did Tennessee Tech say about admissions?", "When is my next deadline?", "from:chase last month".
+- Matching emails appear instantly as you type, from a local keyword index.
+- **Ask** has your local AI answer using **only** those emails (plus tracked dates and your commitments when relevant), citing them as numbered chips you can click to see the exact excerpt.
+- If your email doesn't contain the answer, it says so instead of guessing.
+- Optional **semantic search** (Settings) adds a small local embedding model (about 270 MB, downloaded only when you click) that also finds emails phrased differently.
+
+Everything stays on your PC.
+
 ### Today
 
 **Today** is the home screen. It shows five tiles (need you today, overdue, replies you owe, waiting on others, awaiting approval), the morning briefing, what needs you now, and one 7-day timeline. The timeline merges bills, deadlines, appointments, your promises, follow-ups and reminders, with overdue items first.

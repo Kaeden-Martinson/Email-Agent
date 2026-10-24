@@ -23,7 +23,8 @@ import {
   type Update,
   type UpdateAction,
 } from '../shared/types';
-import { chatJson, listModels, OllamaUnavailableError } from './ai/ollama';
+import { chatJson, listModels, OllamaUnavailableError, pullModel } from './ai/ollama';
+import { Asker } from './ask';
 import { triage } from './ai/triage';
 import { oauthClients } from './clients';
 import { autoUnsubscribeEligible, composeReply, decideAutoReply, shouldAutoArchive } from './core/policy';
@@ -70,6 +71,7 @@ export const IRREVERSIBLE: Record<string, string> = {
 export class Engine extends EventEmitter {
   status: AppState['status'] = { syncing: false };
   readonly tracker: Tracker;
+  readonly asker: Asker;
   private timer?: NodeJS.Timeout;
   private briefingTimer?: NodeJS.Timeout;
 
@@ -85,6 +87,7 @@ export class Engine extends EventEmitter {
       changed: () => this.changed(),
       onReminder: (r: Reminder) => this.emit('reminder', r),
     });
+    this.asker = new Asker(store, () => this.s);
   }
 
   private get s(): Settings {
@@ -142,6 +145,7 @@ export class Engine extends EventEmitter {
       reminders: this.d.reminders.filter((r) => r.status !== 'cancelled'),
       owed: this.tracker.owed(),
       items: this.d.items.filter((i) => i.status === 'open' || (i.at ?? i.createdAt) > Date.now() - 14 * DAY),
+      search: this.asker.status(),
       signIn: { gmail: !!clients.google.clientId, outlook: !!clients.microsoft.clientId },
     };
   }
@@ -241,6 +245,8 @@ export class Engine extends EventEmitter {
       await this.ensureModel();
       await this.triagePending();
       await this.backfillItems();
+      // Semantic search, if turned on: embed new mail in the background.
+      void this.asker.indexMissing().then(() => this.emit('changed')).catch(() => {});
       this.prune();
       if (this.status.message?.startsWith('Reading') || this.status.message === 'Checking mail…' || this.status.message === 'Checking follow-ups…') {
         this.status.message = undefined;
@@ -1001,6 +1007,26 @@ export class Engine extends EventEmitter {
     }
     this.record(e);
     if (e.status === 'failed') throw new Error(e.error);
+  }
+
+  // ---- ask my inbox ----
+
+  search(query: string) {
+    return this.asker.search(query);
+  }
+
+  ask(question: string) {
+    if (!question.trim()) throw new Error('Type a question first.');
+    return this.asker.ask(question.trim());
+  }
+
+  /** Called only after the user confirms the download in the UI. */
+  async enableSemantic(model: string): Promise<void> {
+    if (!/^[\w.:/-]{2,80}$/.test(model)) throw new Error('That model name looks invalid.');
+    await pullModel(this.s.ollama.url, model);
+    this.saveSettings({ ollama: { ...this.s.ollama, embedModel: model } });
+    await this.asker.indexMissing();
+    this.changed();
   }
 
   webLink(key: string): string {

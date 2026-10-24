@@ -142,6 +142,9 @@ function registerIpc(engine: Engine): void {
     return engine.setCommitment(String(id), status);
   });
   ipcMain.handle('draftNudge', (_e, id: string) => engine.draftNudge(String(id)));
+  ipcMain.handle('search', (_e, q: string) => engine.search(String(q)));
+  ipcMain.handle('ask', (_e, q: string) => engine.ask(String(q)));
+  ipcMain.handle('enableSemantic', (_e, model: string) => engine.enableSemantic(String(model)));
   ipcMain.handle('setItem', (_e, id: string, status: KeyItem['status']) => {
     if (!['open', 'done', 'dismissed'].includes(status)) throw new Error('Invalid status');
     return engine.setItem(String(id), status);
