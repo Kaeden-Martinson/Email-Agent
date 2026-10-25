@@ -2045,6 +2045,37 @@ function check(label: string, checked: boolean, hint?: string): [HTMLElement, HT
 
 const text = (value: string, type = 'text') => h('input', { type, value });
 
+let styleBusy = false;
+
+/** "Learn my writing style": reads recent sent mail once and keeps only a short description. */
+function styleBlock(): HTMLElement {
+  const st = state.settings.writingStyle;
+  const learn = () => {
+    styleBusy = true;
+    render();
+    void run(async () => {
+      try {
+        await api.learnStyle();
+      } finally {
+        styleBusy = false;
+        render();
+      }
+    }, 'Writing style learned');
+  };
+  return h('div', { class: 'field' },
+    h('label', {}, 'Your writing style'),
+    st
+      ? h('div', { class: 'rule-preview' },
+          h('div', {}, st.description),
+          h('div', { class: 'hint' },
+            [st.greeting && `Opens with "${st.greeting}"`, st.signoff && `closes with "${st.signoff}"`, `${st.length} emails`].filter(Boolean).join(' · ') +
+              ` · learned from ${st.samples} sent emails ${relTime(st.learnedAt)}`))
+      : h('div', { class: 'hint' }, 'Pilot can read your recent sent emails once and describe how you write (greeting, sign-off, length, tone), so drafts sound like you. Only the short description is kept.'),
+    h('div', { class: 'actions' },
+      btn(styleBusy ? 'Reading your sent mail…' : st ? 'Learn again' : 'Learn my writing style', learn, st ? '' : 'primary', styleBusy),
+      st ? btn('Forget it', () => void run(() => api.forgetStyle(), 'Writing style removed'), 'ghost') : null));
+}
+
 function renderRules(): HTMLElement {
   const ar = state.settings.autoReply;
   const catChecks = (['reply', 'action', 'fyi'] as Category[]).map((c) => {
@@ -2077,7 +2108,8 @@ function renderRules(): HTMLElement {
       field('Daily auto-send limit', cap, 'Across all mailboxes. After this many automatic sends in 24 hours, further replies become drafts.'),
       discloseEl),
     h('fieldset', {}, h('legend', {}, 'Voice'),
-      field('Tone', tone, 'For example: "Warm and casual" or "Formal, short, no exclamation marks".')),
+      field('Tone', tone, 'For example: "Warm and casual" or "Formal, short, no exclamation marks".'),
+      styleBlock()),
     h('button', { class: 'btn primary', type: 'submit' }, 'Save'));
 }
 

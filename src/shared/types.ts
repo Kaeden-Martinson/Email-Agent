@@ -526,6 +526,15 @@ export interface Update {
 export interface Settings {
   /** The one person this PC's Pilot works for. */
   userName: string;
+  /** Learned from your sent mail (Replies → Learn my writing style); used in reply drafts. */
+  writingStyle?: {
+    description: string;
+    greeting: string;
+    signoff: string;
+    length: 'short' | 'medium' | 'long';
+    learnedAt: number;
+    samples: number;
+  };
   onboarded: boolean;
   pollMinutes: number;
   lookbackHours: number;
@@ -679,6 +688,9 @@ export interface Api {
   /** Archives them (each logged in Activity and undoable). */
   cleanupRun(f: { categories: Category[]; olderThanDays: number }): Promise<{ archived: number; failed: number; skipped: number; ids: string[] }>;
   undoMany(ids: string[]): Promise<number>;
+  /** Reads recent sent mail and saves a short description of how you write. */
+  learnStyle(): Promise<void>;
+  forgetStyle(): Promise<void>;
   previewSnooze(choice: string): Promise<{ label: string } | { error: string }>;
   replyOptions(key: string): Promise<{ tone: string; text: string }[]>;
   checkForUpdates(): Promise<void>;

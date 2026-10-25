@@ -33,6 +33,7 @@ import { pickModel } from './core/models';
 import { Asker } from './ask';
 import { suggestReplies } from './ai/replies';
 import { parseRuleText } from './ai/ruletext';
+import { learnStyle, styleSamples } from './ai/style';
 import { triage } from './ai/triage';
 import { oauthClients } from './clients';
 import { accessBlocker } from './core/access';
@@ -615,6 +616,30 @@ export class Engine extends EventEmitter {
       }
     }
     return n;
+  }
+
+  /** Reads up to 40 emails you sent in the last 90 days, from every watched mailbox, and keeps only a short description. */
+  async learnStyle(): Promise<void> {
+    const sent: EmailMessage[] = [];
+    for (const account of this.watched()) {
+      try {
+        sent.push(...(await createProvider(account, this.s).fetchSent(Date.now() - 90 * DAY, 40)));
+      } catch (e) {
+        log.warn('style.fetch_failed', { error: e });
+      }
+    }
+    const samples = styleSamples(sent);
+    if (samples.length < 3) throw new Error(`Pilot found only ${samples.length} sent email${samples.length === 1 ? '' : 's'} it could learn from (it needs at least 3).`);
+    const style = await this.withModelFallback(() => learnStyle(samples, this.s));
+    if (!style) throw new Error("The AI couldn't describe your style. Try again.");
+    this.d.settings = mergeSettings(this.s, { writingStyle: style });
+    log.info('style.learned', { samples: style.samples });
+    this.changed();
+  }
+
+  forgetStyle(): void {
+    this.d.settings = mergeSettings(this.s, { writingStyle: undefined });
+    this.changed();
   }
 
   previewSnooze(choice: string): { label: string } | { error: string } {

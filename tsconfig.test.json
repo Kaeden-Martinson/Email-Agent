@@ -17,6 +17,7 @@
     "src/main/core/**/*",
     "src/main/ai/triage.ts",
     "src/main/ai/ruletext.ts",
+    "src/main/ai/style.ts",
     "src/main/ai/ollama.ts",
     "src/main/providers/mime.ts",
     "src/shared/**/*",

@@ -192,6 +192,8 @@ function registerIpc(engine: Engine): void {
   ipcMain.handle('cleanupPreview', (_e, f) => engine.cleanupPreview(cleanupFilter(f)));
   ipcMain.handle('cleanupRun', (_e, f) => engine.cleanupRun(cleanupFilter(f)));
   ipcMain.handle('undoMany', (_e, ids: string[]) => engine.undoMany(Array.isArray(ids) ? ids.filter((x) => typeof x === 'string') : []));
+  ipcMain.handle('learnStyle', () => engine.learnStyle());
+  ipcMain.handle('forgetStyle', () => engine.forgetStyle());
   ipcMain.handle('snooze', (_e, key: string, choice: string) => engine.snooze(String(key), String(choice ?? '')));
   ipcMain.handle('previewSnooze', (_e, choice: string) => engine.previewSnooze(String(choice ?? '')));
   ipcMain.handle('freeTimes', (_e, key: string) => engine.freeTimes(String(key)));
