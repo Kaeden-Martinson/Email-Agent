@@ -47,16 +47,29 @@ function newRuleCard(): HTMLElement {
     h('option', { value: '1' }, 'Always important'),
     h('option', { value: '3' }, 'Always low priority'),
     h('option', { value: 'hide' }, 'Hide (move to Done)'));
+  const addBtn = button('Add', { kind: 'primary', onClick: () => byAddress.requestSubmit() });
   const byAddress: HTMLFormElement = h('form', { onsubmit: (e: Event) => {
     e.preventDefault();
     const v = who.value.trim().toLowerCase();
     if (!v) return;
+    if (addBtn.disabled) return;
     const match = v.startsWith('@') ? { domain: v.slice(1) } : { sender: v };
-    void run(() => api.saveRule({ enabled: true, match, effect: effectFrom(effect.value), origin: 'manual' }), 'Rule added');
+    // Disabled while saving, so a double click can't add the rule twice.
+    addBtn.disabled = true;
+    void run(async () => {
+      try {
+        await api.saveRule({ enabled: true, match, effect: effectFrom(effect.value), origin: 'manual' });
+        who.value = '';
+        showNewRule = false;
+        render();
+      } finally {
+        addBtn.disabled = false;
+      }
+    }, 'Rule added');
   } },
     h('div', { class: 'g-field' }, h('label', {}, 'Address'), who),
     h('div', { class: 'g-field' }, h('label', {}, 'Then'), effect),
-    button('Add', { kind: 'primary', onClick: () => byAddress.requestSubmit() }));
+    addBtn);
   const disclosure = h('details', { class: 'g-more' }, h('summary', {}, 'Or add by address'), byAddress);
   return card([plainRuleBox(), disclosure]);
 }

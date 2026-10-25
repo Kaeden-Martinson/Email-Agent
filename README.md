@@ -20,7 +20,7 @@ Your email is processed on your PC; Lodestar has no server. Its data and sign-in
    - `outlook.com`, `hotmail.com` and Microsoft 365 domains → **Sign in with Microsoft**
    - Yahoo, iCloud, AOL, Fastmail, Zoho, GMX, Comcast and most other providers → server settings are filled in automatically, and you paste an **app password** (Lodestar links you to the page that creates one)
    - Custom domains are identified from their MX records and Mozilla's ISP database (the one Thunderbird uses).
-3. **Set permissions**: a new mailbox starts **paused**. Open **Permissions** and choose what Lodestar may do there:
+3. **Set permissions**: a new mailbox starts **paused**. On each mailbox's card on the Mailboxes page, choose what Lodestar may do there:
    - **Read new mail and add it to my updates** (the watch switch)
    - **Alert me about important mail** (Windows notifications)
    - **Archive emails when I ask**
@@ -120,7 +120,7 @@ Each email has **More important**, **Less important** and **Junk**. These change
 
 ### Autopilot
 
-Each mailbox's **Permissions** panel also has an Autopilot section. Everything there is off until you turn it on:
+Each mailbox's card on the Mailboxes page also has the autopilot settings. Everything there is off until you turn it on:
 
 - **Sort mail with labels** (still named `Pilot`, so existing labels keep working): Gmail gets labels such as `Pilot/Action` and `Pilot/Newsletters`, Outlook gets categories such as `Pilot: Action`, and IMAP mailboxes get keywords where the server supports them.
 - **Archive automatically once summarized**: choose newsletters, promotions and/or notifications. Archived mail stays in the mailbox's archive and on the Done tab. Anything priority 1 or waiting on a reply is never archived, and this needs the "Archive emails when I ask" permission.
@@ -207,7 +207,7 @@ npm run dist
 This produces `release/Lodestar Setup <version>.exe`, a per-user installer (no admin rights needed) with Start Menu and desktop shortcuts. It installs to your user profile and lets you pick the folder. Uninstalling **keeps** your data. `npm run dist:dir` builds an unpacked copy in `release/win-unpacked/` for quick testing.
 
 - **Data location:** always `%APPDATA%\inbox-pilot`, whether you run from source or install. Updates and reinstalls keep your mailboxes, rules, history and sign-ins.
-- **Start with Windows** is on by default for the installed app: Lodestar starts hidden in the tray when you sign in (turn it off in Settings → Privacy and startup). The installer creates a desktop shortcut and opens Lodestar when it finishes.
+- **Start with Windows** is on by default for the installed app: Lodestar starts hidden in the tray when you sign in (turn it off in Settings → General). The installer creates a desktop shortcut and opens Lodestar when it finishes.
 - **Updates:** Lodestar checks this repository's latest GitHub release daily (Settings → Updates; another feed can be set there, either a JSON file `{ "version", "url", "notes" }` or a GitHub "latest release" API link). Lodestar only tells you about a new version; you download and install it yourself.
 - **Releasing:** bump `version` in `package.json`, `npm run dist`, then create a GitHub release tagged `v<version>` and attach `release/Lodestar Setup <version>.exe`.
 - **Website:** `docs/` is the GitHub Pages site (homepage and privacy policy, https://kaeden-martinson.github.io/Email-Agent/). After editing `docs/PRIVACY_POLICY.md`, run `npm run site` to regenerate `docs/privacy.html`.

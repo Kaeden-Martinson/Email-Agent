@@ -54,10 +54,10 @@ export function renderRules(): HTMLElement {
         disclose: disclose.checked,
       },
     };
-    void run(() => api.saveSettings(patch), 'Reply rules saved');
+    void run(() => api.saveSettings(patch), 'Reply settings saved');
   } },
     h('p', { class: 'g-hint' },
-      'These rules apply to every mailbox. Whether a mailbox gets suggestions, drafts or auto-sent replies, and who counts as trusted, is set per mailbox under Mailboxes → Permissions.'),
+      "These rules apply to every mailbox. Whether a mailbox gets suggestions, drafts or auto-sent replies, and who counts as trusted, is set on each mailbox's card on the Mailboxes page."),
     sectionTitle('Which emails get replies'),
     card([
       h('p', { class: 'g-hint', style: 'margin-top:0' },

@@ -1,4 +1,5 @@
 import { applyTheme } from './theme.js';
+import { markSegment } from './ui.js';
 import type { Api, AppState, Category, Discovery, Update } from '../shared/types.js';
 
 declare global {
@@ -164,6 +165,10 @@ export function render(): void {
   root.replaceChildren(h('div', { class: 'g-shell' }, chrome.nav(), h('main', { class: 'g-main' }, chrome.header(), chrome.notice(), view())));
 }
 
+/** Parts of a screen that redraw themselves in place on a state push, even when the screen itself is not redrawn. */
+const liveParts: (() => void)[] = [];
+export function registerLivePart(fn: () => void): void { liveParts.push(fn); }
+
 /** On a state push, re-render unless the user is typing; the form views keep their own values. */
 export function onState(next: AppState): void {
   applyTheme(next.settings.appearance);
@@ -176,8 +181,13 @@ export function onState(next: AppState): void {
   if (ui.state.settings.onboarded && (ui.view === 'rules' || ui.view === 'settings')) {
     document.querySelector('.g-side')?.replaceWith(chrome.nav());
     document.querySelector('.g-head')?.replaceWith(chrome.header());
+    // Settings keeps its form, but what can change elsewhere is refreshed in place.
+    const seg = document.getElementById('appearance-seg');
+    if (seg) markSegment(seg, next.settings.appearance);
+    for (const fn of liveParts) fn();
   } else if (typing) {
     ui.deferredRender = true;
+    for (const fn of liveParts) fn();
   } else {
     render();
   }

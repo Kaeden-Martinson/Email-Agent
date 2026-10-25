@@ -1,7 +1,7 @@
 import type { Settings, TriageSource } from '../../shared/types.js';
 import type { Appearance } from '../../shared/theme.js';
 import { api, btn, h, relTime, render, run, toast, ui, valueOf, type Child } from '../core.js';
-import { field, segmented, table } from '../ui.js';
+import { field, markSegment, segmented, table } from '../ui.js';
 import { aiSetupPanel } from './aisetup.js';
 import { SOURCE_LABEL } from './updates.js';
 
@@ -54,15 +54,12 @@ export function renderSettings(): HTMLElement {
       const mId = text(s.microsoft.clientId);
       const mTenant = text(s.microsoft.tenant);
       const appearanceOptions: { value: Appearance; label: string }[] = [{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }, { value: 'system', label: 'Match Windows' }];
-      // The state push does not re-render this view (so typing survives); update the selected segment here.
+      // The state push does not re-render this view (so typing survives): the segment is marked here,
+      // and onState re-marks it from the saved setting (say, after the sidebar's theme button).
       const seg: HTMLElement = segmented<Appearance>(appearanceOptions, s.appearance, (v) => {
-        seg.querySelectorAll('button').forEach((b, i) => {
-          const on = appearanceOptions[i].value === v;
-          b.classList.toggle('on', on);
-          b.setAttribute('aria-checked', String(on));
-        });
+        markSegment(seg, v);
         void run(() => api.saveSettings({ appearance: v }));
-      });
+      }, { id: 'appearance-seg' });
       const appearance = h('div', { class: 'g-setrow' },
         h('div', {}, h('b', {}, 'Appearance'), h('span', {}, 'Applies to the whole app straight away.')), seg);
       return form(() => save({

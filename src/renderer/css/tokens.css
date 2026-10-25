@@ -18,3 +18,15 @@
   --danger: #f06a6a; --ok: #3ccf8e; --warn: #e3a64a;
   color-scheme: dark;
 }
+/* Before the saved choice arrives (html has no data-theme yet), follow the window's theme so a dark
+   start doesn't flash white. The main process sets nativeTheme.themeSource from the saved choice,
+   so this media query already reflects an explicit Light or Dark. Keep in step with the block above. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg: #0e0f12; --side: #121418; --panel: #16181d; --text: #e9ebf0; --muted: #8a909c;
+    --line: #23262d; --line-strong: #30343c; --nav-on: #1e2128; --hover: #1b1e24;
+    --accent: #5b84f2; --accent-weak: #1a2440; --accent-text: #86a5f7; --on-accent: #0b1020;
+    --danger: #f06a6a; --ok: #3ccf8e; --warn: #e3a64a;
+    color-scheme: dark;
+  }
+}

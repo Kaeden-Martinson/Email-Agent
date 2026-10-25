@@ -399,19 +399,30 @@ function replyEditor(u: Update): HTMLElement {
   const tone = toneOf.get(u.key) ?? 'Draft';
   const setText = (text: string) => { editors.set(u.key, text + (sig ? `\n\n${sig}` : '')); render(); };
   const pick = (t: 'Draft' | 'Brief' | 'Friendly' | 'Formal') => {
+    // One request at a time, and re-picking the shown version does nothing.
+    if (alts === 'loading' || t === tone) return;
     toneOf.set(u.key, t);
     if (t === 'Draft') return setText(u.triage?.draftReply ?? '');
     if (Array.isArray(alts)) return setText(alts.find((a) => a.tone === t)?.text ?? '');
+    const before = editors.get(u.key);
     replyAlts.set(u.key, 'loading');
     render();
     void run(async () => {
       try {
         const opts = await api.replyOptions(u.key);
         replyAlts.set(u.key, opts);
+        // Apply only to the composer that asked: not after Cancel or Send, not over a different pick.
+        if (!editors.has(u.key) || toneOf.get(u.key) !== t) return;
+        if (editors.get(u.key) !== before) {
+          // The person typed while the versions were written: keep their text.
+          toneOf.set(u.key, tone);
+          toast('Reply versions are ready. Pick one to use it.');
+          return;
+        }
         setText(opts.find((a) => a.tone === t)?.text ?? '');
       } catch (e) {
         replyAlts.delete(u.key);
-        toneOf.set(u.key, 'Draft');
+        if (editors.has(u.key)) toneOf.set(u.key, tone);
         throw e;
       } finally { render(); }
     });
@@ -422,7 +433,7 @@ function replyEditor(u: Update): HTMLElement {
     h('div', { class: 'g-composer' },
       h('div', { class: 'bar' }, h('span', { class: 'muted small' }, `Reply to ${to.name ? `${to.name} <${to.email}>` : to.email}`), h('span', { style: 'flex:1' }),
         alts === 'loading' ? h('span', { class: 'muted small' }, 'Writing versions…') : null,
-        segmented([{ value: 'Draft', label: 'Draft' }, { value: 'Brief', label: 'Brief' }, { value: 'Friendly', label: 'Friendly' }, { value: 'Formal', label: 'Formal' }], tone, pick)),
+        segmented([{ value: 'Draft', label: 'Draft' }, { value: 'Brief', label: 'Brief' }, { value: 'Friendly', label: 'Friendly' }, { value: 'Formal', label: 'Formal' }], tone, pick, { disabled: alts === 'loading' })),
       ta,
       h('div', { class: 'foot' },
         button('Send', { kind: 'primary', icon: 'send', onClick: () => finish(true) }),

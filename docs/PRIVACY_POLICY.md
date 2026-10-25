@@ -3,7 +3,7 @@
 > **Draft for review.** Before publishing:
 > - Have it reviewed.
 > - Google requires the privacy policy to be hosted on the **same domain** as the app's public homepage.
-> - This draft reflects Lodestar 0.13.0 as built. Update it whenever data handling changes.
+> - This draft reflects Lodestar 0.14.0 as built. Update it whenever data handling changes.
 
 *Last updated: October 24, 2026*
 

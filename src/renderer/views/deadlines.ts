@@ -118,7 +118,10 @@ export function renderDeadlines(): HTMLElement {
   const wrap = h('div');
   const startOfToday = new Date().setHours(0, 0, 0, 0);
   const mon = nextMonday(startOfToday);
-  const mon2 = mon + 7 * 86_400_000;
+  // The Monday after, by calendar date: adding 7 × 24 h would land an hour off across a DST change.
+  const mon2Date = new Date(mon);
+  mon2Date.setDate(mon2Date.getDate() + 7);
+  const mon2 = mon2Date.getTime();
   const w = ui.state.weekly;
   const total = w?.billTotal !== undefined
     ? new Intl.NumberFormat(undefined, { style: 'currency', currency: w.currency || 'USD' }).format(w.billTotal)
