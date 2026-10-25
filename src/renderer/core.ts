@@ -222,8 +222,11 @@ export function visibleCards(): HTMLElement[] {
 export function select(key: string | null): void {
   ui.selectedKey = key;
   render();
-  const el = key ? document.querySelector<HTMLElement>(`.g-split .pl .g-row[data-key="${CSS.escape(key)}"]`) : null;
-  el?.scrollIntoView({ block: 'nearest' });
+  // After the view's own scroll restore (also a microtask), so the moved-to row stays visible.
+  queueMicrotask(() => {
+    const el = key ? document.querySelector<HTMLElement>(`.g-split .pl .g-row[data-key="${CSS.escape(key)}"]`) : null;
+    el?.scrollIntoView({ block: 'nearest' });
+  });
 }
 
 export function keysOverlay(): HTMLElement {

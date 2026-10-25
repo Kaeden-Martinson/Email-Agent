@@ -10,8 +10,32 @@ import { openRemind, remindBox } from './followups.js';
 /** Each list row's cluster of similar emails (newest first), by the row's key. Filled while the list renders. */
 const clusterOf = new Map<string, Update[]>();
 
+/** Reading-pane scroll position per email, and the list's, so re-renders (selection, state pushes) don't jump. */
+const paneScroll = new Map<string, number>();
+let listScroll = 0;
+
+/** Called while the old DOM is still on screen: remember where both panes are scrolled. */
+function saveScroll(): void {
+  const pl = document.querySelector<HTMLElement>('.g-split .pl');
+  const pr = document.querySelector<HTMLElement>('.g-split .pr');
+  if (pl) listScroll = pl.scrollTop;
+  const shown = pr?.querySelector<HTMLElement>('.g-pane[data-key]')?.dataset.key;
+  if (pr && shown) paneScroll.set(shown, pr.scrollTop);
+}
+
+/** After the new DOM is attached: put both panes back (an email never seen opens at the top). */
+function restoreScroll(): void {
+  const pl = document.querySelector<HTMLElement>('.g-split .pl');
+  const pr = document.querySelector<HTMLElement>('.g-split .pr');
+  if (pl) pl.scrollTop = listScroll;
+  if (pr) pr.scrollTop = (ui.selectedKey && paneScroll.get(ui.selectedKey)) || 0;
+}
+
 export function renderUpdates(): HTMLElement {
   const s = ui.state;
+  saveScroll();
+  // render() attaches the returned tree synchronously; restore once it is in the document.
+  queueMicrotask(restoreScroll);
   const wrap = h('div', {});
   const watching = s.accounts.filter((a) => a.watching);
   if (!s.accounts.length) {
@@ -36,8 +60,10 @@ export function renderUpdates(): HTMLElement {
   ];
   clusterOf.clear();
   const shortcuts = h('button', { class: 'g-btn ghost tiny keys-hint', type: 'button', title: 'Keyboard shortcuts', onclick: () => { ui.showKeys = true; document.body.append(keysOverlay()); } }, 'Shortcuts: ?');
+  const drafts = open.filter((u) => u.reply?.state === 'drafted').length;
   const left = h('div', { class: 'pl' },
     tabs([{ id: 'open', label: 'Open', count: open.length }, { id: 'done', label: 'Done', count: done.length }], ui.tab, (t) => { ui.tab = t; render(); }, shortcuts),
+    ui.tab === 'open' && drafts ? h('div', { class: 'g-hint g-drafts' }, `${drafts} reply draft${drafts === 1 ? '' : 's'} waiting in your mailbox`) : null,
     ...groups.filter(([, xs]) => xs.length).flatMap(([title, xs]) => [sectionTitle(title, xs.length), ...paneRows(xs)]));
   const sel = list.find((u) => u.key === ui.selectedKey);
   const right = h('div', { class: 'pr' }, sel
@@ -66,7 +92,7 @@ function paneRows(xs: Update[]): HTMLElement[] {
     return listRow({
       key: u.key,
       dot: t?.priority === 1 ? 'p1' : t?.priority === 2 ? 'p2' : 'low',
-      title: [h('span', { style: 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, u.message.from.name || u.message.from.email), c.length > 1 ? chip(String(c.length)) : null],
+      title: [h('span', { style: 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, u.message.from.name || u.message.from.email), c.length > 1 ? chip(String(c.length)) : null, u.reply?.state === 'drafted' ? chip('Draft saved', 'accent') : null],
       sub: u.message.subject || '(no subject)',
       right: relTime(u.message.receivedAt),
       selected: members.some((m) => m.key === ui.selectedKey),
