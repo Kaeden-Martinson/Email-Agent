@@ -137,7 +137,7 @@ export function renderAddMailbox(onAdded: (id: string) => void, onCancel?: () =>
       field('Email address', h('div', { class: 'row' }, email,
         h('button', { class: 'g-btn primary', type: 'submit', disabled: !!f.busy }, f.busy ? 'Looking…' : 'Continue'))),
       f.busy ? h('div', { class: 'hint' }, f.busy) : null,
-      onCancel ? button('Cancel', { kind: 'ghost', onClick: onCancel }) : null);
+      onCancel ? button('Cancel', { kind: 'ghost', onClick: () => { ui.addFlow = null; onCancel(); } }) : null);
   }
 
   const reset = () => {
@@ -150,7 +150,7 @@ export function renderAddMailbox(onAdded: (id: string) => void, onCancel?: () =>
     button('Use a different address', { kind: 'ghost', onClick: reset, disabled: !!f.busy }));
 
   const footer = [
-    f.busy ? h('div', { class: 'hint busy' }, f.busy) : null,
+    f.busy ? h('div', { class: 'hint', style: 'margin-top:8px' }, f.busy) : null,
     f.busy && d.kind !== 'imap'
       ? banner('info', [
           d.kind === 'gmail'
@@ -194,7 +194,7 @@ export function renderAddMailbox(onAdded: (id: string) => void, onCancel?: () =>
         : 'Some providers need an app password here instead of your normal password.'),
     d.appPasswordUrl ? button(`Create an app password at ${d.providerName}`, { kind: 'ghost', onClick: () => void run(() => api.openUrl(d.appPasswordUrl!)) }) : null,
     d.imap && d.smtp
-      ? h('details', { class: 'servers' }, h('summary', {}, 'Server settings'), serverFields('Incoming (IMAP)', d.imap), serverFields('Outgoing (SMTP)', d.smtp))
+      ? h('details', { class: 'g-more' }, h('summary', {}, 'Server settings'), serverFields('Incoming (IMAP)', d.imap), serverFields('Outgoing (SMTP)', d.smtp))
       : null,
     h('div', { class: 'g-acts' }, h('button', { class: 'g-btn primary', type: 'submit', disabled: !!f.busy }, 'Connect')),
     footer);

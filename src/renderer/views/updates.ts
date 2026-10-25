@@ -2,7 +2,7 @@ import type { ActivityEntry, AppState, CorrectionKind, ReplyRecord, TriageSource
 import { cluster } from '../../shared/group.js';
 import { accountOf, api, bodies, btn, CAT_LABEL, editors, go, h, keysOverlay, openReply, quickAct, relTime, render, run, showOriginal, showThread, toast, ui, valueOf } from '../core.js';
 import { icon } from '../icons.js';
-import { banner, button, chip, emptyState, listRow, sectionTitle, segmented, tabs } from '../ui.js';
+import { banner, button, card as cardBox, chip, emptyState, listRow, sectionTitle, segmented, tabs } from '../ui.js';
 import { CONFIDENCE, fmtMoney, fmtWhen, KIND_LABEL } from './deadlines.js';
 import { openRemind, remindBox } from './followups.js';
 
@@ -60,7 +60,7 @@ export function renderUpdates(): HTMLElement {
     ['Low priority', open.filter((u) => u.status === 'new' && u.triage?.priority === 3)],
   ];
   clusterOf.clear();
-  const shortcuts = h('button', { class: 'g-btn ghost tiny keys-hint', type: 'button', title: 'Keyboard shortcuts', onclick: () => { ui.showKeys = true; document.body.append(keysOverlay()); } }, 'Shortcuts: ?');
+  const shortcuts = h('button', { class: 'g-btn ghost tiny', type: 'button', title: 'Keyboard shortcuts', onclick: () => { ui.showKeys = true; document.body.append(keysOverlay()); } }, 'Shortcuts: ?');
   const drafts = open.filter((u) => u.reply?.state === 'drafted').length;
   const left = h('div', { class: 'pl' },
     tabs([{ id: 'open', label: 'Open', count: open.length }, { id: 'done', label: 'Done', count: done.length }], ui.tab, (t) => { ui.tab = t; render(); }, shortcuts),
@@ -134,18 +134,18 @@ function autoLine(u: Update): HTMLElement | null {
 export function renderBriefing(): HTMLElement {
   const b = ui.state.briefing;
   const today = b && new Date(b.at).toDateString() === new Date().toDateString();
-  const again = btn(today ? 'Brief me again' : 'Brief me now', () => void run(() => api.briefNow()), 'ghost');
-  if (!today) {
-    return h('div', { class: 'banner briefing' },
-      h('div', { class: 'briefing-head' }, h('strong', {}, "Today's briefing"), again),
-      h('p', { class: 'hint' },
+  const again = btn(today ? 'Brief me again' : 'Brief me now', () => void run(() => api.briefNow()), 'ghost tiny');
+  const head = h('div', { style: 'display:flex;align-items:center;gap:8px' },
+    h('div', { class: 'g-sec', style: 'margin:0;color:var(--accent-text)' }, icon('spark', 13), today ? `Today's briefing · ${relTime(b.at)}` : "Today's briefing"),
+    h('span', { style: 'flex:1' }), again);
+  const box = cardBox(today
+    ? [head, h('p', { style: 'margin:6px 0 0;max-width:72ch' }, b.text)]
+    : [head, h('div', { class: 'g-hint' },
         ui.state.settings.briefing.enabled
           ? `Lodestar briefs you every morning at ${ui.state.settings.briefing.time}.`
-          : 'Morning briefings are off. Turn them on in Settings.'));
-  }
-  return h('div', { class: 'banner briefing' },
-    h('div', { class: 'briefing-head' }, h('strong', {}, "Today's briefing"), h('span', { class: 'hint' }, relTime(b.at)), again),
-    h('p', {}, b.text));
+          : 'Morning briefings are off. Turn them on in Settings.')]);
+  box.style.marginBottom = '12px';
+  return box;
 }
 
 let snoozeText = '';
@@ -161,6 +161,7 @@ function snoozeBox(u: Update): HTMLElement {
   let timer: number | undefined;
   const input = h('input', {
     type: 'text',
+    class: 'g-input',
     value: snoozeText,
     placeholder: 'Snooze until…',
     oninput: (e: Event) => {
@@ -180,7 +181,7 @@ function snoozeBox(u: Update): HTMLElement {
       btn('Next week', () => go('nextweek')),
       btn('Until they reply', () => go('reply')),
       btn('Cancel', () => { ui.snoozeFor = null; render(); }, 'ghost')),
-    h('div', { class: 'row' }, input, h('button', { class: 'btn primary', type: 'submit' }, 'Snooze')),
+    h('div', { class: 'row' }, input, h('button', { class: 'g-btn primary', type: 'submit' }, 'Snooze')),
     preview);
 }
 
@@ -248,7 +249,7 @@ export function emailPane(u: Update): HTMLElement {
 
   const members = [...clusterOf.values()].find((c) => c.some((x) => x.key === u.key)) ?? [];
 
-  return h('article', { class: `g-pane p${t?.priority ?? 0}${isOpen ? '' : ' done'}`, 'data-key': u.key },
+  return h('article', { class: 'g-pane', 'data-key': u.key },
     h('div', { class: 'g-pane-head' },
       h('strong', { title: m.from.email }, m.from.name || m.from.email || 'Unknown sender'),
       t ? chip(CAT_LABEL[t.category], t.priority === 1 ? 'accent' : 'neutral') : null,
@@ -311,7 +312,7 @@ function conversation(u: Update): HTMLElement {
         h('div', { class: 'thread-head' },
           h('strong', {}, `[${i + 1}] ${msg.fromMe ? 'You' : msg.from.name || msg.from.email}`),
           h('span', { class: 'hint' }, ` · ${new Date(msg.at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`),
-          used.has(i + 1) ? h('span', { class: 'chip' }, 'used for summary') : null),
+          used.has(i + 1) ? chip('used for summary', 'accent') : null),
         h('div', { class: 'thread-text' }, msg.text))));
 }
 
@@ -379,9 +380,12 @@ function proposalsFor(u: Update): HTMLElement | null {
 function keyDates(u: Update): HTMLElement | null {
   const items = ui.state.items.filter((i) => i.status === 'open' && i.sourceKeys.includes(u.key));
   if (!items.length) return null;
-  return h('div', { class: 'key-dates' }, items.map((i) =>
-    h('span', { class: `key-chip c-${i.confidence}`, title: i.notes.join(' ') || CONFIDENCE[i.confidence][0] },
-      `${KIND_LABEL[i.kind]}: ${i.title} · ${fmtWhen(i)}${i.amount !== undefined ? ` · ${fmtMoney(i)}` : ''}`)));
+  const tone = { high: 'ok', medium: 'warn', low: 'danger' } as const;
+  return h('div', { class: 'key-dates' }, items.map((i) => {
+    const c = chip(`${KIND_LABEL[i.kind]}: ${i.title} · ${fmtWhen(i)}${i.amount !== undefined ? ` · ${fmtMoney(i)}` : ''}`, tone[i.confidence]);
+    c.title = i.notes.join(' ') || CONFIDENCE[i.confidence][0];
+    return c;
+  }));
 }
 
 /** Reply alternatives per email: undefined = not asked, 'loading', or the options. */

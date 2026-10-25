@@ -34,8 +34,7 @@ export function renderNav(): HTMLElement {
       icon(n.icon), n.label, counts[n.v] ? h('span', { class: 'n' }, counts[n.v]!) : null)),
     h('div', { class: 'g-side-foot' },
       h('span', { class: `g-dot${watching ? '' : ' off'}` }),
-      watching ? `Watching ${watching} mailbox${watching === 1 ? '' : 'es'}` : 'Not watching',
-      h('span', { style: 'flex:1' }),
+      h('span', { class: 'txt' }, watching ? `Watching ${watching} mailbox${watching === 1 ? '' : 'es'}` : 'Not watching'),
       button('', { kind: 'ghost', icon: themeIcon, title: 'Switch light or dark', onClick: () => void run(() => api.saveSettings({ appearance: nextTheme(s.settings.appearance) })) })));
 }
 

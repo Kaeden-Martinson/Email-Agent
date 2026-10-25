@@ -1,15 +1,11 @@
 import type { Settings, TriageSource } from '../../shared/types.js';
 import type { Appearance } from '../../shared/theme.js';
 import { api, btn, h, relTime, render, run, toast, ui, valueOf, type Child } from '../core.js';
-import { segmented, table } from '../ui.js';
+import { field, segmented, table } from '../ui.js';
 import { aiSetupPanel } from './aisetup.js';
 import { SOURCE_LABEL } from './updates.js';
 
 // ---- forms ----
-
-export function field(label: string, input: HTMLElement, hint?: string): HTMLElement {
-  return h('div', { class: 'field' }, h('label', {}, label), input, hint ? h('div', { class: 'hint' }, hint) : null);
-}
 
 export function check(label: string, checked: boolean, hint?: string): [HTMLElement, HTMLInputElement] {
   const input = h('input', { type: 'checkbox', checked });
@@ -41,8 +37,8 @@ export function renderSettings(): HTMLElement {
   const s = ui.state.settings;
   const save = (patch: Partial<Settings>) => void run(() => api.saveSettings(patch), 'Settings saved');
   const form = (onSave: () => void, ...children: Child[]) =>
-    h('form', { class: 'settings', onsubmit: (e: Event) => { e.preventDefault(); onSave(); } },
-      ...children, h('button', { class: 'btn primary', type: 'submit' }, 'Save'));
+    h('form', { onsubmit: (e: Event) => { e.preventDefault(); onSave(); } },
+      ...children, h('div', { class: 'g-acts' }, h('button', { class: 'g-btn primary', type: 'submit' }, 'Save')));
 
   const sections: Record<SettingsSection, () => HTMLElement> = {
     general: () => {
@@ -84,7 +80,7 @@ export function renderSettings(): HTMLElement {
         field('When a mailbox starts being watched, look back (hours)', lookback),
         field('Suggest a follow-up after (working days without a reply)', followUpDays),
         loginEl,
-        h('details', { class: 'advanced' }, h('summary', {}, 'Advanced: use your own sign-in clients'),
+        h('details', { class: 'g-more' }, h('summary', {}, 'Advanced: use your own sign-in clients'),
           h('p', { class: 'hint' },
             'Lodestar normally uses the Google and Microsoft sign-in clients built into the app. Fill these in only to use your own.'),
           h('fieldset', {}, h('legend', {}, 'Google'),
@@ -120,14 +116,14 @@ export function renderSettings(): HTMLElement {
 
     briefing: () => {
       const b = s.briefing;
-      return h('div', { class: 'settings' },
+      return h('div', {},
         briefingCheck('Send a daily briefing', b.enabled, (cur, v) => ({ ...cur, enabled: v })),
         h('div', { class: 'row' },
           field('Time', h('input', { type: 'time', value: b.time, onchange: (e: Event) => void run(() => api.saveSettings({ briefing: { ...ui.state.settings.briefing, time: valueOf(e) || '08:00' } })) })),
           field('Days', h('select', { onchange: (e: Event) => void run(() => api.saveSettings({ briefing: { ...ui.state.settings.briefing, days: (e.target as HTMLSelectElement).value as 'everyday' | 'weekdays' } })) },
             h('option', { value: 'everyday', selected: b.days === 'everyday' }, 'Every day'),
             h('option', { value: 'weekdays', selected: b.days === 'weekdays' }, 'Weekdays only')))),
-        h('div', { class: 'field' }, h('label', {}, 'Include'),
+        h('div', { class: 'g-field' }, h('label', {}, 'Include'),
           (Object.entries({ urgent: 'What needs you', deadlines: 'Bills and deadlines', followups: 'Follow-ups', approvals: 'Approvals waiting' }) as [keyof typeof b.sections, string][]).map(([k, label]) =>
             briefingCheck(label, b.sections[k], (cur, v) => ({ ...cur, sections: { ...cur.sections, [k]: v } })))),
         h('div', { class: 'hint' }, 'These save as you change them. Which devices get the briefing is set per channel in Notifications.'));
@@ -181,7 +177,7 @@ const EMBED_MODEL = 'nomic-embed-text';
 /** Semantic search needs a small local embedding model; downloading it is the user's explicit choice. */
 function semanticField(): HTMLElement {
   const st = ui.state.search;
-  return h('div', { class: 'field' },
+  return h('div', { class: 'g-field' },
     h('label', {}, 'Semantic search for Ask'),
     st.semantic
       ? h('div', { class: 'hint' }, `On, using ${st.model}. ${st.indexed} of ${st.total} emails indexed on this PC.`)
@@ -207,7 +203,7 @@ function statsTable(): HTMLElement {
       accuracy,
     ] };
   });
-  return h('div', { class: 'field' },
+  return h('div', { class: 'g-field' },
     h('label', {}, 'How your mail was read'),
     table([{ label: 'Stage' }, { label: 'Emails', align: 'right' }, { label: 'Avg time', align: 'right' }, { label: 'Not corrected', align: 'right' }], rows),
     h('div', { class: 'hint' }, `${st.corrections} correction${st.corrections === 1 ? '' : 's'} so far. "Not corrected" is the share you didn't have to fix.`));

@@ -19,7 +19,7 @@ export function renderMailboxes(): HTMLElement {
         render();
         toast('Mailbox added. Choose what Lodestar may do there, then press Start watching.');
       }, () => render()),
-    ]));
+    ], { pad: false }));
   } else {
     wrap.append(h('div', { class: 'g-acts mbx-top' }, h('span', { class: 'g-spacer' }),
       button('Add mailbox', { kind: 'primary', icon: 'plus', onClick: startAddFlow })));

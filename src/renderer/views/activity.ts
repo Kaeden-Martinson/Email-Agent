@@ -57,7 +57,7 @@ function activityRow(a: ActivityEntry): HTMLElement {
       : a.status === 'done' && a.undoable
         ? [button('Undo', { tiny: true, onClick: () => void run(() => api.undo(a.id), 'Undone') })]
         : [];
-  return h('div', { class: `g-tli s-${a.status}` },
+  return h('div', { class: 'g-tli' },
     h('span', { class: `g-tdot ${tone}`, title: statusLabel }),
     h('div', { class: 'body' },
       h('div', {},

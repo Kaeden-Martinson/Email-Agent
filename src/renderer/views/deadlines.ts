@@ -60,12 +60,14 @@ function dateCell(i: KeyItem): HTMLElement {
 
 function titleCell(i: KeyItem): HTMLElement {
   const [confLabel] = CONFIDENCE[i.confidence];
+  // Only open items can be overdue; done or dismissed ones never show the chip.
+  const overdue = i.status === 'open' && deadlineOf(i) < Date.now();
   return h('div', { style: 'display:flex;align-items:center;gap:8px;min-width:0' },
     icon(KIND_ICON[i.kind], 16),
     h('div', { style: 'min-width:0' },
-      h('div', {}, h('a', { href: '#', class: 'ev-toggle', title: confLabel, style: 'font-weight:600;color:inherit;text-decoration:none', onclick: (e: Event) => { e.preventDefault(); if (!showEvidence.delete(i.id)) showEvidence.add(i.id); render(); } }, i.title),
+      h('div', {}, h('a', { href: '#', class: 'ev-toggle', title: confLabel, onclick: (e: Event) => { e.preventDefault(); if (!showEvidence.delete(i.id)) showEvidence.add(i.id); render(); } }, i.title),
         i.notes.length ? ' ' : null, i.notes.length ? chip('Check', 'warn') : null,
-        deadlineOf(i) < Date.now() ? ' ' : null, deadlineOf(i) < Date.now() ? chip('Overdue', 'danger') : null),
+        overdue ? ' ' : null, overdue ? chip('Overdue', 'danger') : null),
       h('div', { class: 'muted small' }, `${KIND_LABEL[i.kind]} · from ${i.sender}${i.sourceKeys.length > 1 ? ` · in ${i.sourceKeys.length} emails` : ''}`)));
 }
 

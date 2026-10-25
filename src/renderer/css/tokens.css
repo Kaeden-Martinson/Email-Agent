@@ -8,8 +8,6 @@
   --line: #e7e9ee; --line-strong: #d5d9e1; --nav-on: #e8ebf1; --hover: #f2f4f7;
   --accent: #2b59d9; --accent-weak: #e9effc; --accent-text: #2b59d9; --on-accent: #ffffff;
   --danger: #d43c3c; --ok: #1f9d63; --warn: #b7791f;
-  /* legacy names still used by styles.css until Task 18 */
-  --chip: var(--nav-on); --p1: var(--danger); --p2: var(--accent); --p3: var(--line-strong); --accent-text-legacy: var(--on-accent);
   --r-ctl: 5px; --r-card: 6px; --r-frame: 8px;
   color-scheme: light;
 }

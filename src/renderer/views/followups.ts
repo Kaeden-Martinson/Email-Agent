@@ -14,10 +14,11 @@ export function openRemind(id: string): void {
 
 /** Natural-language reminder input with a live preview of how Lodestar read it. */
 export function remindBox(target: ReminderTarget): HTMLElement {
-  const preview = h('div', { class: 'hint remind-preview' }, ui.remindPreview || 'Try "Friday", "tomorrow at 3pm", "in 2 days" or "Monday if they haven\'t replied".');
+  const preview = h('div', { class: 'hint' }, ui.remindPreview || 'Try "Friday", "tomorrow at 3pm", "in 2 days" or "Monday if they haven\'t replied".');
   let timer: number | undefined;
   const input = h('input', {
     type: 'text',
+    class: 'g-input',
     value: ui.remindText,
     placeholder: 'Remind me…',
     oninput: (e: Event) => {
@@ -41,7 +42,7 @@ export function remindBox(target: ReminderTarget): HTMLElement {
     }, 'Reminder set');
   } },
     h('div', { class: 'row' }, input,
-      h('button', { class: 'btn primary', type: 'submit' }, 'Set reminder'),
+      h('button', { class: 'g-btn primary', type: 'submit' }, 'Set reminder'),
       btn('Cancel', () => { ui.remindFor = null; render(); }, 'ghost')),
     preview);
 }
@@ -87,8 +88,8 @@ export function renderFollowUps(): HTMLElement {
     h('p', { class: 'hint' }, `Lodestar reads your sent mail for questions you're waiting on and promises you made, and checks the real conversation for replies before anything shows as overdue. Nudge after ${ui.state.settings.followUpDays} working days (change in Settings).`),
     h('div', { class: 'g-grid2 eq' }, left, right),
     resolved.length
-      ? h('details', { class: 'group' }, h('summary', {}, `Resolved automatically (${resolved.length})`),
-        resolved.slice(0, 30).map((x) => h('div', { class: 'hint resolved' }, `${relTime(x.at)} · ${x.text}`)))
+      ? h('details', { class: 'g-more', style: 'margin-top:14px' }, h('summary', {}, `Resolved automatically (${resolved.length})`),
+        resolved.slice(0, 30).map((x) => h('div', { class: 'hint' }, `${relTime(x.at)} · ${x.text}`)))
       : null);
 }
 

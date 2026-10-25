@@ -234,7 +234,7 @@ export function keysOverlay(): HTMLElement {
   return h('div', { class: 'keys-overlay', onclick: () => { ui.showKeys = false; document.querySelector('.keys-overlay')?.remove(); } },
     h('div', { class: 'keys-box' },
       h('h3', {}, 'Keyboard shortcuts'),
-      h('table', {}, SHORTCUTS.map(([k, what]) => h('tr', {}, h('td', {}, h('kbd', {}, k)), h('td', {}, what)))),
+      h('table', {}, SHORTCUTS.map(([k, what]) => h('tr', {}, h('td', {}, h('kbd', { class: 'g-kbd' }, k)), h('td', {}, what)))),
       h('div', { class: 'hint' }, 'Press Esc or click anywhere to close.')));
 }
 

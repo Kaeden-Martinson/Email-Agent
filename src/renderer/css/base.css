@@ -20,6 +20,8 @@ a { color: var(--accent-text); }
 .g-nav .n { margin-left: auto; font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .g-nav.on .n { color: var(--accent-text); }
 .g-side-foot { margin-top: auto; display: flex; align-items: center; gap: 8px; padding: 8px; font-size: 11.5px; color: var(--muted); }
+.g-side-foot .txt { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.g-side-foot .g-btn { margin-left: auto; padding: 3px 5px; }
 .g-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex: none; }
 .g-dot.off { background: var(--line-strong); }
 .g-main { overflow-y: auto; padding: 18px 22px 40px; }

@@ -47,7 +47,7 @@ function newRuleCard(): HTMLElement {
     h('option', { value: '1' }, 'Always important'),
     h('option', { value: '3' }, 'Always low priority'),
     h('option', { value: 'hide' }, 'Hide (move to Done)'));
-  const byAddress: HTMLFormElement = h('form', { class: 'add-rule', onsubmit: (e: Event) => {
+  const byAddress: HTMLFormElement = h('form', { onsubmit: (e: Event) => {
     e.preventDefault();
     const v = who.value.trim().toLowerCase();
     if (!v) return;
@@ -91,7 +91,7 @@ function plainRuleBox(): HTMLElement {
     });
   };
   const p = rulePreview;
-  const form: HTMLFormElement = h('form', { class: 'add-rule', onsubmit: (e: Event) => { e.preventDefault(); preview(); } },
+  const form: HTMLFormElement = h('form', { onsubmit: (e: Event) => { e.preventDefault(); preview(); } },
     h('div', { class: 'g-field' },
       h('label', {}, 'Describe a rule'),
       h('div', { class: 'g-inline' }, input, button(ruleBusy ? 'Reading…' : 'Preview', { kind: 'primary', disabled: ruleBusy, onClick: () => form.requestSubmit() })),
@@ -101,7 +101,7 @@ function plainRuleBox(): HTMLElement {
           h('div', {}, h('strong', {}, p.description)),
           h('div', { class: 'hint' },
             p.count ? `Would apply to ${p.count} email${p.count === 1 ? '' : 's'} you have now${p.count > 5 ? ', including' : ''}:` : "Doesn't match any email you have now; it will apply to new ones."),
-          p.examples.length ? h('ul', { class: 'todos' }, p.examples.map((x) => h('li', {}, `${x.from}: ${x.subject || '(no subject)'}`))) : null,
+          p.examples.length ? h('ul', {}, p.examples.map((x) => h('li', {}, `${x.from}: ${x.subject || '(no subject)'}`))) : null,
           h('div', { class: 'g-acts' },
             button('Create rule', { kind: 'primary', onClick: () => void run(async () => {
               await api.saveRule({ enabled: true, match: p.match, effect: p.effect, origin: 'manual' });
