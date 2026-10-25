@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Name and logo</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #e9eaed; color: #15171c; font: 14px/1.5 "Inter", "Segoe UI", system-ui, sans-serif; }
+  .page { max-width: 1180px; margin: 0 auto; padding: 28px 24px 80px; }
+  .bar { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
+  .bar h1 { font-size: 20px; margin: 0; font-weight: 600; letter-spacing: -.01em; }
+  .bar p { margin: 0; color: #5f6573; font-size: 13px; flex: 1; }
+  .gt { font: inherit; font-size: 13px; border: 1px solid #c9ccd4; background: #fff; border-radius: 6px; padding: 7px 12px; cursor: pointer; }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .card { background: #fff; border: 1px solid #d5d8de; border-radius: 9px; overflow: hidden; cursor: pointer; }
+  .card.selected { outline: 2px solid #2b59d9; outline-offset: 2px; }
+  .head { display: flex; gap: 12px; align-items: baseline; padding: 12px 16px; border-bottom: 1px solid #e6e8ec; }
+  .head .letter { font-size: 12px; font-weight: 600; width: 22px; height: 22px; border: 1px solid #15171c; border-radius: 50%; display: grid; place-items: center; align-self: center; flex: none; }
+  .card.selected .letter { background: #2b59d9; color: #fff; border-color: #2b59d9; }
+  .head b { font-size: 15px; } .head span { color: #5f6573; font-size: 12.5px; }
+  .why { padding: 10px 16px 0; font-size: 12.5px; color: #3b4150; }
+
+  .g { --bg: #fbfbfc; --side: #f4f5f7; --panel: #fff; --text: #111318; --muted: #6b7180; --line: #e7e9ee; --accent: #2b59d9; --on: #fff; }
+  .g.dark { --bg: #0e0f12; --side: #121418; --panel: #16181d; --text: #e9ebf0; --muted: #8a909c; --line: #23262d; --accent: #5b84f2; --on: #0b1020; }
+  .show { padding: 16px; display: grid; grid-template-columns: 120px 1fr; gap: 16px; align-items: center; background: var(--bg); color: var(--text); transition: background .2s, color .2s; }
+  .icon64 { width: 96px; height: 96px; border-radius: 22px; background: var(--accent); color: var(--on); display: grid; place-items: center; }
+  .icon64 svg { width: 58px; height: 58px; }
+  .right { display: flex; flex-direction: column; gap: 12px; }
+  .word { display: flex; align-items: center; gap: 10px; font-size: 24px; font-weight: 600; letter-spacing: -.025em; }
+  .word .m { width: 34px; height: 34px; border-radius: 8px; background: var(--accent); color: var(--on); display: grid; place-items: center; }
+  .word .m svg { width: 21px; height: 21px; }
+  .minis { display: flex; gap: 14px; align-items: center; }
+  .side { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13.5px; letter-spacing: -.01em; background: var(--side); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; }
+  .side .m { width: 22px; height: 22px; border-radius: 6px; background: var(--accent); color: var(--on); display: grid; place-items: center; }
+  .side .m svg { width: 13px; height: 13px; }
+  .task { display: flex; gap: 6px; align-items: center; background: var(--side); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 11px; color: var(--muted); }
+  .task .t { width: 20px; height: 20px; border-radius: 5px; background: var(--accent); color: var(--on); display: grid; place-items: center; }
+  .task .t svg { width: 12px; height: 12px; }
+  .mono { width: 34px; height: 34px; color: var(--text); }
+  svg.s { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
+  .meta { padding: 10px 16px 14px; font-size: 12px; color: #5f6573; border-top: 1px solid #e6e8ec; }
+</style></head><body>
+<svg width="0" height="0" style="position:absolute">
+  <!-- A: Inbox Pilot - envelope whose flap folds into a forward arrow -->
+  <symbol id="m-a" viewBox="0 0 24 24"><path d="M3.5 6.5h17v11h-17z" stroke-width="1.9"/><path d="M3.5 6.5 12 12.5l8.5-6" stroke-width="1.9"/><path d="M14.5 15h6M18 12.5l2.5 2.5-2.5 2.5" stroke-width="1.9"/></symbol>
+  <!-- B: Tern - two swept wings that read as an envelope fold -->
+  <symbol id="m-b" viewBox="0 0 24 24"><path d="M2.5 8.5c3.5 0 6.5 1.6 9.5 5.5 3-3.9 6-5.5 9.5-5.5" stroke-width="2"/><path d="M12 14v4" stroke-width="2"/><path d="M7 16.5c1.8 0 3.4.5 5 1.5 1.6-1 3.2-1.5 5-1.5" stroke-width="1.6" opacity=".6"/></symbol>
+  <!-- C: Keel - a hull and fin: steady, low, private -->
+  <symbol id="m-c" viewBox="0 0 24 24"><path d="M3 9h18l-2.5 5.5h-13z" stroke-width="1.9"/><path d="M12 14.5v6M10 20.5h4" stroke-width="1.9"/><path d="M12 9V3.5" stroke-width="1.9"/></symbol>
+  <!-- D: Lodestar - a guiding star over a single horizon line -->
+  <symbol id="m-d" viewBox="0 0 24 24"><path d="M12 2.5c.6 4.3 2.2 5.9 6.5 6.5-4.3.6-5.9 2.2-6.5 6.5-.6-4.3-2.2-5.9-6.5-6.5 4.3-.6 5.9-2.2 6.5-6.5z" stroke-width="1.8"/><path d="M4 20h16" stroke-width="1.9"/></symbol>
+</svg>
+<div class="page g" id="root">
+  <div class="bar"><h1>Name and logo</h1><p>Four options. Each shows the app icon, the full name, the sidebar and the Windows taskbar, plus a one-color version. Click the one you like, or mix ("C's logo with A's name").</p>
+    <button class="gt" onclick="document.getElementById('root').classList.toggle('dark')">Light / dark</button></div>
+  <div class="cards">
+    <div class="card" data-choice="inbox-pilot" onclick="toggleSelect(this)">
+      <div class="head"><span class="letter">A</span><b>Inbox Pilot</b><span>Keep the name, give it a real mark</span></div>
+      <div class="why">An envelope whose fold turns into a forward arrow: mail that gets moved along for you. No renaming work for you or anyone you've told.</div>
+      <div class="show"><div class="icon64"><svg class="s"><use href="#m-a"/></svg></div>
+        <div class="right"><div class="word"><span class="m"><svg class="s"><use href="#m-a"/></svg></span>Inbox Pilot</div>
+          <div class="minis"><div class="side"><span class="m"><svg class="s"><use href="#m-a"/></svg></span>Inbox Pilot</div><div class="task"><span class="t"><svg class="s"><use href="#m-a"/></svg></span>Inbox Pilot</div><svg class="s mono"><use href="#m-a"/></svg></div></div></div>
+      <div class="meta">Descriptive and clear. Common phrase, so it's harder to stand out or own.</div>
+    </div>
+    <div class="card" data-choice="tern" onclick="toggleSelect(this)">
+      <div class="head"><span class="letter">B</span><b>Tern</b><span>A seabird that navigates long distances</span></div>
+      <div class="why">Two swept wings that also read as the fold of an envelope. Short, calm, easy to say: "Tern sorted my mail."</div>
+      <div class="show"><div class="icon64"><svg class="s"><use href="#m-b"/></svg></div>
+        <div class="right"><div class="word"><span class="m"><svg class="s"><use href="#m-b"/></svg></span>Tern</div>
+          <div class="minis"><div class="side"><span class="m"><svg class="s"><use href="#m-b"/></svg></span>Tern</div><div class="task"><span class="t"><svg class="s"><use href="#m-b"/></svg></span>Tern</div><svg class="s mono"><use href="#m-b"/></svg></div></div></div>
+      <div class="meta">Distinctive one-word name. Says nothing about email on its own, so the tagline does that work.</div>
+    </div>
+    <div class="card" data-choice="keel" onclick="toggleSelect(this)">
+      <div class="head"><span class="letter">C</span><b>Keel</b><span>"Keep your inbox on an even keel"</span></div>
+      <div class="why">A hull with its fin below the waterline: steady, quiet, working underneath. Fits the privacy story (everything stays on your PC).</div>
+      <div class="show"><div class="icon64"><svg class="s"><use href="#m-c"/></svg></div>
+        <div class="right"><div class="word"><span class="m"><svg class="s"><use href="#m-c"/></svg></span>Keel</div>
+          <div class="minis"><div class="side"><span class="m"><svg class="s"><use href="#m-c"/></svg></span>Keel</div><div class="task"><span class="t"><svg class="s"><use href="#m-c"/></svg></span>Keel</div><svg class="s mono"><use href="#m-c"/></svg></div></div></div>
+      <div class="meta">Short, sturdy, memorable. The meaning lands best with the tagline.</div>
+    </div>
+    <div class="card" data-choice="lodestar" onclick="toggleSelect(this)">
+      <div class="head"><span class="letter">D</span><b>Lodestar</b><span>The star sailors steered by</span></div>
+      <div class="why">A guiding star over a horizon line: it points at what matters today. Warmer and a little more personal than the others.</div>
+      <div class="show"><div class="icon64"><svg class="s"><use href="#m-d"/></svg></div>
+        <div class="right"><div class="word"><span class="m"><svg class="s"><use href="#m-d"/></svg></span>Lodestar</div>
+          <div class="minis"><div class="side"><span class="m"><svg class="s"><use href="#m-d"/></svg></span>Lodestar</div><div class="task"><span class="t"><svg class="s"><use href="#m-d"/></svg></span>Lodestar</div><svg class="s mono"><use href="#m-d"/></svg></div></div></div>
+      <div class="meta">Evocative and uncommon in email apps. Longer to type; used by some other businesses.</div>
+    </div>
+  </div>
+</div>
+</body></html>

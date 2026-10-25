@@ -35,7 +35,7 @@
 | `src/renderer/shell.ts` (new) | Sidebar, page header, notices. |
 | `src/renderer/views/*.ts` (new) | One file per screen. |
 | `src/renderer/renderer.ts` (rewritten) | Entry: imports views, registers them, boots. |
-| `src/renderer/css/tokens.css`, `base.css`, `components.css` (new) | Design system. Legacy `styles.css` is kept until Task 18, then deleted. |
+| `src/renderer/css/tokens.css`, `base.css`, `components.css` (new) | Design system. Legacy `styles.css` is kept until Task 19, then deleted. |
 | `src/renderer/fonts/*` (new) | Inter woff2 files and OFL license. |
 | `scripts/copy-static.mjs` | Copies html, css folder, fonts. |
 | `src/shared/types.ts`, `src/main/store.ts`, `src/main/main.ts` | `appearance` setting and native theme. |
@@ -176,7 +176,7 @@ Expected: three `.woff2` files (about 20–30 KB each) and `OFL.txt`.
   --line: #e7e9ee; --line-strong: #d5d9e1; --nav-on: #e8ebf1; --hover: #f2f4f7;
   --accent: #2b59d9; --accent-weak: #e9effc; --accent-text: #2b59d9; --on-accent: #ffffff;
   --danger: #d43c3c; --ok: #1f9d63; --warn: #b7791f;
-  /* legacy names still used by styles.css until Task 18 */
+  /* legacy names still used by styles.css until Task 19 */
   --chip: var(--nav-on); --p1: var(--danger); --p2: var(--accent); --p3: var(--line-strong); --accent-text-legacy: var(--on-accent);
   --r-ctl: 5px; --r-card: 6px; --r-frame: 8px;
   color-scheme: light;
@@ -341,7 +341,7 @@ In legacy `src/renderer/styles.css`, delete the `:root { ... }` and `@media (pre
 
 - [ ] **Step 6: Build and look**
 
-Run: `npm run build`, then the demo screenshot harness (see Task 18, Step 3) for Today.
+Run: `npm run build`, then the demo screenshot harness (see Task 19, Step 3) for Today.
 Expected: app renders with Inter and the new colors; layout still the old one. No console errors about fonts.
 
 - [ ] **Step 7: Commit**
@@ -814,7 +814,7 @@ export function renderNotice(): HTMLElement | null {
 }
 ```
 
-- [ ] **Step 4: Build and screenshot** Today in light and dark (Task 18 Step 3 harness; dark via `document.documentElement.dataset.theme='dark'`). Expected: sidebar matches the mockup shell (icons, counts, footer with dot and theme button); clicking the theme button switches theme and persists after restart.
+- [ ] **Step 4: Build and screenshot** Today in light and dark (Task 19 Step 3 harness; dark via `document.documentElement.dataset.theme='dark'`). Expected: sidebar matches the mockup shell (icons, counts, footer with dot and theme button); clicking the theme button switches theme and persists after restart.
 
 - [ ] **Step 5: Commit**
 
@@ -1218,7 +1218,52 @@ mark { background: var(--accent-weak); color: var(--text); border-radius: 2px; p
 
 ---
 
-### Task 18: Remove legacy CSS, full visual QA, release
+### Task 18: Rename to Lodestar with the new logo
+
+**Files:**
+- Modify: `src/renderer/iconPaths.ts` (add `lodestar`), `src/renderer/shell.ts` (brand), `src/renderer/views/onboarding.ts` (welcome brand), `src/renderer/index.html` (`<title>`), `src/main/main.ts` (window title, tray tooltip, icons), `scripts/make-icon.mjs` (new icon), `scripts/copy-static.mjs` (copy `src/assets`), `package.json` (`productName` twice; keep `name` and `appId`), every user-visible "Inbox Pilot" string in `src/` (notification titles, OAuth success page, disclosure line, errors), `docs/index.html`, `docs/install.html`, `docs/PRIVACY_POLICY.md` (+ `npm run site`), `README.md`, `docs/STATUS.md`
+- Create: `src/assets/icon.png` (generated)
+- Test: `test/icons.test.ts` (add a check)
+
+**Interfaces:**
+- Consumes: `ICON_PATHS` / `icon()` (Task 3), `renderNav` (Task 6), `renderOnboarding` (Task 17).
+- Produces: icon name `lodestar`; `src/assets/icon.png` (256x256) used for window, tray and installer.
+
+**Rules:** The display name becomes **Lodestar** everywhere a person sees it. Keep `appId` `com.inboxpilot.app`, package `name` `inbox-pilot`, the data folder `%APPDATA%\inbox-pilot`, IPC names and the GitHub repo/feed URL unchanged, so updates, sign-ins, data and the Start-with-Windows entry carry over. Tagline where one is used: "Your email, read on your own PC."
+
+- [ ] **Step 1: Add the mark to the icon set (test first).** In `test/icons.test.ts` add:
+
+```ts
+  it('has the Lodestar mark', () => {
+    assert.match(ICON_PATHS.lodestar, /<path/);
+  });
+```
+
+Run `npm test` (fails: property missing), then add to `ICON_PATHS` in `src/renderer/iconPaths.ts`:
+
+```ts
+  lodestar: '<path d="M12 2.5c.6 4.3 2.2 5.9 6.5 6.5-4.3.6-5.9 2.2-6.5 6.5-.6-4.3-2.2-5.9-6.5-6.5 4.3-.6 5.9-2.2 6.5-6.5z"/><path d="M4 20h16"/>',
+```
+
+and remove `pilot` (replace every `icon('pilot', ...)` with `icon('lodestar', ...)`). Run `npm test` (passes).
+
+- [ ] **Step 2: Brand in the app.** Sidebar brand (`renderNav`): mark `icon('lodestar', 13)`, name `Lodestar`, subtitle unchanged logic (`Demo mode` / `${name}'s Pilot` becomes `${name}'s Lodestar` / `Your email, read on your own PC`). Welcome screen: brand `Lodestar`, headline stays "Your email, read on your own PC." `index.html` `<title>Lodestar</title>`.
+
+- [ ] **Step 3: Rename user-visible strings.** Run `grep -rn "Inbox Pilot" src scripts` and change each user-visible occurrence to `Lodestar` (window title `Lodestar` / `Lodestar (demo)`, tray tooltip, notification titles, OAuth browser success/failure page text, "Sent automatically by my email assistant" stays as is, error messages that name the app). Leave code comments as they are only if they describe history; otherwise update them. Do not change `com.inboxpilot.app`, `inbox-pilot` or URLs.
+
+- [ ] **Step 4: New app icon.** Replace `scripts/make-icon.mjs` drawing with a rounded square in the light accent `#2b59d9` (corner radius 56 of 256) and the white Lodestar mark stroked at the mockup's proportions (mark spans 60% of the square; stroke 1.8 units of the 24-unit grid). Sample the star's four cubic curves into short segments and stroke them with the existing distance-to-segment `line()` approach; draw the horizon as one segment. Write the PNG to both `build/icon.png` (installer) and `src/assets/icon.png` (app). Add `src/assets` to `copy-static.mjs` (copied to `dist/assets`). In `main.ts`, delete `makeIcon()` and load `nativeImage.createFromPath(path.join(__dirname, '..', 'assets', 'icon.png'))` for the window icon and `.resize({ width: 16, height: 16 })` for the tray. Run `node scripts/make-icon.mjs` and open `src/assets/icon.png` to confirm it reads as a white star over a line on blue.
+
+- [ ] **Step 5: Installer names.** `package.json`: `"productName": "Lodestar"` (top level and under `build`), `nsis.shortcutName` `"Lodestar"`. Leave `appId`.
+
+- [ ] **Step 6: Docs and site.** Replace "Inbox Pilot" with "Lodestar" in `docs/index.html` (title, heading, footer), `docs/install.html`, `docs/PRIVACY_POLICY.md` (then `npm run site`), `README.md` (title and prose) and `docs/STATUS.md`; add one line to README noting the app was previously called Inbox Pilot.
+
+- [ ] **Step 7: Verify.** `npm test` (all pass, including the emoji scan), `npm run typecheck`, `npm run build`, then the demo harness screenshot of Today and the welcome screen (fresh profile) in light and dark: the sidebar shows the star mark and "Lodestar".
+
+- [ ] **Step 8: Commit** — `git add -A && git commit -m "Rename to Lodestar with the new star logo"`
+
+---
+
+### Task 19: Remove legacy CSS, full visual QA, release
 
 **Files:** Delete `src/renderer/styles.css`; modify `src/renderer/index.html`, `scripts/copy-static.mjs`, docs (`README.md`, `docs/STATUS.md`, `docs/AUDIT_AND_PLAN.md`), `package.json` (version 0.14.0)
 
@@ -1232,12 +1277,12 @@ mark { background: var(--accent-weak); color: var(--text); border-radius: 2px; p
 
 - [ ] **Step 5: Docs** — README "How it works" gains a short "Look and feel" paragraph (Graphite, light/dark toggle in the sidebar and Settings → Appearance); STATUS and AUDIT_AND_PLAN get a 0.14.0 entry listing what was verified.
 
-- [ ] **Step 6: Release** — bump `package.json` to `0.14.0`, `npm run dist`, stop the running app, install silently (`"release/Inbox Pilot Setup 0.14.0.exe" /S`), start it, and confirm from the log: `app.start` 0.14.0, `sync.done`, no errors.
+- [ ] **Step 6: Release** — bump `package.json` to `0.14.0`, `npm run dist`, stop the running app, install silently (`"release/Lodestar Setup 0.14.0.exe" /S`), start it, and confirm: the log shows `app.start` 0.14.0, `sync.done` and no errors; the old `Inbox Pilot` install folder and shortcuts are gone or replaced (if the old app is still installed side by side, uninstall it silently with its `Uninstall Inbox Pilot.exe /S` after confirming the new one runs on the same data); the `HKCU\...\Run` value `com.inboxpilot.app` points at the new `Lodestar.exe --hidden`; the desktop shortcut is named Lodestar.
 
 - [ ] **Step 7: Commit and push**
 
 ```bash
 git add -A
-git commit -m "Graphite redesign complete: legacy styles removed, version 0.14.0"
+git commit -m "Graphite redesign and Lodestar rename complete: legacy styles removed, version 0.14.0"
 git push
 ```

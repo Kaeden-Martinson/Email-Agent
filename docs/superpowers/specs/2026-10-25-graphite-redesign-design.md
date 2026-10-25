@@ -107,3 +107,10 @@ Shared builders in `src/renderer/ui.ts`, each a function returning an element: `
 ## Open decisions (resolved)
 
 - Look: Graphite (B). Layouts as in section 5. Theme: toggle in sidebar + Appearance setting, default Match Windows. Font: Inter, bundled.
+
+## Addendum (2026-10-25): name and logo
+
+- The app is renamed **Lodestar** (chosen from four options in brainstorming; mockup `docs/superpowers/specs/mockups/name-logo.html`). Tagline: "Your email, read on your own PC."
+- Logo: a four-point guiding star over a horizon line, white on the accent in a rounded square; one-color version for small sizes. It replaces the paper-plane mark everywhere (sidebar, welcome screen, window, tray, installer icon, website).
+- Only the display name changes. `appId` (`com.inboxpilot.app`), the data folder (`%APPDATA%\inbox-pilot`), IPC names and the GitHub repository and update feed stay the same, so data, sign-ins, updates and Start with Windows carry over.
+
