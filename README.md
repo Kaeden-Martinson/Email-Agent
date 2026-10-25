@@ -201,7 +201,7 @@ npm run dist
 This produces `release/Inbox Pilot Setup <version>.exe`, a per-user installer (no admin rights needed) with Start Menu and desktop shortcuts. It installs to your user profile and lets you pick the folder. Uninstalling **keeps** your data. `npm run dist:dir` builds an unpacked copy in `release/win-unpacked/` for quick testing.
 
 - **Data location:** always `%APPDATA%\inbox-pilot`, whether you run from source or install. Updates and reinstalls keep your mailboxes, rules, history and sign-ins.
-- **Start with Windows** (Settings → Privacy and startup, installed app only): Pilot starts hidden in the tray.
+- **Start with Windows** is on by default for the installed app: Pilot starts hidden in the tray when you sign in (turn it off in Settings → Privacy and startup). The installer creates a desktop shortcut and opens Pilot when it finishes.
 - **Updates:** Pilot checks this repository's latest GitHub release daily (Settings → Updates; another feed can be set there, either a JSON file `{ "version", "url", "notes" }` or a GitHub "latest release" API link). Pilot only tells you about a new version; you download and install it yourself.
 - **Releasing:** bump `version` in `package.json`, `npm run dist`, then create a GitHub release tagged `v<version>` and attach `release/Inbox Pilot Setup <version>.exe`.
 - **Website:** `docs/` is the GitHub Pages site (homepage and privacy policy, https://kaeden-martinson.github.io/Email-Agent/). After editing `docs/PRIVACY_POLICY.md`, run `npm run site` to regenerate `docs/privacy.html`.

@@ -53,7 +53,8 @@ export const DEFAULT_SETTINGS: Settings = {
   ollama: { url: 'http://127.0.0.1:11434', model: 'qwen2.5:7b', fastModel: '', embedModel: '' },
   previewMode: true,
   encryptAtRest: true,
-  launchAtLogin: false,
+  // On by default: the installed app starts hidden in the tray when you sign in (turn off in Settings).
+  launchAtLogin: true,
   updates: { check: true, feedUrl: UPDATE_FEED },
   google: { clientId: '', clientSecret: '' },
   microsoft: { clientId: '', tenant: 'common' },
