@@ -1,7 +1,7 @@
 import type { ServerConfig } from '../../shared/types.js';
 import { api, btn, h, openPerms, render, run, toast, ui, valueOf } from '../core.js';
 import { aiSetupPanel } from './aisetup.js';
-import { field } from './settings.js';
+import { banner, button, field } from '../ui.js';
 
 // ---- onboarding ----
 
@@ -59,7 +59,7 @@ export function renderOnboarding(): HTMLElement {
 // ---- add mailbox ----
 
 function serverFields(label: string, server: ServerConfig): HTMLElement {
-  return h('div', { class: 'field' },
+  return h('div', { class: 'g-field' },
     h('label', {}, label),
     h('div', { class: 'row' },
       h('input', { type: 'text', value: server.host, oninput: (e: Event) => { server.host = valueOf(e).trim(); } }),
@@ -114,9 +114,9 @@ export function renderAddMailbox(onAdded: (id: string) => void, onCancel?: () =>
       });
     } },
       field('Email address', h('div', { class: 'row' }, email,
-        h('button', { class: 'btn primary', type: 'submit', disabled: !!f.busy }, f.busy ? 'Looking…' : 'Continue'))),
+        h('button', { class: 'g-btn primary', type: 'submit', disabled: !!f.busy }, f.busy ? 'Looking…' : 'Continue'))),
       f.busy ? h('div', { class: 'hint' }, f.busy) : null,
-      onCancel ? btn('Cancel', onCancel, 'ghost') : null);
+      onCancel ? button('Cancel', { kind: 'ghost', onClick: onCancel }) : null);
   }
 
   const reset = () => {
@@ -126,18 +126,18 @@ export function renderAddMailbox(onAdded: (id: string) => void, onCancel?: () =>
   };
   const head = h('div', { class: 'found' },
     h('div', {}, h('strong', {}, d.email), ` · ${d.providerName}`),
-    btn('Use a different address', reset, 'ghost', !!f.busy));
+    button('Use a different address', { kind: 'ghost', onClick: reset, disabled: !!f.busy }));
 
   const footer = [
     f.busy ? h('div', { class: 'hint busy' }, f.busy) : null,
     f.busy && d.kind !== 'imap'
-      ? h('div', { class: 'hint' },
+      ? banner('info', [
           d.kind === 'gmail'
-            ? 'If Google says "Access blocked", the person who shared Inbox Pilot needs to add your Gmail address to its test users first. Closed the browser tab? Cancel and sign in again. '
-            : 'Blocked, or closed the browser tab? Cancel and sign in again. ',
-          btn('Cancel sign-in', () => void run(() => api.cancelSignIn())))
+            ? 'If Google says "Access blocked", the person who shared Inbox Pilot needs to add your Gmail address to its test users first. Closed the browser tab? Cancel and sign in again.'
+            : 'Blocked, or closed the browser tab? Cancel and sign in again.'],
+          [button('Cancel sign-in', { onClick: () => void run(() => api.cancelSignIn()) })])
       : null,
-    onCancel ? btn('Cancel', () => { ui.addFlow = null; onCancel(); }, 'ghost', !!f.busy) : null,
+    onCancel ? button('Cancel', { kind: 'ghost', disabled: !!f.busy, onClick: () => { ui.addFlow = null; onCancel(); } }) : null,
   ];
 
   if (d.kind !== 'imap') {
@@ -146,9 +146,8 @@ export function renderAddMailbox(onAdded: (id: string) => void, onCancel?: () =>
     return h('div', { class: 'add-mailbox' }, head,
       available
         ? h('p', { class: 'hint' }, `Your browser opens a ${brand} sign-in page. Inbox Pilot never sees your password.`)
-        : h('p', { class: 'err' },
-            `${brand} sign-in isn't set up in this copy of Inbox Pilot yet. The developer needs to add a ${brand} client to oauth-clients.json (see the README).`),
-      h('div', { class: 'field' }, h('label', {}, 'What Pilot may do'),
+        : banner('warn', [`${brand} sign-in isn't set up in this copy of Inbox Pilot yet. The developer needs to add a ${brand} client to oauth-clients.json (see the README).`]),
+      h('div', { class: 'g-field' }, h('label', {}, 'What Pilot may do'),
         ([
           ['full', 'Full access (recommended)', 'Read mail, and, only when you allow it per mailbox, archive, label, save drafts or send.'],
           ['readonly', 'Read-only', 'Summaries, search, deadlines and reminders only. Pilot can never change this mailbox or send from it.'],
@@ -156,7 +155,7 @@ export function renderAddMailbox(onAdded: (id: string) => void, onCancel?: () =>
           h('label', { class: 'check' },
             h('input', { type: 'radio', name: 'access', checked: (f.access ?? 'full') === value, onchange: () => { f.access = value; } }),
             h('span', {}, h('strong', {}, label), h('div', { class: 'hint' }, hint))))),
-      h('div', { class: 'actions' }, btn(`Sign in with ${brand}`, connect, 'primary', !available || !!f.busy)),
+      h('div', { class: 'g-acts' }, button(`Sign in with ${brand}`, { kind: 'primary', onClick: connect, disabled: !available || !!f.busy })),
       footer);
   }
 
@@ -172,10 +171,10 @@ export function renderAddMailbox(onAdded: (id: string) => void, onCancel?: () =>
       d.appPasswordUrl
         ? `${d.providerName} needs an app password for apps like this one, not your normal password.`
         : 'Some providers need an app password here instead of your normal password.'),
-    d.appPasswordUrl ? btn(`Create an app password at ${d.providerName}`, () => void run(() => api.openUrl(d.appPasswordUrl!)), 'ghost') : null,
+    d.appPasswordUrl ? button(`Create an app password at ${d.providerName}`, { kind: 'ghost', onClick: () => void run(() => api.openUrl(d.appPasswordUrl!)) }) : null,
     d.imap && d.smtp
       ? h('details', { class: 'servers' }, h('summary', {}, 'Server settings'), serverFields('Incoming (IMAP)', d.imap), serverFields('Outgoing (SMTP)', d.smtp))
       : null,
-    h('div', { class: 'actions' }, h('button', { class: 'btn primary', type: 'submit', disabled: !!f.busy }, 'Connect')),
+    h('div', { class: 'g-acts' }, h('button', { class: 'g-btn primary', type: 'submit', disabled: !!f.busy }, 'Connect')),
     footer);
 }
