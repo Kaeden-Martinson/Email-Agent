@@ -31,6 +31,7 @@ export const UPDATE_FEED = 'https://api.github.com/repos/Kaeden-Martinson/Email-
 
 export const DEFAULT_SETTINGS: Settings = {
   userName: '',
+  appearance: 'system',
   onboarded: false,
   pollMinutes: 5,
   lookbackHours: 48,

@@ -558,6 +558,8 @@ export interface Update {
 export interface Settings {
   /** The one person this PC's Pilot works for. */
   userName: string;
+  /** Light, dark, or follow Windows. */
+  appearance: import('./theme').Appearance;
   /** Learned from your sent mail (Replies → Learn my writing style); used in reply drafts. */
   writingStyle?: {
     description: string;

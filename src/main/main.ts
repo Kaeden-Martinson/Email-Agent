@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, shell, Tray } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, nativeTheme, Notification, shell, Tray } from 'electron';
 import * as path from 'node:path';
 import type {
   AccountPatch,
@@ -12,6 +12,7 @@ import type {
   Settings,
   UpdateAction,
 } from '../shared/types';
+import { resolveTheme, THEME_BG } from '../shared/theme';
 import { seedDemo } from './demo';
 import { Engine } from './engine';
 import { initLogger, log, logsDir } from './logger';
@@ -32,6 +33,7 @@ const DEV = !app.isPackaged || process.argv.includes('--dev');
 const HIDDEN = process.argv.includes('--hidden');
 
 let win: BrowserWindow | null = null;
+let lastAppearance: Settings['appearance'] | undefined;
 let tray: Tray | null = null;
 let quitting = false;
 
@@ -60,8 +62,18 @@ function showWindow(): void {
   win.focus();
 }
 
-function createWindow(icon: Electron.NativeImage): void {
+/** Native controls and the window background follow Pilot's theme, so there's no white flash in dark mode. */
+function applyNativeTheme(appearance: Settings['appearance']): void {
+  nativeTheme.themeSource = appearance === 'light' || appearance === 'dark' ? appearance : 'system';
+  win?.setBackgroundColor(THEME_BG[resolveTheme(appearance, nativeTheme.shouldUseDarkColors)]);
+}
+
+function createWindow(icon: Electron.NativeImage, appearance: Settings['appearance']): void {
+  // themeSource first, so shouldUseDarkColors reflects the chosen theme for the initial background.
+  lastAppearance = appearance;
+  nativeTheme.themeSource = appearance === 'light' || appearance === 'dark' ? appearance : 'system';
   win = new BrowserWindow({
+    backgroundColor: THEME_BG[resolveTheme(appearance, nativeTheme.shouldUseDarkColors)],
     width: 1100,
     height: 760,
     minWidth: 760,
@@ -244,12 +256,17 @@ if (!app.requestSingleInstanceLock()) {
     const icon = makeIcon();
 
     registerIpc(engine);
-    createWindow(icon);
+    createWindow(icon, store.data.settings.appearance);
     createTray(icon, engine);
 
     // Coalesce bursts of changes into one push to the renderer.
     let pending: NodeJS.Timeout | undefined;
     engine.on('changed', () => {
+      const appearance = engine.state().settings.appearance;
+      if (appearance !== lastAppearance) {
+        lastAppearance = appearance;
+        applyNativeTheme(appearance);
+      }
       clearTimeout(pending);
       pending = setTimeout(() => win?.webContents.send('state', engine.state()), 100);
     });
