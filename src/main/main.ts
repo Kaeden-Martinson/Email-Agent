@@ -62,16 +62,20 @@ function showWindow(): void {
   win.focus();
 }
 
+function setThemeSource(appearance: Settings['appearance']): void {
+  nativeTheme.themeSource = appearance === 'light' || appearance === 'dark' ? appearance : 'system';
+}
+
 /** Native controls and the window background follow Pilot's theme, so there's no white flash in dark mode. */
 function applyNativeTheme(appearance: Settings['appearance']): void {
-  nativeTheme.themeSource = appearance === 'light' || appearance === 'dark' ? appearance : 'system';
+  setThemeSource(appearance);
   win?.setBackgroundColor(THEME_BG[resolveTheme(appearance, nativeTheme.shouldUseDarkColors)]);
 }
 
 function createWindow(icon: Electron.NativeImage, appearance: Settings['appearance']): void {
   // themeSource first, so shouldUseDarkColors reflects the chosen theme for the initial background.
   lastAppearance = appearance;
-  nativeTheme.themeSource = appearance === 'light' || appearance === 'dark' ? appearance : 'system';
+  setThemeSource(appearance);
   win = new BrowserWindow({
     backgroundColor: THEME_BG[resolveTheme(appearance, nativeTheme.shouldUseDarkColors)],
     width: 1100,
@@ -262,7 +266,7 @@ if (!app.requestSingleInstanceLock()) {
     // Coalesce bursts of changes into one push to the renderer.
     let pending: NodeJS.Timeout | undefined;
     engine.on('changed', () => {
-      const appearance = engine.state().settings.appearance;
+      const appearance = store.data.settings.appearance;
       if (appearance !== lastAppearance) {
         lastAppearance = appearance;
         applyNativeTheme(appearance);
