@@ -30,7 +30,7 @@ export function sectionTitle(text: string, count?: number): HTMLElement {
   return h('div', { class: 'g-sec' }, text, count !== undefined ? h('span', { class: 'cnt' }, String(count)) : null);
 }
 
-export function listRow(o: { dot?: 'p1' | 'p2' | 'low' | null; title: Child; sub?: Child; right?: Child; selected?: boolean; onClick?: () => void; key?: string }): HTMLElement {
+export function listRow(o: { dot?: 'p1' | 'p2' | 'low' | null; title: Child | Child[]; sub?: Child | Child[]; right?: Child; selected?: boolean; onClick?: () => void; key?: string }): HTMLElement {
   return h('div', { class: `g-row${o.onClick ? ' click' : ''}${o.selected ? ' sel' : ''}`, onclick: o.onClick, 'data-key': o.key },
     o.dot === null ? h('span', {}) : h('span', { class: `g-pri ${o.dot ?? 'low'}` }),
     h('div', { style: 'min-width:0' }, h('div', { class: 't' }, o.title), o.sub ? h('div', { class: 's' }, o.sub) : null),
