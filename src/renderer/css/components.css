@@ -148,3 +148,4 @@ mark { background: var(--accent-weak); color: var(--text); border-radius: 2px; p
 .g-toggle:disabled { opacity: .45; cursor: default; }
 .g-seg button:disabled { opacity: .45; cursor: default; }
 @media (max-width: 760px) { .mbx-fields { grid-template-columns: 1fr; } .mbx-head { flex-wrap: wrap; } }
+.mbx-extra > .hint { color: var(--muted); font-size: 11.5px; }
