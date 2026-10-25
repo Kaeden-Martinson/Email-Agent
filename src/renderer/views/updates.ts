@@ -1,7 +1,8 @@
 import type { ActivityEntry, AppState, CorrectionKind, ReplyRecord, TriageSource, Update } from '../../shared/types.js';
 import { cluster } from '../../shared/group.js';
 import { accountOf, api, bodies, btn, CAT_LABEL, editors, go, h, keysOverlay, openReply, quickAct, relTime, render, run, showOriginal, showThread, toast, ui, valueOf } from '../core.js';
-import { banner, button, chip, emptyState, listRow, sectionTitle, tabs } from '../ui.js';
+import { icon } from '../icons.js';
+import { banner, button, chip, emptyState, listRow, sectionTitle, segmented, tabs } from '../ui.js';
 import { CONFIDENCE, fmtMoney, fmtWhen, KIND_LABEL } from './deadlines.js';
 import { openRemind, remindBox } from './followups.js';
 
@@ -388,61 +389,55 @@ const replyAlts = new Map<string, 'loading' | { tone: string; text: string }[]>(
 
 function replyEditor(u: Update): HTMLElement {
   const to = u.message.replyTo ?? u.message.from;
-  const sig = accountOf(u)?.permissions.signature.trim();
+  const account = accountOf(u);
+  const sig = account?.permissions.signature.trim();
   const alts = replyAlts.get(u.key);
-  const useAlt = (text: string) => {
-    editors.set(u.key, text + (sig ? `\n\n${sig}` : ''));
+  const tone = toneOf.get(u.key) ?? 'Draft';
+  const setText = (text: string) => { editors.set(u.key, text + (sig ? `\n\n${sig}` : '')); render(); };
+  const pick = (t: 'Draft' | 'Brief' | 'Friendly' | 'Formal') => {
+    toneOf.set(u.key, t);
+    if (t === 'Draft') return setText(u.triage?.draftReply ?? '');
+    if (Array.isArray(alts)) return setText(alts.find((a) => a.tone === t)?.text ?? '');
+    replyAlts.set(u.key, 'loading');
     render();
-  };
-  const altRow = h('div', { class: 'alts' },
-    h('span', { class: 'hint' }, 'Other versions:'),
-    alts === undefined
-      ? btn('Suggest 3 versions', () => {
-          replyAlts.set(u.key, 'loading');
-          render();
-          void run(async () => {
-            try {
-              replyAlts.set(u.key, await api.replyOptions(u.key));
-            } catch (e) {
-              replyAlts.delete(u.key);
-              throw e;
-            } finally {
-              render();
-            }
-          });
-        }, 'tiny')
-      : alts === 'loading'
-        ? h('span', { class: 'hint' }, 'Writing three versions on your PC…')
-        : alts.map((o) => btn(o.tone, () => useAlt(o.text), 'tiny')));
-  const ta = h('textarea', {
-    id: `reply-${u.key}`,
-    rows: 7,
-    value: editors.get(u.key) ?? '',
-    oninput: (e: Event) => editors.set(u.key, valueOf(e)),
-  });
-  const finish = (send: boolean) =>
     void run(async () => {
-      await api.sendReply(u.key, editors.get(u.key) ?? '', send);
-      editors.delete(u.key);
-      render();
-    }, send ? 'Reply sent' : 'Draft saved to your mailbox');
-  const insertTimes = () =>
-    void run(async () => {
-      const times = await api.freeTimes(u.key);
-      const current = editors.get(u.key) ?? '';
-      const block = `I'm free at any of these times:\n${times.map((t) => `- ${t}`).join('\n')}`;
-      // Above the signature, if there is one.
-      const at = sig && current.endsWith(sig) ? current.length - sig.length : current.length;
-      editors.set(u.key, `${current.slice(0, at).trimEnd()}\n\n${block}\n\n${current.slice(at)}`.trim());
-      render();
+      try {
+        const opts = await api.replyOptions(u.key);
+        replyAlts.set(u.key, opts);
+        setText(opts.find((a) => a.tone === t)?.text ?? '');
+      } catch (e) {
+        replyAlts.delete(u.key);
+        toneOf.set(u.key, 'Draft');
+        throw e;
+      } finally { render(); }
     });
-  return h('div', { class: 'editor' },
-    h('div', { class: 'hint' }, `Reply to ${to.name ? `${to.name} <${to.email}>` : to.email}`),
-    altRow,
-    accountOf(u)?.calendar ? h('div', { class: 'alts' }, h('span', { class: 'hint' }, 'Calendar:'), btn('Insert my free times', insertTimes, 'tiny')) : null,
-    ta,
-    h('div', { class: 'actions' },
-      btn('Send', () => finish(true), 'primary'),
-      btn('Save as draft', () => finish(false)),
-      btn('Cancel', () => { editors.delete(u.key); render(); }, 'ghost')));
+  };
+  const ta = h('textarea', { id: `reply-${u.key}`, value: editors.get(u.key) ?? '', oninput: (e: Event) => editors.set(u.key, valueOf(e)), 'aria-label': 'Reply text' });
+  const finish = (send: boolean) => void run(async () => { await api.sendReply(u.key, editors.get(u.key) ?? '', send); editors.delete(u.key); toneOf.delete(u.key); render(); }, send ? 'Reply sent' : 'Draft saved to your mailbox');
+  return h('div', {},
+    h('div', { class: 'g-composer' },
+      h('div', { class: 'bar' }, h('span', { class: 'muted small' }, `Reply to ${to.name ? `${to.name} <${to.email}>` : to.email}`), h('span', { style: 'flex:1' }),
+        alts === 'loading' ? h('span', { class: 'muted small' }, 'Writing versions…') : null,
+        segmented([{ value: 'Draft', label: 'Draft' }, { value: 'Brief', label: 'Brief' }, { value: 'Friendly', label: 'Friendly' }, { value: 'Formal', label: 'Formal' }], tone, pick)),
+      ta,
+      h('div', { class: 'foot' },
+        button('Send', { kind: 'primary', icon: 'send', onClick: () => finish(true) }),
+        button('Save as draft', { onClick: () => finish(false) }),
+        account?.calendar ? button('Insert my free times', { kind: 'ghost', icon: 'calendar', onClick: () => insertTimes(u, sig) }) : null,
+        h('span', { style: 'flex:1' }),
+        button('Cancel', { kind: 'ghost', onClick: () => { editors.delete(u.key); toneOf.delete(u.key); render(); } }))),
+    h('div', { class: 'g-note' }, icon('shield', 13), 'Pilot never agrees to meetings or payments for you.'));
+}
+const toneOf = new Map<string, 'Draft' | 'Brief' | 'Friendly' | 'Formal'>();
+
+function insertTimes(u: Update, sig: string | undefined): void {
+  void run(async () => {
+    const times = await api.freeTimes(u.key);
+    const current = editors.get(u.key) ?? '';
+    const block = `I'm free at any of these times:\n${times.map((t) => `- ${t}`).join('\n')}`;
+    // Above the signature, if there is one.
+    const at = sig && current.endsWith(sig) ? current.length - sig.length : current.length;
+    editors.set(u.key, `${current.slice(0, at).trimEnd()}\n\n${block}\n\n${current.slice(at)}`.trim());
+    render();
+  });
 }
