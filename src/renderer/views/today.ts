@@ -117,12 +117,13 @@ export function renderToday(): HTMLElement {
           title: [u.message.from.name || u.message.from.email, u.triage ? chip(CAT_LABEL[u.triage.category]) : null],
           sub: h('span', {}, h('span', { style: 'color:var(--text)' }, u.message.subject || '(no subject)'), u.triage ? ` · ${u.triage.summary}` : ''),
           right: relTime(u.message.receivedAt),
-          onClick: () => { ui.selectedKey = u.key; go('updates'); },
+          onClick: () => { ui.selectedKey = u.key; ui.tab = 'open'; go('updates'); },
         })))
       : emptyState("Nothing needs you right now."),
     sectionTitle('Your week'),
     stats([{ value: String(w.received), label: 'emails' }, { value: String(w.important), label: 'important' }, { value: String(w.owed), label: 'you owe' },
       { value: w.billTotal !== undefined && w.currency ? new Intl.NumberFormat(undefined, { style: 'currency', currency: w.currency, maximumFractionDigits: 0 }).format(w.billTotal) : String(w.bills), label: w.billTotal !== undefined ? 'due in 2 weeks' : 'bills soon' }]),
+    h('div', { class: 'g-hint', style: 'margin-top:6px' }, `Pilot handled ${w.autoActions} on its own · you sent ${w.repliesSent} repl${w.repliesSent === 1 ? 'y' : 'ies'} and archived ${w.archived} · ${w.deadlines} other deadline${w.deadlines === 1 ? '' : 's'} in 2 weeks · waiting on ${w.waitingOn}`),
     w.noisiest.length ? h('div', { class: 'g-hint', style: 'margin-top:6px' }, `Noisiest: ${w.noisiest.map((n) => `${n.name} (${n.count})`).join(', ')} `, button('Clean up', { tiny: true, kind: 'ghost', onClick: () => go('subscriptions') })) : null);
   const right = h('div', {}, sectionTitle('Coming up'), agendaList(), sectionTitle('Waiting on'), waitingList());
   wrap.append(h('div', { class: 'g-grid2' }, left, right));
