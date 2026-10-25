@@ -170,7 +170,7 @@ People using the app just click "Sign in with Google/Microsoft". For that to wor
 
 1. In the [Azure portal](https://portal.azure.com/), go to **App registrations → New registration**.
 2. Supported account types: **Accounts in any organizational directory and personal Microsoft accounts**.
-3. Redirect URI: **Public client/native (mobile & desktop)** → `http://localhost`.
+3. Redirect URI: **Public client/native (mobile & desktop)** → `http://localhost/callback` (the path must match; Microsoft ignores the port for localhost).
 4. Under **API permissions → Microsoft Graph → Delegated**, add `Mail.ReadWrite`, `Mail.Send`, `User.Read`, `offline_access` and `Calendars.ReadBasic` (for Connect calendar).
 5. Under **Authentication**, set **Allow public client flows** to **Yes**.
 6. Put the Application (client) ID in `oauth-clients.json` under `microsoft`, with tenant `common`.
