@@ -164,3 +164,11 @@ mark { background: var(--accent-weak); color: var(--text); border-radius: 2px; p
 .g-sugg:first-child { border-top: 0; }
 .g-sugg .grow { flex: 1; min-width: 0; }
 .g-sugg .muted { font-size: 11.5px; }
+
+.g-tl { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-card); }
+.g-tli { display: flex; gap: 10px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--line); }
+.g-tli:first-child { border-top: 0; }
+.g-tdot { width: 8px; height: 8px; border-radius: 50%; background: var(--line-strong); flex: none; }
+.g-tdot.warn { background: var(--warn); } .g-tdot.ok { background: var(--ok); } .g-tdot.danger { background: var(--danger); }
+.g-tli .body { flex: 1; min-width: 0; }
+.g-tli pre { white-space: pre-wrap; background: var(--side); border: 1px solid var(--line); border-radius: var(--r-ctl); padding: 8px 10px; margin: 6px 0 0; font: 12px/1.5 var(--font); }

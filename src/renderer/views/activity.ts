@@ -1,5 +1,6 @@
 import type { ActivityEntry } from '../../shared/types.js';
-import { api, btn, CAT_LABEL, h, relTime, render, run, ui } from '../core.js';
+import { api, CAT_LABEL, h, relTime, render, run, ui } from '../core.js';
+import { button, emptyState, tabs } from '../ui.js';
 import { ACTION_LABEL } from './updates.js';
 
 // ---- activity ----
@@ -20,21 +21,23 @@ export function renderActivity(): HTMLElement {
     ui.state.settings.previewMode
       ? 'Preview mode is on: automatic actions wait here for your approval. Turn it off in Settings once you trust them.'
       : 'Everything Pilot did, newest first. Archive and label can be undone.'));
-  wrap.append(h('div', { class: 'tabs' },
-    h('button', { class: activityFilter === 'waiting' ? 'active' : '', onclick: () => { activityFilter = 'waiting'; render(); } }, `Waiting for approval (${waiting.length})`),
-    h('button', { class: activityFilter === 'all' ? 'active' : '', onclick: () => { activityFilter = 'all'; render(); } }, `All (${ui.state.activity.length})`)));
+  const approveAll = activityFilter === 'waiting' && waiting.length > 1
+    ? button('Approve all (no sends)', {
+        kind: 'primary',
+        onClick: () => void run(async () => {
+          for (const a of waiting) {
+            if (a.action === 'send') continue; // Sends are always approved one at a time.
+            await api.approve(a.id);
+          }
+        }, 'Approved (replies to send still need individual approval)'),
+      })
+    : undefined;
+  wrap.append(tabs<'waiting' | 'all'>(
+    [{ id: 'waiting', label: 'Waiting for you', count: waiting.length }, { id: 'all', label: 'Everything', count: ui.state.activity.length }],
+    activityFilter, (t) => { activityFilter = t; render(); }, approveAll));
   const list = activityFilter === 'waiting' ? waiting : ui.state.activity;
-  if (!list.length) wrap.append(h('div', { class: 'empty' }, 'Nothing yet. Actions Pilot takes or proposes will appear here.'));
-  if (activityFilter === 'waiting' && waiting.length > 1) {
-    wrap.append(h('div', { class: 'actions top-actions' },
-      btn(`Approve all ${waiting.length}`, () => void run(async () => {
-        for (const a of waiting) {
-          if (a.action === 'send') continue; // Sends are always approved one at a time.
-          await api.approve(a.id);
-        }
-      }, 'Approved (replies to send still need individual approval)'), 'primary')));
-  }
-  for (const a of list) wrap.append(activityRow(a));
+  if (!list.length) wrap.append(emptyState('Nothing yet. Actions Pilot takes or proposes will appear here.'));
+  else wrap.append(h('div', { class: 'g-tl' }, list.map(activityRow)));
   return wrap;
 }
 
@@ -47,23 +50,24 @@ function activityRow(a: ActivityEntry): HTMLElement {
     undone: 'Undone',
     rejected: 'Rejected',
   }[a.status];
+  const tone = a.status === 'proposed' ? 'warn' : a.status === 'done' ? 'ok' : a.status === 'failed' ? 'danger' : '';
   const controls =
     a.status === 'proposed'
-      ? [btn(a.action === 'send' ? 'Approve and send' : 'Approve', () => void run(() => api.approve(a.id), 'Done'), 'primary'), btn('Reject', () => void run(() => api.reject(a.id)))]
+      ? [button(a.action === 'send' ? 'Approve and send' : 'Approve', { kind: 'primary', tiny: true, onClick: () => void run(() => api.approve(a.id), 'Done') }), button('Reject', { tiny: true, onClick: () => void run(() => api.reject(a.id)) })]
       : a.status === 'done' && a.undoable
-        ? [btn('Undo', () => void run(() => api.undo(a.id), 'Undone'))]
+        ? [button('Undo', { tiny: true, onClick: () => void run(() => api.undo(a.id), 'Undone') })]
         : [];
-  return h('div', { class: `banner activity-row s-${a.status}` },
-    h('div', { class: 'grow' },
+  return h('div', { class: `g-tli s-${a.status}` },
+    h('span', { class: `g-tdot ${tone}`, title: statusLabel }),
+    h('div', { class: 'body' },
       h('div', {},
         h('strong', {}, `${ACTION_LABEL[a.action]}${a.category ? ` as ${CAT_LABEL[a.category]}` : ''}`),
         a.subject ? ` · "${a.subject}"` : '',
-        a.sender ? ` · ${a.sender}` : '',
-        h('span', { class: `pill ${a.status === 'done' ? 'on' : a.status === 'failed' ? 'bad' : 'off'}` }, statusLabel)),
+        a.sender ? ` · ${a.sender}` : ''),
       h('div', { class: 'hint' },
-        `${relTime(a.at)} · ${a.trigger === 'auto' ? 'Automatic' : 'You'} · ${a.reason}` + (ui.state.accounts.length > 1 && account ? ` · ${account.email}` : '')),
-      a.error ? h('div', { class: 'err' }, a.error) : null,
-      a.replyText ? h('pre', { class: 'original' }, a.replyText) : null,
+        `${statusLabel} · ${relTime(a.at)} · ${a.trigger === 'auto' ? 'Automatic' : 'You'} · ${a.reason}` + (ui.state.accounts.length > 1 && account ? ` · ${account.email}` : '')),
+      a.error ? h('div', { class: 'err', style: 'color:var(--danger)' }, a.error) : null,
+      a.replyText ? h('pre', {}, a.replyText) : null,
       a.status === 'done' && !a.undoable && IRREVERSIBLE[a.action] ? h('div', { class: 'hint' }, IRREVERSIBLE[a.action]!) : null),
-    h('div', { class: 'row' }, controls));
+    controls.length ? h('div', { class: 'g-acts' }, controls) : null);
 }
