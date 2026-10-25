@@ -4,3 +4,4 @@ dist/
 oauth-clients.json
 dist-test/
 release/
+.superpowers/

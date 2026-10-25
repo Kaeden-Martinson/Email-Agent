@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Inbox Pilot: visual direction</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap" rel="stylesheet" />
+<style>
+  body { margin: 0; background: #ececea; color: #1d1d1b; font: 14px/1.5 "Segoe UI", system-ui, sans-serif; }
+  .page { max-width: 1280px; margin: 0 auto; padding: 32px 28px 64px; }
+  .page > h1 { font-size: 22px; font-weight: 600; margin: 0 0 6px; }
+  .page > p { margin: 0 0 28px; color: #5d5d58; max-width: 760px; }
+  .choice { background: #fff; border: 1px solid #d8d8d3; border-radius: 10px; margin-bottom: 28px; overflow: hidden; cursor: pointer; }
+  .choice.selected { outline: 2px solid #1d1d1b; outline-offset: 2px; }
+  .choice-head { display: flex; align-items: baseline; gap: 14px; padding: 16px 20px; border-bottom: 1px solid #e6e6e1; }
+  .choice-head .letter { font-weight: 600; font-size: 13px; width: 24px; height: 24px; border: 1px solid #1d1d1b; border-radius: 50%; display: grid; place-items: center; flex: none; align-self: center; }
+  .choice-head h2 { font-size: 16px; margin: 0; font-weight: 600; }
+  .choice-head p { margin: 0; color: #5d5d58; font-size: 13px; flex: 1; }
+  .toggle { font: inherit; font-size: 12px; border: 1px solid #c9c9c3; background: #fff; border-radius: 6px; padding: 5px 10px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+  .toggle svg { width: 14px; height: 14px; }
+  .stage { padding: 22px; background: #f4f4f1; }
+  .specs { display: flex; gap: 22px; padding: 12px 20px; border-top: 1px solid #e6e6e1; font-size: 12px; color: #5d5d58; flex-wrap: wrap; }
+  .specs b { color: #1d1d1b; font-weight: 600; }
+  .sw { display: inline-block; width: 11px; height: 11px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; border: 1px solid rgba(0,0,0,.12); }
+
+  /* ---------- shared app skeleton ---------- */
+  .app { display: grid; grid-template-columns: 196px 1fr; height: 520px; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-family: var(--font); transition: background .2s, color .2s; }
+  .app svg.i { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .side { background: var(--side); border-right: 1px solid var(--line); padding: 16px 10px; display: flex; flex-direction: column; gap: 2px; }
+  .brand { display: flex; align-items: center; gap: 8px; padding: 2px 8px 16px; font-weight: 600; font-size: 14px; }
+  .brand .mark { width: 22px; height: 22px; border-radius: 6px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; }
+  .brand .mark svg { width: 13px; height: 13px; stroke-width: 2; }
+  .nav { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 6px; color: var(--muted); font-size: 13px; }
+  .nav.on { background: var(--nav-on); color: var(--text); font-weight: 500; }
+  .nav .n { margin-left: auto; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .nav.on .n { color: var(--accent-text); }
+  .side .foot { margin-top: auto; display: flex; align-items: center; gap: 8px; padding: 8px; font-size: 12px; color: var(--muted); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+  .main { padding: 22px 26px; overflow: hidden; }
+  .top { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 18px; }
+  .top h3 { margin: 0; font: var(--h-font); letter-spacing: var(--h-track); }
+  .top .date { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .btn { font: inherit; font-size: 12px; padding: 6px 11px; border-radius: var(--r-ctl); border: 1px solid var(--line-strong); background: var(--panel); color: var(--text); display: inline-flex; gap: 6px; align-items: center; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .grid { display: grid; grid-template-columns: 1.55fr 1fr; gap: 16px; }
+  .sec-t { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+  .list { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-card); overflow: hidden; }
+  .row { display: grid; grid-template-columns: 8px 1fr auto; gap: 10px; padding: 11px 14px; border-top: 1px solid var(--line); align-items: start; }
+  .row:first-child { border-top: 0; }
+  .pri { width: 6px; height: 6px; border-radius: 50%; margin-top: 7px; background: var(--p1); }
+  .pri.p2 { background: var(--accent); }
+  .who { font-weight: 600; font-size: 13px; }
+  .subj { font-size: 13px; }
+  .sum { color: var(--muted); font-size: 12.5px; margin-top: 1px; }
+  .when { font-size: 11.5px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .tag { display: inline-block; font-size: 10.5px; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--line-strong); color: var(--muted); margin-left: 6px; vertical-align: 1px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-card); padding: 12px 14px; margin-bottom: 10px; }
+  .stat .k { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .stat .v { font: var(--num-font); margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .agenda { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-card); }
+  .ag { display: flex; gap: 10px; padding: 9px 12px; border-top: 1px solid var(--line); font-size: 12.5px; align-items: center; }
+  .ag:first-child { border-top: 0; }
+  .ag .d { width: 38px; color: var(--muted); font-size: 11px; line-height: 1.2; font-variant-numeric: tabular-nums; }
+  .ag .amt { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* ---------- A: Ledger (warm, editorial) ---------- */
+  .A { --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; --h-font: 600 22px/1.2 "Source Serif 4", Georgia, serif; --h-track: -0.01em; --num-font: 600 22px/1.1 "Source Serif 4", Georgia, serif;
+       --bg: #f7f5f0; --side: #f1eee7; --panel: #fffdf9; --text: #22201b; --muted: #77716a; --line: #e5e0d6; --line-strong: #d6cfc2; --nav-on: #e7e2d7;
+       --accent: #1f5f4a; --accent-text: #1f5f4a; --on-accent: #fffdf9; --p1: #b4452f; --ok: #3c8c5a; --r-ctl: 6px; --r-card: 8px; }
+  .A.dark { --bg: #171613; --side: #1c1b17; --panel: #211f1b; --text: #ece7dd; --muted: #9b958a; --line: #2f2c26; --line-strong: #3d3932; --nav-on: #2a2823;
+       --accent: #6fbf9d; --accent-text: #8fd3b5; --on-accent: #10201a; --p1: #e07a5f; --ok: #6fbf9d; }
+
+  /* ---------- B: Graphite (cool, precise; keeps today's blue) ---------- */
+  .B { --font: "Inter", "Segoe UI", system-ui, sans-serif; --h-font: 600 20px/1.2 "Inter", sans-serif; --h-track: -0.02em; --num-font: 600 20px/1.1 "Inter", sans-serif;
+       --bg: #fbfbfc; --side: #f4f5f7; --panel: #ffffff; --text: #111318; --muted: #6b7180; --line: #e7e9ee; --line-strong: #d5d9e1; --nav-on: #e8ebf1;
+       --accent: #2b59d9; --accent-text: #2b59d9; --on-accent: #fff; --p1: #d43c3c; --ok: #1f9d63; --r-ctl: 5px; --r-card: 6px; }
+  .B.dark { --bg: #0e0f12; --side: #121418; --panel: #16181d; --text: #e9ebf0; --muted: #8a909c; --line: #23262d; --line-strong: #30343c; --nav-on: #1e2128;
+       --accent: #5b84f2; --accent-text: #86a5f7; --on-accent: #0b1020; --p1: #f06a6a; --ok: #3ccf8e; }
+
+  /* ---------- C: Harbor (quiet slate, amber signal) ---------- */
+  .C { --font: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; --h-font: 500 23px/1.2 "IBM Plex Sans", sans-serif; --h-track: -0.015em; --num-font: 500 24px/1.1 "IBM Plex Sans", sans-serif;
+       --bg: #f3f5f6; --side: #1f2a33; --panel: #ffffff; --text: #182129; --muted: #66727d; --line: #e1e6ea; --line-strong: #cfd6dc; --nav-on: #2c3a46;
+       --accent: #c77712; --accent-text: #c77712; --on-accent: #fff; --p1: #c2410c; --ok: #4aa37c; --r-ctl: 4px; --r-card: 4px; }
+  .C .side { color: #c7d0d8; border-right-color: #1f2a33; }
+  .C .side .nav { color: #9aa8b4; } .C .side .nav.on { color: #fff; } .C .side .nav.on .n { color: #f0a94a; } .C .brand { color: #fff; }
+  .C .side .foot { color: #8696a3; }
+  .C.dark { --bg: #12181d; --side: #0d1216; --panel: #182027; --text: #e3e8ec; --muted: #8b98a3; --line: #243039; --line-strong: #33414c; --nav-on: #1c2830;
+       --accent: #f0a94a; --accent-text: #f0a94a; --on-accent: #1a1206; --p1: #f08a5d; }
+  .C.dark .side { border-right-color: #243039; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M3 13h5l1.5 3h5L16 13h5"/><path d="M5.5 5h13L21 13v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-reply" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 6 6v4"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></symbol>
+  <symbol id="i-bill" viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-pilot" viewBox="0 0 24 24"><path d="M3 11 21 3l-8 18-2-8z"/></symbol>
+</svg>
+
+<div class="page">
+  <h1>Which overall look should Inbox Pilot have?</h1>
+  <p>Three directions, each shown on the Today screen with your kind of data. Use the toggle on each to see it in dark mode. Click a card to pick it (you can also say "A's colors with B's type" in the terminal). Every icon is an inline SVG; there are no emoji anywhere.</p>
+
+  <div class="cards">
+  <!-- A -->
+  <section class="choice card" data-choice="ledger" onclick="toggleSelect(this)">
+    <div class="choice-head"><span class="letter">A</span><h2>Ledger</h2><p>Warm paper tones, a serif for headings and numbers, deep green accent. Calm and editorial, like a well-kept notebook.</p>
+      <button class="toggle" onclick="event.stopPropagation(); flip('a', this)"><svg class="i"><use href="#i-moon"/></svg><span>Dark</span></button></div>
+    <div class="stage"><div class="app A" id="a">
+      <aside class="side">
+        <div class="brand"><span class="mark"><svg class="i"><use href="#i-pilot"/></svg></span>Inbox Pilot</div>
+        <div class="nav on"><svg class="i"><use href="#i-home"/></svg>Today</div>
+        <div class="nav"><svg class="i"><use href="#i-inbox"/></svg>Updates<span class="n">5</span></div>
+        <div class="nav"><svg class="i"><use href="#i-search"/></svg>Ask<span class="n">Ctrl K</span></div>
+        <div class="nav"><svg class="i"><use href="#i-cal"/></svg>Deadlines<span class="n">3</span></div>
+        <div class="nav"><svg class="i"><use href="#i-reply"/></svg>Follow-ups<span class="n">2</span></div>
+        <div class="nav"><svg class="i"><use href="#i-mail"/></svg>Mailboxes</div>
+        <div class="nav"><svg class="i"><use href="#i-list"/></svg>Activity</div>
+        <div class="nav"><svg class="i"><use href="#i-gear"/></svg>Settings</div>
+        <div class="foot"><span class="dot"></span>Watching 1 mailbox</div>
+      </aside>
+      <main class="main">
+        <div class="top"><div><h3>Good morning, Kaeden</h3><div class="date">Sunday, October 25</div></div><button class="btn">Check now</button></div>
+        <div class="grid">
+          <div>
+            <div class="sec-t">Needs you</div>
+            <div class="list">
+              <div class="row"><span class="pri"></span><div><div class="who">Priya Shah <span class="tag">Action</span></div><div class="subj">Contract redlines due Friday</div><div class="sum">Sign off on the indemnity clause (section 7) by Friday 5pm.</div></div><span class="when">8h</span></div>
+              <div class="row"><span class="pri p2"></span><div><div class="who">Marcus Lee <span class="tag">Reply</span></div><div class="subj">Dinner Saturday?</div><div class="sum">Asks if 7pm works. A reply is drafted and waiting.</div></div><span class="when">20h</span></div>
+              <div class="row"><span class="pri p2"></span><div><div class="who">J. Silverman</div><div class="subj">Campus visit</div><div class="sum">Waiting on your answer since Thursday.</div></div><span class="when">2d</span></div>
+            </div>
+          </div>
+          <div>
+            <div class="stat"><div class="k"><svg class="i"><use href="#i-bill"/></svg>Due in the next 2 weeks</div><div class="v">$35.00</div></div>
+            <div class="sec-t">Coming up</div>
+            <div class="agenda">
+              <div class="ag"><span class="d">Mon<br>Oct 26</span>Chase card payment<span class="amt">$35</span></div>
+              <div class="ag"><span class="d">Fri<br>Oct 30</span>Contract sign-off</div>
+              <div class="ag"><span class="d">Thu<br>Oct 29</span>Tech to You session</div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div></div>
+    <div class="specs"><span><b>Type</b> Segoe UI Variable + Source Serif</span><span><b>Accent</b> <i class="sw" style="background:#1f5f4a"></i>#1F5F4A</span><span><b>Corners</b> 6 / 8 px</span><span><b>Feel</b> warm, unhurried</span></div>
+  </section>
+
+  <!-- B -->
+  <section class="choice card" data-choice="graphite" onclick="toggleSelect(this)">
+    <div class="choice-head"><span class="letter">B</span><h2>Graphite</h2><p>Cool neutrals, Inter, tight spacing and the blue Pilot already uses. Precise and fast, closest to tools like Linear.</p>
+      <button class="toggle" onclick="event.stopPropagation(); flip('b', this)"><svg class="i"><use href="#i-moon"/></svg><span>Dark</span></button></div>
+    <div class="stage"><div class="app B" id="b">
+      <aside class="side">
+        <div class="brand"><span class="mark"><svg class="i"><use href="#i-pilot"/></svg></span>Inbox Pilot</div>
+        <div class="nav on"><svg class="i"><use href="#i-home"/></svg>Today</div>
+        <div class="nav"><svg class="i"><use href="#i-inbox"/></svg>Updates<span class="n">5</span></div>
+        <div class="nav"><svg class="i"><use href="#i-search"/></svg>Ask<span class="n">Ctrl K</span></div>
+        <div class="nav"><svg class="i"><use href="#i-cal"/></svg>Deadlines<span class="n">3</span></div>
+        <div class="nav"><svg class="i"><use href="#i-reply"/></svg>Follow-ups<span class="n">2</span></div>
+        <div class="nav"><svg class="i"><use href="#i-mail"/></svg>Mailboxes</div>
+        <div class="nav"><svg class="i"><use href="#i-list"/></svg>Activity</div>
+        <div class="nav"><svg class="i"><use href="#i-gear"/></svg>Settings</div>
+        <div class="foot"><span class="dot"></span>Watching 1 mailbox</div>
+      </aside>
+      <main class="main">
+        <div class="top"><div><h3>Good morning, Kaeden</h3><div class="date">Sunday, October 25</div></div><button class="btn">Check now</button></div>
+        <div class="grid">
+          <div>
+            <div class="sec-t">Needs you</div>
+            <div class="list">
+              <div class="row"><span class="pri"></span><div><div class="who">Priya Shah <span class="tag">Action</span></div><div class="subj">Contract redlines due Friday</div><div class="sum">Sign off on the indemnity clause (section 7) by Friday 5pm.</div></div><span class="when">8h</span></div>
+              <div class="row"><span class="pri p2"></span><div><div class="who">Marcus Lee <span class="tag">Reply</span></div><div class="subj">Dinner Saturday?</div><div class="sum">Asks if 7pm works. A reply is drafted and waiting.</div></div><span class="when">20h</span></div>
+              <div class="row"><span class="pri p2"></span><div><div class="who">J. Silverman</div><div class="subj">Campus visit</div><div class="sum">Waiting on your answer since Thursday.</div></div><span class="when">2d</span></div>
+            </div>
+          </div>
+          <div>
+            <div class="stat"><div class="k"><svg class="i"><use href="#i-bill"/></svg>Due in the next 2 weeks</div><div class="v">$35.00</div></div>
+            <div class="sec-t">Coming up</div>
+            <div class="agenda">
+              <div class="ag"><span class="d">Mon<br>Oct 26</span>Chase card payment<span class="amt">$35</span></div>
+              <div class="ag"><span class="d">Fri<br>Oct 30</span>Contract sign-off</div>
+              <div class="ag"><span class="d">Thu<br>Oct 29</span>Tech to You session</div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div></div>
+    <div class="specs"><span><b>Type</b> Inter (bundled with the app)</span><span><b>Accent</b> <i class="sw" style="background:#2b59d9"></i>#2B59D9</span><span><b>Corners</b> 5 / 6 px</span><span><b>Feel</b> crisp, information-dense</span></div>
+  </section>
+
+  <!-- C -->
+  <section class="choice card" data-choice="harbor" onclick="toggleSelect(this)">
+    <div class="choice-head"><span class="letter">C</span><h2>Harbor</h2><p>Deep slate sidebar, IBM Plex Sans, square corners and a single amber signal color for what needs you. Steady, like an instrument panel.</p>
+      <button class="toggle" onclick="event.stopPropagation(); flip('c', this)"><svg class="i"><use href="#i-moon"/></svg><span>Dark</span></button></div>
+    <div class="stage"><div class="app C" id="c">
+      <aside class="side">
+        <div class="brand"><span class="mark"><svg class="i"><use href="#i-pilot"/></svg></span>Inbox Pilot</div>
+        <div class="nav on"><svg class="i"><use href="#i-home"/></svg>Today</div>
+        <div class="nav"><svg class="i"><use href="#i-inbox"/></svg>Updates<span class="n">5</span></div>
+        <div class="nav"><svg class="i"><use href="#i-search"/></svg>Ask<span class="n">Ctrl K</span></div>
+        <div class="nav"><svg class="i"><use href="#i-cal"/></svg>Deadlines<span class="n">3</span></div>
+        <div class="nav"><svg class="i"><use href="#i-reply"/></svg>Follow-ups<span class="n">2</span></div>
+        <div class="nav"><svg class="i"><use href="#i-mail"/></svg>Mailboxes</div>
+        <div class="nav"><svg class="i"><use href="#i-list"/></svg>Activity</div>
+        <div class="nav"><svg class="i"><use href="#i-gear"/></svg>Settings</div>
+        <div class="foot"><span class="dot"></span>Watching 1 mailbox</div>
+      </aside>
+      <main class="main">
+        <div class="top"><div><h3>Good morning, Kaeden</h3><div class="date">Sunday, October 25</div></div><button class="btn">Check now</button></div>
+        <div class="grid">
+          <div>
+            <div class="sec-t">Needs you</div>
+            <div class="list">
+              <div class="row"><span class="pri"></span><div><div class="who">Priya Shah <span class="tag">Action</span></div><div class="subj">Contract redlines due Friday</div><div class="sum">Sign off on the indemnity clause (section 7) by Friday 5pm.</div></div><span class="when">8h</span></div>
+              <div class="row"><span class="pri p2"></span><div><div class="who">Marcus Lee <span class="tag">Reply</span></div><div class="subj">Dinner Saturday?</div><div class="sum">Asks if 7pm works. A reply is drafted and waiting.</div></div><span class="when">20h</span></div>
+              <div class="row"><span class="pri p2"></span><div><div class="who">J. Silverman</div><div class="subj">Campus visit</div><div class="sum">Waiting on your answer since Thursday.</div></div><span class="when">2d</span></div>
+            </div>
+          </div>
+          <div>
+            <div class="stat"><div class="k"><svg class="i"><use href="#i-bill"/></svg>Due in the next 2 weeks</div><div class="v">$35.00</div></div>
+            <div class="sec-t">Coming up</div>
+            <div class="agenda">
+              <div class="ag"><span class="d">Mon<br>Oct 26</span>Chase card payment<span class="amt">$35</span></div>
+              <div class="ag"><span class="d">Fri<br>Oct 30</span>Contract sign-off</div>
+              <div class="ag"><span class="d">Thu<br>Oct 29</span>Tech to You session</div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div></div>
+    <div class="specs"><span><b>Type</b> IBM Plex Sans (bundled)</span><span><b>Accent</b> <i class="sw" style="background:#c77712"></i>#C77712 amber</span><span><b>Corners</b> 4 px, square-ish</span><span><b>Feel</b> steady, high contrast</span></div>
+  </section>
+  </div>
+</div>
+<script>
+  function flip(id, btn) {
+    const el = document.getElementById(id);
+    const dark = el.classList.toggle('dark');
+    btn.querySelector('span').textContent = dark ? 'Light' : 'Dark';
+    btn.querySelector('use').setAttribute('href', dark ? '#i-sun' : '#i-moon');
+  }
+</script>
+</body>
+</html>
