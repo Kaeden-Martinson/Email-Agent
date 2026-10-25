@@ -44,7 +44,7 @@ interface GmailMessage {
 export function googleOAuth(s: Settings, loginHint?: string, access: Access = 'full', calendar = false): OAuthConfig {
   const { google } = oauthClients(s);
   if (!google.clientId) {
-    throw new Error('Google sign-in is not set up in this copy of Inbox Pilot yet (oauth-clients.json is missing a Google client).');
+    throw new Error('Google sign-in is not set up in this copy of Lodestar yet (oauth-clients.json is missing a Google client).');
   }
   return {
     authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
@@ -162,7 +162,7 @@ export class GmailProvider extends OAuthProvider implements MailProvider {
       if (/has not been used|is disabled|accessNotConfigured|SERVICE_DISABLED/i.test(msg)) {
         throw new Error('The Google Calendar API is turned off in your Google Cloud project. Enable it at console.cloud.google.com → APIs & Services → Library → Google Calendar API.');
       }
-      if (/insufficient|scope|403/i.test(msg)) throw new Error('Pilot has no calendar access for this mailbox. Use Connect calendar on the Mailboxes page.');
+      if (/insufficient|scope|403/i.test(msg)) throw new Error('Lodestar has no calendar access for this mailbox. Use Connect calendar on the Mailboxes page.');
       throw e;
     }
   }

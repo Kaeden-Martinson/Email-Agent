@@ -9,7 +9,7 @@ export const AUTO_UNSUBSCRIBE_AFTER = 3;
 
 export const replyAddress = (u: Update) => (u.message.replyTo ?? u.message.from).email.toLowerCase();
 
-/** Why Pilot must not reply to this email automatically, or undefined if it may. */
+/** Why Lodestar must not reply to this email automatically, or undefined if it may. */
 export function replyBlocker(u: Update, account: Account, repliedThreads: readonly string[]): string | undefined {
   const m = u.message;
   const sender = replyAddress(u);

@@ -52,13 +52,13 @@ const page = `<!doctype html>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Inbox Pilot privacy policy</title>
+    <title>Lodestar privacy policy</title>
     ${style}
   </head>
   <body>
     <main>
 ${policy}
-      <footer><a href="./">Inbox Pilot home</a></footer>
+      <footer><a href="./">Lodestar home</a></footer>
     </main>
   </body>
 </html>

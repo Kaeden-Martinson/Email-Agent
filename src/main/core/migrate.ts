@@ -37,7 +37,7 @@ export function migrate(raw: Raw): Raw {
   let s = { ...raw };
   let v = Number(s.schemaVersion ?? s.version ?? 1);
   if (v > SCHEMA_VERSION) {
-    throw new Error(`This data was saved by a newer version of Pilot (schema ${v}). Update Pilot to open it.`);
+    throw new Error(`This data was saved by a newer version of Lodestar (schema ${v}). Update Lodestar to open it.`);
   }
   while (v < SCHEMA_VERSION) {
     const step = MIGRATIONS[v];

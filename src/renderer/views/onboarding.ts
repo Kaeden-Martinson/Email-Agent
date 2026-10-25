@@ -8,7 +8,7 @@ import { banner, button, field } from '../ui.js';
 
 type Step = 'name' | 'ai' | 'mail';
 const STEPS: { id: Step; label: string; sub: string; icon: IconName }[] = [
-  { id: 'name', label: 'Your name', sub: 'Used when Pilot writes replies for you', icon: 'user' },
+  { id: 'name', label: 'Your name', sub: 'Used when Lodestar writes replies for you', icon: 'user' },
   { id: 'ai', label: 'AI on this PC', sub: 'Runs locally, one-time setup', icon: 'cpu' },
   { id: 'mail', label: 'Your mailbox', sub: 'Gmail, Outlook or any provider', icon: 'mail' },
 ];
@@ -17,9 +17,9 @@ function welcome(step: Step, content: Child[]): HTMLElement {
   const at = STEPS.findIndex((x) => x.id === step);
   return h('div', { class: 'g-welcome' },
     h('div', { class: 'l' },
-      h('div', { class: 'g-brand big' }, h('span', { class: 'mark' }, icon('pilot', 14)), 'Inbox Pilot'),
+      h('div', { class: 'g-brand big' }, h('span', { class: 'mark' }, icon('lodestar', 14)), 'Lodestar'),
       h('h1', {}, 'Your email, read on your own PC.'),
-      h('p', {}, 'Pilot sorts what matters, tracks bills and deadlines, and drafts replies you approve. Nothing is sent to an AI company.'),
+      h('p', {}, 'Lodestar sorts what matters, tracks bills and deadlines, and drafts replies you approve. Nothing is sent to an AI company.'),
       h('ul', {},
         h('li', {}, icon('shield', 15), 'Encrypted on this PC'),
         h('li', {}, icon('check', 15), 'Never sends without your OK'),
@@ -47,13 +47,13 @@ export function renderOnboarding(): HTMLElement {
           render();
         });
       } },
-        field('What should your Pilot call you?', name, 'It uses this when it writes replies for you.'),
+        field('What should Lodestar call you?', name, 'It uses this when it writes replies for you.'),
         h('div', { class: 'g-acts' }, h('button', { class: 'g-btn primary', type: 'submit' }, 'Continue')))]);
   }
 
   if (ui.onboardStep === 'ai') {
     return welcome('ai', [
-      h('p', { class: 'g-hint' }, 'Pilot reads your email with an AI that runs on this computer, so your mail never goes to an AI company. This is a one-time setup.'),
+      h('p', { class: 'g-hint' }, 'Lodestar reads your email with an AI that runs on this computer, so your mail never goes to an AI company. This is a one-time setup.'),
       aiSetupPanel(() => { ui.onboardStep = 'mail'; render(); }),
       h('div', { class: 'g-acts' },
         button('Back', { kind: 'ghost', onClick: () => { ui.onboardStep = 'name'; render(); } }),
@@ -67,10 +67,10 @@ export function renderOnboarding(): HTMLElement {
   };
   return welcome('mail', [
     h('p', { class: 'g-hint' },
-      `Hi ${ui.state.settings.userName}. Type an email address. Pilot works out whether it's Gmail, Outlook or another provider and sets it up for you. You can add more mailboxes later.`),
+      `Hi ${ui.state.settings.userName}. Type an email address. Lodestar works out whether it's Gmail, Outlook or another provider and sets it up for you. You can add more mailboxes later.`),
     renderAddMailbox((id) => {
       void finish(id);
-      toast('Mailbox added. Choose what Pilot may do there, then press Start watching.');
+      toast('Mailbox added. Choose what Lodestar may do there, then press Start watching.');
     }),
     h('div', { class: 'g-acts' },
       button('Back', { kind: 'ghost', onClick: () => { ui.onboardStep = 'ai'; render(); } }),
@@ -154,7 +154,7 @@ export function renderAddMailbox(onAdded: (id: string) => void, onCancel?: () =>
     f.busy && d.kind !== 'imap'
       ? banner('info', [
           d.kind === 'gmail'
-            ? 'If Google says "Access blocked", the person who shared Inbox Pilot needs to add your Gmail address to its test users first. Closed the browser tab? Cancel and sign in again.'
+            ? 'If Google says "Access blocked", the person who shared Lodestar needs to add your Gmail address to its test users first. Closed the browser tab? Cancel and sign in again.'
             : 'Blocked, or closed the browser tab? Cancel and sign in again.'],
           [button('Cancel sign-in', { onClick: () => void run(() => api.cancelSignIn()) })])
       : null,
@@ -166,12 +166,12 @@ export function renderAddMailbox(onAdded: (id: string) => void, onCancel?: () =>
     const available = ui.state.signIn[d.kind];
     return h('div', { class: 'add-mailbox' }, head,
       available
-        ? h('p', { class: 'hint' }, `Your browser opens a ${brand} sign-in page. Inbox Pilot never sees your password.`)
-        : banner('warn', [`${brand} sign-in isn't set up in this copy of Inbox Pilot yet. The developer needs to add a ${brand} client to oauth-clients.json (see the README).`]),
-      h('div', { class: 'g-field' }, h('label', {}, 'What Pilot may do'),
+        ? h('p', { class: 'hint' }, `Your browser opens a ${brand} sign-in page. Lodestar never sees your password.`)
+        : banner('warn', [`${brand} sign-in isn't set up in this copy of Lodestar yet. The developer needs to add a ${brand} client to oauth-clients.json (see the README).`]),
+      h('div', { class: 'g-field' }, h('label', {}, 'What Lodestar may do'),
         ([
           ['full', 'Full access (recommended)', 'Read mail, and, only when you allow it per mailbox, archive, label, save drafts or send.'],
-          ['readonly', 'Read-only', 'Summaries, search, deadlines and reminders only. Pilot can never change this mailbox or send from it.'],
+          ['readonly', 'Read-only', 'Summaries, search, deadlines and reminders only. Lodestar can never change this mailbox or send from it.'],
         ] as ['full' | 'readonly', string, string][]).map(([value, label, hint]) =>
           h('label', { class: 'check' },
             h('input', { type: 'radio', name: 'access', checked: (f.access ?? 'full') === value, onchange: () => { f.access = value; } }),

@@ -1,6 +1,8 @@
-# Inbox Pilot
+# Lodestar
 
-A desktop email assistant. Each PC has **one Pilot**, and it works for one person. You add your mailboxes (Gmail, Outlook, Yahoo, iCloud, a work or custom domain), decide what the Pilot may do in each one, and press **Start watching**.
+A desktop email assistant. Each PC has **one Lodestar**, and it works for one person. You add your mailboxes (Gmail, Outlook, Yahoo, iCloud, a work or custom domain), decide what Lodestar may do in each one, and press **Start watching**.
+
+Lodestar was previously called Inbox Pilot. Its data folder (`%APPDATA%\inbox-pilot`), app ID and update feed are unchanged, so existing installs carry over.
 
 From then on it reads new mail with a **local AI model (Ollama)** and helps you:
 - **understand what matters:** the Today screen, priorities with reasons, whole-conversation summaries
@@ -9,22 +11,22 @@ From then on it reads new mail with a **local AI model (Ollama)** and helps you:
 - **find anything:** Ask my inbox, with cited answers
 - **automate safely:** rules you teach it, and a preview mode with approvals, an activity log and undo
 
-Your email is processed on your PC; Pilot has no server. Its data and sign-ins are stored encrypted with Windows. See `docs/STATUS.md` for what's done and what's left, `docs/SECURITY.md` for every data flow, and `docs/VERIFICATION.md` for production readiness.
+Your email is processed on your PC; Lodestar has no server. Its data and sign-ins are stored encrypted with Windows. See `docs/STATUS.md` for what's done and what's left, `docs/SECURITY.md` for every data flow, and `docs/VERIFICATION.md` for production readiness.
 ## How it works for the person using it
 
-1. **First launch**: the Pilot asks your name, then asks for your first email address.
-2. **Type an email address** and the Pilot works out the provider:
+1. **First launch**: Lodestar asks your name, then asks for your first email address.
+2. **Type an email address** and Lodestar works out the provider:
    - `gmail.com` and Google Workspace domains → **Sign in with Google**
    - `outlook.com`, `hotmail.com` and Microsoft 365 domains → **Sign in with Microsoft**
-   - Yahoo, iCloud, AOL, Fastmail, Zoho, GMX, Comcast and most other providers → server settings are filled in automatically, and you paste an **app password** (the Pilot links you to the page that creates one)
+   - Yahoo, iCloud, AOL, Fastmail, Zoho, GMX, Comcast and most other providers → server settings are filled in automatically, and you paste an **app password** (Lodestar links you to the page that creates one)
    - Custom domains are identified from their MX records and Mozilla's ISP database (the one Thunderbird uses).
-3. **Set permissions**: a new mailbox starts **paused**. Open **Permissions** and choose what the Pilot may do there:
+3. **Set permissions**: a new mailbox starts **paused**. Open **Permissions** and choose what Lodestar may do there:
    - **Read new mail and add it to my updates** (the watch switch)
    - **Alert me about important mail** (Windows notifications)
    - **Archive emails when I ask**
    - **Replies**: *Suggest only* / *Save drafts* / *Auto-send to trusted senders*
    - **Trusted senders** and a **signature** for this mailbox
-4. **Start watching**: the Pilot checks every few minutes (5 by default) and fills the Updates list.
+4. **Start watching**: Lodestar checks every few minutes (5 by default) and fills the Updates list.
 
 ### How mail is read (the pipeline)
 
@@ -37,7 +39,7 @@ Every email shows a **Why:** line with its reason, its stage and how long it too
 
 ### Conversations
 
-Personal email is read together with its whole conversation, up to the last 8 messages, with quoted history stripped. Each email shows what's **still waiting on you** and what **you promised** earlier, and a **Conversation** panel shows the messages, highlighting the ones the summary is based on. If you've already replied after a message, Pilot checks that directly in your mailbox and won't draft another reply.
+Personal email is read together with its whole conversation, up to the last 8 messages, with quoted history stripped. Each email shows what's **still waiting on you** and what **you promised** earlier, and a **Conversation** panel shows the messages, highlighting the ones the summary is based on. If you've already replied after a message, Lodestar checks that directly in your mailbox and won't draft another reply.
 
 ### Notifications
 
@@ -69,12 +71,12 @@ Everything stays on your PC.
 
 ### Deadlines & bills
 
-Pilot pulls bills (amount and due date), deadlines, appointments, events and deliveries out of your email. Each item is **checked against the email text**:
+Lodestar pulls bills (amount and due date), deadlines, appointments, events and deliveries out of your email. Each item is **checked against the email text**:
 - **Stated in the email:** the date and amount appear word for word in the quoted sentence.
 - **Check the details:** something was ambiguous or conflicting. For example, "11/05" is read in US month/day order, or the email mentions several amounts. Each note says exactly what to check.
 - **AI guess:** the model's quote wasn't found in the email.
 
-If the AI and the email disagree, the email wins. Amounts the email doesn't contain are dropped. Times given in another time zone are converted to yours. Several emails about the same bill are merged into one item. **Show source** displays the exact sentence. Pilot never pays bills or moves money.
+If the AI and the email disagree, the email wins. Amounts the email doesn't contain are dropped. Times given in another time zone are converted to yours. Several emails about the same bill are merged into one item. **Show source** displays the exact sentence. Lodestar never pays bills or moves money.
 
 ### Follow-ups
 
@@ -87,11 +89,11 @@ It suggests a nudge after a stated deadline, or after 3 working days by default 
 
 **Remind me…** accepts plain English, such as "Friday", "tomorrow at 3pm", "in 2 days" or "Monday if they haven't replied", and shows exactly when it will fire before you save. "If they haven't replied" reminders check the real conversation first and quietly skip themselves when the reply has arrived.
 
-### Teaching Pilot
+### Teaching Lodestar
 
 Each email has **More important**, **Less important** and **Junk**. These change *only that email*. To change all future mail, use **Always from this sender…**, which creates a rule for that sender or their company domain. Domain rules for shared webmail such as gmail.com aren't allowed. After two corrections in the same direction for one sender, or when you keep archiving or replying to a sender's mail (three times in 60 days), the **Rules** page suggests a rule; **Not now** hides a suggestion. You can edit, switch off or delete any rule there.
 
-**Describe a rule** on the Rules page takes plain English, such as `emails from billing@acme.com are important` or `hide anything with "webinar" in the subject`. Pilot shows what the rule means and which current emails it would change before you save it. Rules can match a sender, a domain, words in the subject, or a domain plus subject words. They only sort mail; they never send, delete or unsubscribe.
+**Describe a rule** on the Rules page takes plain English, such as `emails from billing@acme.com are important` or `hide anything with "webinar" in the subject`. Lodestar shows what the rule means and which current emails it would change before you save it. Rules can match a sender, a domain, words in the subject, or a domain plus subject words. They only sort mail; they never send, delete or unsubscribe.
 
 ### Working faster
 
@@ -99,10 +101,10 @@ Each email has **More important**, **Less important** and **Junk**. These change
 - **Undo:** Done, Snooze and Archive show an **Undo** button in the message at the bottom for 8 seconds.
 - **Snooze…** offers Tomorrow, Next week, Until they reply (it comes back when the sender writes again, or after 2 weeks), or any time in plain English.
 - **Bulk cleanup** (Subscriptions page): archive promotions, newsletters, notifications or spam older than 7–60 days. You see how many and which first; important emails and emails waiting on your reply are never included; Undo all puts them back.
-- **Your writing style** (Replies page): Pilot reads up to 40 recent sent emails once and keeps a one-line description (greeting, sign-off, length, tone) that drafts follow. Forget it removes it.
-- **Your week** on Today: emails received, what Pilot and you did, bills and deadlines in the next 2 weeks, and the noisiest senders. On Mondays a count-only notification sums it up.
+- **Your writing style** (Replies page): Lodestar reads up to 40 recent sent emails once and keeps a one-line description (greeting, sign-off, length, tone) that drafts follow. Forget it removes it.
+- **Your week** on Today: emails received, what Lodestar and you did, bills and deadlines in the next 2 weeks, and the noisiest senders. On Mondays a count-only notification sums it up.
 - **Similar emails are grouped:** repeats of the same alert or notification within a week show as one card with "+N similar" and a **Mark all done** button.
-- **Calendar-aware replies:** Mailboxes → Connect calendar grants free/busy access only. When an email asks to meet, reply suggestions offer two or three of your free working-hour slots, and the reply box has **Insert my free times**. Pilot never books or accepts anything.
+- **Calendar-aware replies:** Mailboxes → Connect calendar grants free/busy access only. When an email asks to meet, reply suggestions offer two or three of your free working-hour slots, and the reply box has **Insert my free times**. Lodestar never books or accepts anything.
 - **Three reply versions:** in the reply box, **Suggest 3 versions** writes brief, friendly and formal replies aware of the whole conversation. They say you'll check rather than invent an answer.
 - **PDF attachments:** bills, invoices and tickets attached as PDFs are read locally, so their due dates and amounts reach Deadlines and Ask my inbox. The card says which attachment was read.
 
@@ -116,15 +118,15 @@ Each email has **More important**, **Less important** and **Junk**. These change
 
 Each mailbox's **Permissions** panel also has an Autopilot section. Everything there is off until you turn it on:
 
-- **Sort mail with Pilot labels**: Gmail gets labels such as `Pilot/Action` and `Pilot/Newsletters`, Outlook gets categories such as `Pilot: Action`, and IMAP mailboxes get keywords where the server supports them.
+- **Sort mail with labels** (still named `Pilot`, so existing labels keep working): Gmail gets labels such as `Pilot/Action` and `Pilot/Newsletters`, Outlook gets categories such as `Pilot: Action`, and IMAP mailboxes get keywords where the server supports them.
 - **Archive automatically once summarized**: choose newsletters, promotions and/or notifications. Archived mail stays in the mailbox's archive and on the Done tab. Anything priority 1 or waiting on a reply is never archived, and this needs the "Archive emails when I ask" permission.
 - **Unsubscribing**:
   - *Suggest* lists bulk senders under **Subscriptions**, each with an Unsubscribe button. It uses one-click unsubscribe if the sender supports it, otherwise an unsubscribe email, otherwise it opens their page.
-  - *Automatic* also unsubscribes on its own after 3 newsletters or promotions from the same sender in 30 days, but **only** through the sender's RFC 8058 one-click link. The Pilot never visits an unsubscribe web page by itself.
+  - *Automatic* also unsubscribes on its own after 3 newsletters or promotions from the same sender in 30 days, but **only** through the sender's RFC 8058 one-click link. Lodestar never visits an unsubscribe web page by itself.
 
-**Morning briefing** (Settings, on by default at 08:00): once a day the Pilot writes a short summary of what needs you, deadlines and waiting drafts. It shows the summary as a Windows notification and at the top of Updates. If the PC was off at that time, the briefing comes at the next launch.
+**Morning briefing** (Settings, on by default at 08:00): once a day Lodestar writes a short summary of what needs you, deadlines and waiting drafts. It shows the summary as a Windows notification and at the top of Updates. If the PC was off at that time, the briefing comes at the next launch.
 
-If the chosen Ollama model isn't installed, the Pilot switches to an installed chat model on its own.
+If the chosen Ollama model isn't installed, Lodestar switches to an installed chat model on its own.
 
 **Reply rules** (shared by all mailboxes) set which kinds of email get replies, the tone, a daily auto-send limit, and whether auto-sent mail says an assistant wrote it.
 
@@ -141,7 +143,7 @@ These checks live in code, so nothing written in an email can talk the model pas
 
 1. Send them the install guide: https://kaeden-martinson.github.io/Email-Agent/install.html (download link, SmartScreen, setup).
 2. **Add each Gmail address as a test user** before they sign in: [Google Auth Platform → Audience](https://console.cloud.google.com/auth/audience?project=inbox-pilot-512603) → Test users → Add users (up to 100). Without this Google shows "Access blocked".
-3. On first run, Pilot installs Ollama for them (official installer, signature checked) and downloads a model sized to their PC: `qwen2.5:7b` with 16 GB RAM or a 6 GB+ graphics card, `qwen2.5:3b` with 8–16 GB, `qwen2.5:1.5b` below that.
+3. On first run, Lodestar installs Ollama for them (official installer, signature checked) and downloads a model sized to their PC: `qwen2.5:7b` with 16 GB RAM or a 6 GB+ graphics card, `qwen2.5:3b` with 8–16 GB, `qwen2.5:1.5b` below that.
 4. They'll see "Google hasn't verified this app" and must re-sign-in about weekly (Reconnect button) until the app is verified by Google.
 5. Yahoo, iCloud and other IMAP mail work with an app password. Outlook needs the Azure client first.
 
@@ -198,20 +200,20 @@ Running from source turns on developer mode: Ctrl+Shift+I opens DevTools, and lo
 npm run dist
 ```
 
-This produces `release/Inbox Pilot Setup <version>.exe`, a per-user installer (no admin rights needed) with Start Menu and desktop shortcuts. It installs to your user profile and lets you pick the folder. Uninstalling **keeps** your data. `npm run dist:dir` builds an unpacked copy in `release/win-unpacked/` for quick testing.
+This produces `release/Lodestar Setup <version>.exe`, a per-user installer (no admin rights needed) with Start Menu and desktop shortcuts. It installs to your user profile and lets you pick the folder. Uninstalling **keeps** your data. `npm run dist:dir` builds an unpacked copy in `release/win-unpacked/` for quick testing.
 
 - **Data location:** always `%APPDATA%\inbox-pilot`, whether you run from source or install. Updates and reinstalls keep your mailboxes, rules, history and sign-ins.
-- **Start with Windows** is on by default for the installed app: Pilot starts hidden in the tray when you sign in (turn it off in Settings → Privacy and startup). The installer creates a desktop shortcut and opens Pilot when it finishes.
-- **Updates:** Pilot checks this repository's latest GitHub release daily (Settings → Updates; another feed can be set there, either a JSON file `{ "version", "url", "notes" }` or a GitHub "latest release" API link). Pilot only tells you about a new version; you download and install it yourself.
-- **Releasing:** bump `version` in `package.json`, `npm run dist`, then create a GitHub release tagged `v<version>` and attach `release/Inbox Pilot Setup <version>.exe`.
+- **Start with Windows** is on by default for the installed app: Lodestar starts hidden in the tray when you sign in (turn it off in Settings → Privacy and startup). The installer creates a desktop shortcut and opens Lodestar when it finishes.
+- **Updates:** Lodestar checks this repository's latest GitHub release daily (Settings → Updates; another feed can be set there, either a JSON file `{ "version", "url", "notes" }` or a GitHub "latest release" API link). Lodestar only tells you about a new version; you download and install it yourself.
+- **Releasing:** bump `version` in `package.json`, `npm run dist`, then create a GitHub release tagged `v<version>` and attach `release/Lodestar Setup <version>.exe`.
 - **Website:** `docs/` is the GitHub Pages site (homepage and privacy policy, https://kaeden-martinson.github.io/Email-Agent/). After editing `docs/PRIVACY_POLICY.md`, run `npm run site` to regenerate `docs/privacy.html`.
 - **Code signing:** the installer is **unsigned**, so Windows SmartScreen will warn when you run it. To remove the warning, buy a code-signing certificate and add it to the `build.win` settings in `package.json` (see electron-builder's code-signing docs).
 
 ### Reliability and troubleshooting
 
-- **Encrypted data:** Pilot's data is encrypted with Windows (DPAPI) by default (Settings → Privacy). Sign-in tokens always are.
+- **Encrypted data:** Lodestar's data is encrypted with Windows (DPAPI) by default (Settings → Privacy). Sign-in tokens always are.
 - **Backups:** one backup per day is kept for 7 days in `backups/`. If the data file is ever unreadable, it's kept aside (never overwritten) and the newest good backup is restored, with a notice.
-- **Saving:** writes are atomic, and Pilot waits for pending writes before quitting or when Windows signs out.
+- **Saving:** writes are atomic, and Lodestar waits for pending writes before quitting or when Windows signs out.
 - **Crashes:** if the window's renderer crashes, it reloads automatically. Unexpected errors are logged, not fatal.
 - **Logs:** structured logs are kept in `logs/` for 14 days. They never contain email text, addresses or passwords. Settings → Troubleshooting opens the logs and data folders.
 - **Rate limits:** Gmail and Outlook rate limits and server errors are retried with backoff (honoring Retry-After). An expired or revoked access token is refreshed once automatically, and refreshes are single-flight per mailbox.

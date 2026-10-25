@@ -64,9 +64,9 @@ export async function authorize(cfg: OAuthConfig): Promise<TokenSet> {
       res
         .writeHead(ok ? 200 : 400, { 'Content-Type': 'text/html; charset=utf-8' })
         .end(
-          `<!doctype html><title>Inbox Pilot</title><body style="font:16px system-ui;padding:3rem">` +
+          `<!doctype html><title>Lodestar</title><body style="font:16px system-ui;padding:3rem">` +
             (ok
-              ? 'Signed in. You can close this tab and go back to Inbox Pilot.'
+              ? 'Signed in. You can close this tab and go back to Lodestar.'
               : 'Sign-in did not complete. You can close this tab.') +
             '</body>',
         );

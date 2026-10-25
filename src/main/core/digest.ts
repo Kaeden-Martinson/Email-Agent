@@ -1,4 +1,4 @@
-// The weekly digest: what came in last week, what Pilot and you did, and what's coming up.
+// The weekly digest: what came in last week, what Lodestar and you did, and what's coming up.
 // Pure and count-based, so it's tested and safe to show anywhere.
 import type { ActivityEntry, FollowUp, KeyItem, Update, WeeklyDigest } from '../../shared/types';
 

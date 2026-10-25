@@ -38,7 +38,7 @@ export async function verifyOllamaSignature(file: string): Promise<void> {
   const [sigStatus, subject = ''] = stdout.trim().split('|');
   if (sigStatus !== 'Valid' || !SIGNER.test(subject)) {
     log.warn('ollama.signature_rejected', { status: sigStatus });
-    throw new Error("The downloaded installer isn't signed by Ollama, so Pilot didn't run it.");
+    throw new Error("The downloaded installer isn't signed by Ollama, so Lodestar didn't run it.");
   }
 }
 

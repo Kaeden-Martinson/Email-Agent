@@ -115,7 +115,7 @@ export interface Signal {
 /**
  * Suggestions learned from behavior, needing more evidence than explicit corrections:
  * three archives/dismissals of important-looking mail without ever replying → low priority;
- * three replies to mail Pilot didn't mark urgent → always important. Suggestions only, never automatic.
+ * three replies to mail Lodestar didn't mark urgent → always important. Suggestions only, never automatic.
  */
 export function suggestFromSignals(signals: readonly Signal[], rules: readonly Rule[], threshold = 3): SuggestedRule[] {
   const since = Date.now() - 60 * 86_400_000;

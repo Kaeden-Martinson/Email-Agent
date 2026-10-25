@@ -46,7 +46,7 @@ const TITLE: Record<NotifyEvent, string> = {
  * subject; "full" adds the summary. Amounts and summaries never appear below "full".
  */
 export function formatNote(n: NoteInput, level: PrivacyLevel): Formatted {
-  const title = `Pilot · ${TITLE[n.event]}`;
+  const title = `Lodestar · ${TITLE[n.event]}`;
   if (level === 'minimal' || (!n.sender && !n.subject && !n.detail)) return { title, body: MINIMAL[n.event](n) };
   const who = [n.sender, n.subject && `"${n.subject}"`].filter(Boolean).join(' · ');
   if (level === 'sender') {
@@ -86,5 +86,5 @@ export function summarizeHeld(held: readonly NoteInput[]): Formatted | undefined
     approval: ['approval request', 'approval requests'],
   };
   const parts = [...counts.entries()].map(([e, c]) => `${c} ${label[e][c === 1 ? 0 : 1]}`);
-  return { title: 'Pilot · While you were away', body: `${parts.join(', ')}. Open Pilot for details.` };
+  return { title: 'Lodestar · While you were away', body: `${parts.join(', ')}. Open Lodestar for details.` };
 }

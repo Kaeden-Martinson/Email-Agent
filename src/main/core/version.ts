@@ -1,4 +1,4 @@
-// Update checks: compare versions and read an update feed. Pilot only tells you about an update;
+// Update checks: compare versions and read an update feed. Lodestar only tells you about an update;
 // downloading and installing it stays your decision.
 
 /** Numeric comparison of "1.2.10" style versions (a leading "v" and pre-release tags are tolerated). */

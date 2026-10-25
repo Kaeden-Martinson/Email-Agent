@@ -20,8 +20,8 @@ export const MODEL_CHOICES = {
  */
 export function recommendModel(ramGB: number, vramGB?: number): ModelChoice {
   if ((vramGB ?? 0) >= 6 || ramGB >= 15.5) return { ...MODEL_CHOICES.large };
-  if (ramGB >= 7.5) return { ...MODEL_CHOICES.medium, note: 'This PC has 8–16 GB of memory, so Pilot uses a smaller model. It works well, just a little less sharp.' };
-  return { ...MODEL_CHOICES.small, note: 'This PC has under 8 GB of memory, so Pilot uses its smallest model. Summaries will be simpler and slower.' };
+  if (ramGB >= 7.5) return { ...MODEL_CHOICES.medium, note: 'This PC has 8–16 GB of memory, so Lodestar uses a smaller model. It works well, just a little less sharp.' };
+  return { ...MODEL_CHOICES.small, note: 'This PC has under 8 GB of memory, so Lodestar uses its smallest model. Summaries will be simpler and slower.' };
 }
 
 /** The installed model to use: the recommended one if present, else the best installed chat model. */

@@ -50,7 +50,7 @@ export function renderSettings(): HTMLElement {
       const poll = text(String(s.pollMinutes), 'number');
       const lookback = text(String(s.lookbackHours), 'number');
       const followUpDays = text(String(s.followUpDays), 'number');
-      const [loginEl, login] = check('Start Pilot when I sign in to Windows', s.launchAtLogin,
+      const [loginEl, login] = check('Start Lodestar when I sign in to Windows', s.launchAtLogin,
         ui.state.app.packaged ? 'It starts quietly in the tray.' : 'Available in the installed app (not when running from source).');
       if (!ui.state.app.packaged) login.disabled = true;
       const gId = text(s.google.clientId);
@@ -79,14 +79,14 @@ export function renderSettings(): HTMLElement {
         microsoft: { clientId: mId.value.trim(), tenant: mTenant.value.trim() || 'common' },
       }),
         appearance,
-        field('Your name', name, 'This PC has one Pilot, and it works for you.'),
+        field('Your name', name, 'Lodestar on this PC works for one person: you.'),
         field('Check for mail every (minutes)', poll),
         field('When a mailbox starts being watched, look back (hours)', lookback),
         field('Suggest a follow-up after (working days without a reply)', followUpDays),
         loginEl,
         h('details', { class: 'advanced' }, h('summary', {}, 'Advanced: use your own sign-in clients'),
           h('p', { class: 'hint' },
-            'Inbox Pilot normally uses the Google and Microsoft sign-in clients built into the app. Fill these in only to use your own.'),
+            'Lodestar normally uses the Google and Microsoft sign-in clients built into the app. Fill these in only to use your own.'),
           h('fieldset', {}, h('legend', {}, 'Google'),
             field('OAuth client ID', gId),
             field('OAuth client secret', gSecret)),
@@ -112,7 +112,7 @@ export function renderSettings(): HTMLElement {
         aiSetupPanel(),
         field('Ollama address', ollamaUrl),
         field('Model', h('div', { class: 'row' }, model, modelList, btn('Find installed', loadModels)),
-          'Any chat model you have pulled, such as llama3.1:8b, qwen2.5:7b or gemma4:e4b. If this one is not installed, Pilot switches to one that is.'),
+          'Any chat model you have pulled, such as llama3.1:8b, qwen2.5:7b or gemma4:e4b. If this one is not installed, Lodestar switches to one that is.'),
         field('Quick-read model (optional)', fastModel, 'A smaller model for automated mail. Leave blank to use the main model.'),
         semanticField(),
         statsTable());
@@ -140,11 +140,11 @@ export function renderSettings(): HTMLElement {
     },
 
     privacy: () => {
-      const [encryptEl, encrypt] = check("Encrypt Pilot's data on this PC", s.encryptAtRest,
+      const [encryptEl, encrypt] = check("Encrypt Lodestar's data on this PC", s.encryptAtRest,
         'Your summaries, email text and settings are stored encrypted with Windows (DPAPI), like your sign-ins. Only your Windows account can read them.');
       return form(() => save({ encryptAtRest: encrypt.checked }),
         encryptEl,
-        h('div', { class: 'hint' }, `Inbox Pilot ${ui.state.app.version}${ui.state.app.packaged ? '' : ' (running from source)'}${ui.state.app.devMode ? ' · developer mode: Ctrl+Shift+I opens DevTools' : ''}`),
+        h('div', { class: 'hint' }, `Lodestar ${ui.state.app.version}${ui.state.app.packaged ? '' : ' (running from source)'}${ui.state.app.devMode ? ' · developer mode: Ctrl+Shift+I opens DevTools' : ''}`),
         h('div', { class: 'row' },
           btn('Open data folder', () => void run(() => api.openFolder('data'))),
           btn('Open logs folder', () => void run(() => api.openFolder('logs')))),
@@ -152,7 +152,7 @@ export function renderSettings(): HTMLElement {
     },
 
     updates: () => {
-      const [updCheckEl, updCheck] = check('Check for new versions', s.updates.check, 'Pilot only tells you about an update; installing it is up to you.');
+      const [updCheckEl, updCheck] = check('Check for new versions', s.updates.check, 'Lodestar only tells you about an update; installing it is up to you.');
       const feed = text(s.updates.feedUrl);
       return form(() => save({ updates: { check: updCheck.checked, feedUrl: feed.value.trim() } }),
         updCheckEl,

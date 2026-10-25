@@ -12,7 +12,7 @@ export function openRemind(id: string): void {
   document.querySelector<HTMLInputElement>('.remind-box input')?.focus();
 }
 
-/** Natural-language reminder input with a live preview of how Pilot read it. */
+/** Natural-language reminder input with a live preview of how Lodestar read it. */
 export function remindBox(target: ReminderTarget): HTMLElement {
   const preview = h('div', { class: 'hint remind-preview' }, ui.remindPreview || 'Try "Friday", "tomorrow at 3pm", "in 2 days" or "Monday if they haven\'t replied".');
   let timer: number | undefined;
@@ -26,7 +26,7 @@ export function remindBox(target: ReminderTarget): HTMLElement {
       timer = window.setTimeout(async () => {
         if (!ui.remindText.trim()) return;
         const r = await api.previewWhen(ui.remindText);
-        ui.remindPreview = 'error' in r ? r.error : `Pilot will remind you ${r.label}.`;
+        ui.remindPreview = 'error' in r ? r.error : `Lodestar will remind you ${r.label}.`;
         preview.textContent = ui.remindPreview;
         preview.classList.toggle('err', 'error' in r);
       }, 250);
@@ -84,7 +84,7 @@ export function renderFollowUps(): HTMLElement {
     reminders.length ? h('div', { class: 'g-list' }, reminders.map(reminderRow)) : emptyState('No reminders set.'));
 
   return h('div', {},
-    h('p', { class: 'hint' }, `Pilot reads your sent mail for questions you're waiting on and promises you made, and checks the real conversation for replies before anything shows as overdue. Nudge after ${ui.state.settings.followUpDays} working days (change in Settings).`),
+    h('p', { class: 'hint' }, `Lodestar reads your sent mail for questions you're waiting on and promises you made, and checks the real conversation for replies before anything shows as overdue. Nudge after ${ui.state.settings.followUpDays} working days (change in Settings).`),
     h('div', { class: 'g-grid2 eq' }, left, right),
     resolved.length
       ? h('details', { class: 'group' }, h('summary', {}, `Resolved automatically (${resolved.length})`),

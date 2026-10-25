@@ -28,10 +28,10 @@ export function renderSorting(): HTMLElement {
   if (showNewRule) wrap.append(newRuleCard());
 
   if (rulesTab === 'suggested') {
-    if (!suggested.length) wrap.append(emptyState('No suggestions right now. After a couple of similar corrections, or when you keep archiving or replying to a sender, Pilot suggests a rule.'));
+    if (!suggested.length) wrap.append(emptyState('No suggestions right now. After a couple of similar corrections, or when you keep archiving or replying to a sender, Lodestar suggests a rule.'));
     else wrap.append(card(suggested.map(suggestedRow), { pad: false }));
   } else if (!ui.state.rules.length) {
-    wrap.append(emptyState('No rules yet. Rules always win over the AI. Describe one, or teach Pilot from any email ("Always from this sender…").',
+    wrap.append(emptyState('No rules yet. Rules always win over the AI. Describe one, or teach Lodestar from any email ("Always from this sender…").',
       button('New rule', { kind: 'primary', icon: 'plus', onClick: () => { showNewRule = true; render(); } })));
   } else {
     wrap.append(table(

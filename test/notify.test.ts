@@ -56,7 +56,7 @@ describe('inQuietHours', () => {
 describe('summarizeHeld', () => {
   it('folds held notifications into one count-only message', () => {
     const s = summarizeHeld([urgent, { ...urgent, key: 'urgent:2' }, { event: 'reminder', key: 'r' }])!;
-    assert.equal(s.body, '2 important emails, 1 reminder. Open Pilot for details.');
+    assert.equal(s.body, '2 important emails, 1 reminder. Open Lodestar for details.');
     assert.ok(!s.body.includes('Chase'));
   });
   it('returns nothing when nothing is held', () => {

@@ -43,7 +43,7 @@ export function aiSetupPanel(onReady?: () => void): HTMLElement {
   if (s.ready) {
     clearInterval(aiPoll);
     aiPoll = undefined;
-    return banner('ok', [h('strong', {}, 'The AI is ready. '), `Pilot will use ${s.usable}. ${pc}`],
+    return banner('ok', [h('strong', {}, 'The AI is ready. '), `Lodestar will use ${s.usable}. ${pc}`],
       onReady ? [button('Continue', { kind: 'primary', onClick: onReady })] : []);
   }
   if (s.ollama === 'missing') {
@@ -51,7 +51,7 @@ export function aiSetupPanel(onReady?: () => void): HTMLElement {
     aiPoll ??= window.setInterval(refreshAi, 5000);
     return card([
       h('div', { class: 'g-step-k' }, 'Step 1 of 2'),
-      h('div', {}, h('strong', {}, 'Install Ollama. '), 'Ollama is the free program that runs the AI on this PC (about 1.7 GB download, no admin rights needed). Pilot downloads it from ollama.com and checks it is genuinely signed by Ollama before installing.'),
+      h('div', {}, h('strong', {}, 'Install Ollama. '), 'Ollama is the free program that runs the AI on this PC (about 1.7 GB download, no admin rights needed). Lodestar downloads it from ollama.com and checks it is genuinely signed by Ollama before installing.'),
       progressBlock,
       h('div', { class: 'g-acts' },
         button(aiBusy ? 'Installing…' : 'Install Ollama for me', { kind: 'primary', icon: 'download', disabled: aiBusy, onClick: () => step(() => api.aiInstallOllama(), 'Ollama installed') }),
@@ -65,7 +65,7 @@ export function aiSetupPanel(onReady?: () => void): HTMLElement {
   return card([
     h('div', { class: 'g-step-k' }, 'Step 2 of 2'),
     h('div', {}, h('strong', {}, 'Download the AI model. '),
-      `Pilot picked ${s.recommended.model} (${s.recommended.sizeGB} GB) for this PC. ${pc}`),
+      `Lodestar picked ${s.recommended.model} (${s.recommended.sizeGB} GB) for this PC. ${pc}`),
     s.recommended.note ? h('div', { class: 'g-hint' }, s.recommended.note) : null,
     progressBlock,
     h('div', { class: 'g-acts' },

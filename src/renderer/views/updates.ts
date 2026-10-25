@@ -40,10 +40,10 @@ export function renderUpdates(): HTMLElement {
   const wrap = h('div', {});
   const watching = s.accounts.filter((a) => a.watching);
   if (!s.accounts.length) {
-    wrap.append(banner('info', [h('strong', {}, 'Add a mailbox to get started. '), 'Type your email address and Pilot sets up the rest.'],
+    wrap.append(banner('info', [h('strong', {}, 'Add a mailbox to get started. '), 'Type your email address and Lodestar sets up the rest.'],
       [button('Add mailbox', { kind: 'primary', onClick: () => { ui.addFlow = { email: '', busy: '', password: '' }; go('mailboxes'); } })]));
   } else if (!watching.length) {
-    wrap.append(banner('info', [h('strong', {}, "Pilot isn't watching any mailbox yet. "), 'Open Mailboxes, check the permissions, and press Start watching.'],
+    wrap.append(banner('info', [h('strong', {}, "Lodestar isn't watching any mailbox yet. "), 'Open Mailboxes, check the permissions, and press Start watching.'],
       [button('Go to Mailboxes', { kind: 'primary', onClick: () => go('mailboxes') })]));
   }
   if (watching.length) wrap.append(renderBriefing());
@@ -72,7 +72,7 @@ export function renderUpdates(): HTMLElement {
     : emptyState(ui.tab === 'done' ? 'Nothing marked done yet.' : watching.length ? "You're all caught up." : 'Nothing here yet.'));
   if (s.activity.some((a) => a.status === 'proposed')) {
     const n = s.activity.filter((a) => a.status === 'proposed').length;
-    wrap.append(banner('warn', [h('strong', {}, `${n} action${n === 1 ? '' : 's'} waiting for your approval. `), 'Preview mode is on, so Pilot proposes automatic actions instead of doing them.'], [button('Review in Activity', { onClick: () => go('activity') })]));
+    wrap.append(banner('warn', [h('strong', {}, `${n} action${n === 1 ? '' : 's'} waiting for your approval. `), 'Preview mode is on, so Lodestar proposes automatic actions instead of doing them.'], [button('Review in Activity', { onClick: () => go('activity') })]));
   }
   wrap.append(h('div', { class: 'g-split' }, left, right));
   return wrap;
@@ -111,7 +111,7 @@ export function nextKeyAfter(key: string): string | null {
 }
 
 function replyLine(r: ReplyRecord): HTMLElement {
-  const who = r.auto ? 'Pilot' : 'You';
+  const who = r.auto ? 'Lodestar' : 'You';
   const what = {
     proposed: 'proposes a reply',
     drafted: 'saved a reply draft',
@@ -127,7 +127,7 @@ function autoLine(u: Update): HTMLElement | null {
   if (!a || (!a.archived && !a.labeled && !a.error)) return null;
   const did = [a.labeled && 'labeled', a.archived && 'archived'].filter(Boolean).join(' and ');
   return h('div', { class: 'reply-state' },
-    did ? h('strong', {}, `Pilot ${did} this automatically`) : null,
+    did ? h('strong', {}, `Lodestar ${did} this automatically`) : null,
     a.error ? h('span', { class: 'err' }, `${did ? ' · ' : ''}${a.error}`) : null);
 }
 
@@ -140,7 +140,7 @@ export function renderBriefing(): HTMLElement {
       h('div', { class: 'briefing-head' }, h('strong', {}, "Today's briefing"), again),
       h('p', { class: 'hint' },
         ui.state.settings.briefing.enabled
-          ? `Your Pilot briefs you every morning at ${ui.state.settings.briefing.time}.`
+          ? `Lodestar briefs you every morning at ${ui.state.settings.briefing.time}.`
           : 'Morning briefings are off. Turn them on in Settings.'));
   }
   return h('div', { class: 'banner briefing' },
@@ -351,7 +351,7 @@ function correctionBar(u: Update): HTMLElement {
     h('option', { value: 'more:domain' }, `Important: anyone @${domain}`),
     h('option', { value: 'less:domain' }, `Low priority: anyone @${domain}`));
   return h('div', { class: 'correct' },
-    h('span', { class: 'g-hint', style: 'margin:0' }, 'Teach Pilot:'),
+    h('span', { class: 'g-hint', style: 'margin:0' }, 'Teach Lodestar:'),
     button('More important', { kind: 'ghost', tiny: true, icon: 'thumbUp', onClick: () => fix('more', 'once', 'Got it. Only this email changes.') }),
     button('Less important', { kind: 'ghost', tiny: true, icon: 'thumbDown', onClick: () => fix('less', 'once', 'Got it. Only this email changes.') }),
     button('Junk', { kind: 'ghost', tiny: true, icon: 'trash', onClick: () => fix('junk', 'once', 'Moved to Done. Only this email changes.') }),
@@ -371,7 +371,7 @@ function proposalsFor(u: Update): HTMLElement | null {
   if (!items.length) return null;
   return h('div', { class: 'proposals' }, items.map((a) =>
     h('div', { class: 'proposal' },
-      h('span', {}, h('strong', {}, `Pilot proposes: ${ACTION_LABEL[a.action]}${a.category ? ` as ${CAT_LABEL[a.category]}` : ''}`), ` · ${a.reason}`),
+      h('span', {}, h('strong', {}, `Lodestar proposes: ${ACTION_LABEL[a.action]}${a.category ? ` as ${CAT_LABEL[a.category]}` : ''}`), ` · ${a.reason}`),
       btn(a.action === 'send' ? 'Approve and send' : 'Approve', () => void run(() => api.approve(a.id), 'Done'), 'primary tiny'),
       btn('Reject', () => void run(() => api.reject(a.id)), 'tiny'))));
 }
@@ -426,7 +426,7 @@ function replyEditor(u: Update): HTMLElement {
         account?.calendar ? button('Insert my free times', { kind: 'ghost', icon: 'calendar', onClick: () => insertTimes(u, sig) }) : null,
         h('span', { style: 'flex:1' }),
         button('Cancel', { kind: 'ghost', onClick: () => { editors.delete(u.key); toneOf.delete(u.key); render(); } }))),
-    h('div', { class: 'g-note' }, icon('shield', 13), 'Pilot never agrees to meetings or payments for you.'));
+    h('div', { class: 'g-note' }, icon('shield', 13), 'Lodestar never agrees to meetings or payments for you.'));
 }
 const toneOf = new Map<string, 'Draft' | 'Brief' | 'Friendly' | 'Formal'>();
 

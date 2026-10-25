@@ -96,10 +96,10 @@ export function renderToday(): HTMLElement {
       [button('Reconnect', { kind: 'primary', onClick: () => void run(() => api.connect({ email: a.email, kind: a.kind, providerName: a.providerName, access: a.access ?? 'full', calendar: a.calendar }), 'Reconnected. Checking mail…') })]));
   }
   const up = s.app.update;
-  if (up?.available && up.url) wrap.append(banner('info', [h('strong', {}, `Pilot ${up.latest} is available. `), `You have ${s.app.version}.`], [button('Download', { kind: 'primary', icon: 'download', onClick: () => void run(() => api.openUrl(up.url!)) })]));
+  if (up?.available && up.url) wrap.append(banner('info', [h('strong', {}, `Lodestar ${up.latest} is available. `), `You have ${s.app.version}.`], [button('Download', { kind: 'primary', icon: 'download', onClick: () => void run(() => api.openUrl(up.url!)) })]));
   if (s.status.ollamaOk === false || (aiStatus && !aiStatus.ready)) wrap.append(h('div', { style: 'margin-bottom:12px' }, aiSetupPanel()));
   if (!s.accounts.some((a) => a.watching)) {
-    wrap.append(emptyState("Pilot isn't watching any mailbox yet.", button('Go to Mailboxes', { kind: 'primary', onClick: () => go('mailboxes') })));
+    wrap.append(emptyState("Lodestar isn't watching any mailbox yet.", button('Go to Mailboxes', { kind: 'primary', onClick: () => go('mailboxes') })));
     return wrap;
   }
   const b = s.briefing;
@@ -123,7 +123,7 @@ export function renderToday(): HTMLElement {
     sectionTitle('Your week'),
     stats([{ value: String(w.received), label: 'emails' }, { value: String(w.important), label: 'important' }, { value: String(w.owed), label: 'you owe' },
       { value: w.billTotal !== undefined && w.currency ? new Intl.NumberFormat(undefined, { style: 'currency', currency: w.currency, maximumFractionDigits: 0 }).format(w.billTotal) : String(w.bills), label: w.billTotal !== undefined ? 'due in 2 weeks' : 'bills soon' }]),
-    h('div', { class: 'g-hint', style: 'margin-top:6px' }, `Pilot handled ${w.autoActions} on its own · you sent ${w.repliesSent} repl${w.repliesSent === 1 ? 'y' : 'ies'} and archived ${w.archived} · ${w.deadlines} other deadline${w.deadlines === 1 ? '' : 's'} in 2 weeks · waiting on ${w.waitingOn}`),
+    h('div', { class: 'g-hint', style: 'margin-top:6px' }, `Lodestar handled ${w.autoActions} on its own · you sent ${w.repliesSent} repl${w.repliesSent === 1 ? 'y' : 'ies'} and archived ${w.archived} · ${w.deadlines} other deadline${w.deadlines === 1 ? '' : 's'} in 2 weeks · waiting on ${w.waitingOn}`),
     w.noisiest.length ? h('div', { class: 'g-hint', style: 'margin-top:6px' }, `Noisiest: ${w.noisiest.map((n) => `${n.name} (${n.count})`).join(', ')} `, button('Clean up', { tiny: true, kind: 'ghost', onClick: () => go('subscriptions') })) : null);
   const right = h('div', {}, sectionTitle('Coming up'), agendaList(), sectionTitle('Waiting on'), waitingList());
   wrap.append(h('div', { class: 'g-grid2' }, left, right));

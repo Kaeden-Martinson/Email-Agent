@@ -1,4 +1,4 @@
-# Pilot: status (2026-10-25, version 0.13.0)
+# Lodestar: status (2026-10-25, version 0.13.0)
 
 ## What's done
 
@@ -6,7 +6,7 @@
 |---|---|---|
 | 1 | Git + test harness | Done. **220 tests** passing; public on GitHub; safety logic in pure modules under `src/main/core`. |
 | 2 | Fast multi-stage pipeline | Done. Rules → prefilter → quick AI → full AI; 18 of 28 real emails needed no AI. |
-| 3 | Learned rules, activity log, preview, undo | Done. Rules can also be written in plain English, and Pilot learns from what you archive and reply to. |
+| 3 | Learned rules, activity log, preview, undo | Done. Rules can also be written in plain English, and Lodestar learns from what you archive and reply to. |
 | 4 | Thread understanding | Done. Whole conversations, quote stripping, open questions, promises, source messages. |
 | 5 | Follow-ups and commitments | Done. Waiting-on, owed replies, promises, plain-English reminders. |
 | 6 | Deadlines, bills, Today command center | Done. Extraction verified against the email text, now including PDF attachments. |

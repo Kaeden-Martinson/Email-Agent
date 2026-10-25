@@ -102,7 +102,7 @@ export const IRREVERSIBLE: Record<string, string> = {
 
 /**
  * Pulls mail from every watched mailbox, classifies it through the pipeline (rules → deterministic
- * prefilter → light model → full model), and applies each mailbox's permissions. Every action Pilot
+ * prefilter → light model → full model), and applies each mailbox's permissions. Every action Lodestar
  * takes or proposes goes through `perform` / `automatic` and lands in the activity log.
  */
 export class Engine extends EventEmitter {
@@ -367,7 +367,7 @@ export class Engine extends EventEmitter {
         void this.notifier.notify({
           event: 'reminder',
           key: `reconnect:${account.id}:${new Date().toDateString()}`,
-          subject: `Reconnect ${account.email} in Pilot`,
+          subject: `Reconnect ${account.email} in Lodestar`,
           detail: 'The sign-in expired. Open Mailboxes and press Reconnect; nothing is lost.',
         });
       }
@@ -588,7 +588,7 @@ export class Engine extends EventEmitter {
     }
   }
 
-  /** Mailboxes where Pilot may archive (permission on and not read-only). */
+  /** Mailboxes where Lodestar may archive (permission on and not read-only). */
   private canArchive(accountId: string): boolean {
     const a = this.d.accounts.find((x) => x.id === accountId);
     return !!a && a.permissions.manage && !accessBlocker(a, 'archive');
@@ -647,7 +647,7 @@ export class Engine extends EventEmitter {
       }
     }
     const samples = styleSamples(sent);
-    if (samples.length < 3) throw new Error(`Pilot found only ${samples.length} sent email${samples.length === 1 ? '' : 's'} it could learn from (it needs at least 3).`);
+    if (samples.length < 3) throw new Error(`Lodestar found only ${samples.length} sent email${samples.length === 1 ? '' : 's'} it could learn from (it needs at least 3).`);
     const style = await this.withModelFallback(() => learnStyle(samples, this.s));
     if (!style) throw new Error("The AI couldn't describe your style. Try again.");
     this.d.settings = mergeSettings(this.s, { writingStyle: style });
@@ -763,7 +763,7 @@ export class Engine extends EventEmitter {
       if (this.s.ollama.model === 'gemma4:e4b' && models.includes(next)) {
         log.info('model.switched', { from: this.s.ollama.model, to: next, reason: 'old default' });
         this.d.settings = mergeSettings(this.s, { ollama: { ...this.s.ollama, model: next } });
-        this.status.message = `Pilot now uses "${next}", which is faster and more reliable here. You can change it in Settings.`;
+        this.status.message = `Lodestar now uses "${next}", which is faster and more reliable here. You can change it in Settings.`;
         this.changed();
       }
     }
@@ -816,7 +816,7 @@ export class Engine extends EventEmitter {
       return false;
     }
     this.d.settings = mergeSettings(this.s, { ollama: { ...this.s.ollama, model: pick } });
-    this.status.message = `"${e.model}" wouldn't load in Ollama, so Pilot switched to "${pick}".`;
+    this.status.message = `"${e.model}" wouldn't load in Ollama, so Lodestar switched to "${pick}".`;
     log.info('model.switched', { from: e.model, to: pick, reason: 'load failed' });
     this.changed();
     return true;
@@ -980,7 +980,7 @@ export class Engine extends EventEmitter {
 
   // ---- autopilot ----
 
-  /** Everything Pilot does on its own after reading an email, each step gated by the mailbox's permissions. */
+  /** Everything Lodestar does on its own after reading an email, each step gated by the mailbox's permissions. */
   private async autopilot(u: Update, account: Account): Promise<void> {
     const p = account.permissions;
     const t = u.triage!;
@@ -1073,7 +1073,7 @@ export class Engine extends EventEmitter {
       this.markUnsubscribed(account.id, sub.sender, automatic ? 'one-click, automatic' : 'one-click');
       return { message: `Unsubscribed from ${name}.` };
     }
-    if (automatic) throw new Error(`${name} has no one-click unsubscribe, so Pilot won't do it automatically.`);
+    if (automatic) throw new Error(`${name} has no one-click unsubscribe, so Lodestar won't do it automatically.`);
     if (u.mailto) {
       const blocked = accessBlocker(account, 'unsubscribe-email');
       if (blocked) throw new Error(blocked);
@@ -1128,7 +1128,7 @@ export class Engine extends EventEmitter {
   correct(key: string, kind: CorrectionKind, scope: 'once' | 'sender' | 'domain'): void {
     const { u } = this.get(key);
     const t = u.triage;
-    if (!t) throw new Error("Pilot hasn't read this email yet.");
+    if (!t) throw new Error("Lodestar hasn't read this email yet.");
     const before = { category: t.category, priority: t.priority };
     const sender = u.message.from.email.toLowerCase();
     if (scope === 'once') {
@@ -1479,7 +1479,7 @@ export class Engine extends EventEmitter {
     const { account } = this.get(key);
     if (!account.calendar) throw new Error(`Calendar isn't connected for ${account.email}. Use Connect calendar on the Mailboxes page.`);
     const provider = createProvider(account, this.s);
-    if (!provider.fetchBusy) throw new Error('This kind of mailbox has no calendar Pilot can read.');
+    if (!provider.fetchBusy) throw new Error('This kind of mailbox has no calendar Lodestar can read.');
     let cached = this.busyCache.get(account.id);
     if (!cached || Date.now() - cached.at > 10 * 60_000) {
       cached = { at: Date.now(), busy: await provider.fetchBusy(Date.now(), Date.now() + 21 * DAY) };

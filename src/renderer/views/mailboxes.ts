@@ -17,7 +17,7 @@ export function renderMailboxes(): HTMLElement {
       h('div', { class: 'mbx-title' }, 'Add a mailbox'),
       renderAddMailbox(() => {
         render();
-        toast('Mailbox added. Choose what Pilot may do there, then press Start watching.');
+        toast('Mailbox added. Choose what Lodestar may do there, then press Start watching.');
       }, () => render()),
     ]));
   } else {
@@ -54,32 +54,32 @@ function mailboxCard(a: Account): HTMLElement {
     chip(a.watching ? 'Watching' : 'Paused', a.watching ? 'ok' : 'neutral'),
     a.watching
       ? button('Pause', { onClick: () => update({ watching: false }, `Paused ${a.email}`) })
-      : button('Start watching', { kind: 'primary', onClick: () => update({ watching: true }, `Pilot is now watching ${a.email}`) }));
+      : button('Start watching', { kind: 'primary', onClick: () => update({ watching: true }, `Lodestar is now watching ${a.email}`) }));
 
   const banners: HTMLElement[] = [];
   if (a.lastError) banners.push(banner('danger', [a.lastError]));
   if (a.needsReconnect && a.kind !== 'imap') {
-    banners.push(banner('warn', [h('strong', {}, 'Needs to reconnect. '), 'Pilot lost access to this mailbox.'],
+    banners.push(banner('warn', [h('strong', {}, 'Needs to reconnect. '), 'Lodestar lost access to this mailbox.'],
       [button('Reconnect', { kind: 'primary', onClick: () => connect(a.access ?? 'full', a.calendar, 'Reconnected. Checking mail…') })]));
   }
   if (ro) {
     banners.push(banner('info',
-      [h('strong', {}, 'Connected read-only. '), "Pilot can read and summarize this mailbox but can't change it or send from it, so archiving, labels, drafts and replies are off."],
+      [h('strong', {}, 'Connected read-only. '), "Lodestar can read and summarize this mailbox but can't change it or send from it, so archiving, labels, drafts and replies are off."],
       a.kind !== 'imap' ? [button('Reconnect with full access', { onClick: () => connect('full', a.calendar, 'Reconnected with full access') })] : []));
   }
   if (a.kind !== 'imap') {
     banners.push(banner('info',
       [h('strong', {}, a.calendar ? 'Calendar connected. ' : 'Calendar: not connected. '),
         a.calendar
-          ? 'When an email asks to find a time, reply suggestions offer your free times. Pilot sees only when you are busy, never event details, and never books anything.'
-          : 'Let reply suggestions offer your free times. Pilot asks only for free/busy access: when you are busy, never event titles or details.'],
+          ? 'When an email asks to find a time, reply suggestions offer your free times. Lodestar sees only when you are busy, never event details, and never books anything.'
+          : 'Let reply suggestions offer your free times. Lodestar asks only for free/busy access: when you are busy, never event titles or details.'],
       [a.calendar
         ? button('Disconnect calendar', { kind: 'ghost', onClick: () => connect(a.access ?? 'full', false, 'Calendar disconnected') })
         : button('Connect calendar', { onClick: () => connect(a.access ?? 'full', true, 'Calendar connected') })]));
   }
 
   const remove = button('Remove mailbox', { kind: 'ghost', onClick: () => {
-    if (confirm(`Disconnect ${a.email}? Its updates are removed from Inbox Pilot. Nothing is deleted from the mailbox.`)) {
+    if (confirm(`Disconnect ${a.email}? Its updates are removed from Lodestar. Nothing is deleted from the mailbox.`)) {
       void run(() => api.removeAccount(a.id));
     }
   } });
@@ -111,14 +111,14 @@ function lockable(t: HTMLButtonElement, locked: boolean): HTMLButtonElement {
 function permissionRows(a: Account, set: (perm: Partial<AccountPermissions>) => void, ro: boolean): HTMLElement {
   const p = a.permissions;
   const modes: [ReplyMode, string, string][] = [
-    ['off', 'Suggest only', 'Draft replies show up in Inbox Pilot. Nothing goes to the mailbox until you press Send.'],
+    ['off', 'Suggest only', 'Draft replies show up in Lodestar. Nothing goes to the mailbox until you press Send.'],
     ['draft', 'Save drafts', 'Put a reply draft in this mailbox for each email that needs one. Nothing is sent.'],
     ['send', 'Auto-send to trusted', 'Send replies on its own, but only to the senders below. Everyone else gets a draft.'],
   ];
   const unsub: ['off' | 'suggest' | 'auto', string, string][] = [
-    ['off', 'Off', 'Pilot does not look for subscriptions to cancel.'],
+    ['off', 'Off', 'Lodestar does not look for subscriptions to cancel.'],
     ['suggest', 'Suggest', 'Senders to unsubscribe from appear under Subscriptions with an Unsubscribe button.'],
-    ['auto', 'Automatic', `After ${3} newsletters or promotions from the same sender in 30 days, using the sender's one-click unsubscribe. Pilot never visits unsubscribe web pages on its own.`],
+    ['auto', 'Automatic', `After ${3} newsletters or promotions from the same sender in 30 days, using the sender's one-click unsubscribe. Lodestar never visits unsubscribe web pages on its own.`],
   ];
   const cats: [Category, string][] = [['newsletter', 'Newsletters'], ['promo', 'Promotions'], ['notification', 'Notifications, receipts and alerts']];
   const cleanLocked = !p.manage || ro;
@@ -160,7 +160,7 @@ function permissionRows(a: Account, set: (perm: Partial<AccountPermissions>) => 
     permRow('Clean up automatically', 'Archive automatically once summarized. Tick each kind you want.', h('span', {}), cleanBoxes),
     permRow('Unsubscribe mode', 'Unsubscribing automatically uses the one-click unsubscribe the sender provides.', unsubSeg,
       h('div', { class: 'hint' }, unsub.map(([, label, hint]) => h('div', {}, h('strong', {}, label + ': '), hint)))),
-    permRow('Replies', 'What Pilot may do with drafts and replies.', repliesSeg,
+    permRow('Replies', 'What Lodestar may do with drafts and replies.', repliesSeg,
       h('div', { class: 'hint' }, modes.map(([, label, hint]) => h('div', {}, h('strong', {}, label + ': '), hint)))),
     h('div', { class: 'mbx-fields' },
       field('Trusted senders',

@@ -94,7 +94,7 @@ export class Notifier {
     if (c !== 'desktop' && !this.ready(c)) {
       throw new Error(c === 'ntfy' ? 'Choose an ntfy topic first.' : 'Add the bot token and detect your chat first.');
     }
-    const ok = await this.deliver(c, { title: 'Pilot · Test', body: 'Notifications are working. This is how Pilot will reach you.' }, false);
+    const ok = await this.deliver(c, { title: 'Lodestar · Test', body: 'Notifications are working. This is how Lodestar will reach you.' }, false);
     this.deps.changed();
     if (!ok) throw new Error(this.d.status[c]?.lastError ?? 'Sending failed.');
   }

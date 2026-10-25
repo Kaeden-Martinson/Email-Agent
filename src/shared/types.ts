@@ -4,11 +4,11 @@ export type ProviderKind = 'gmail' | 'outlook' | 'imap';
 
 export type ReplyMode = 'off' | 'draft' | 'send';
 
-/** What the Pilot may do in one mailbox. */
+/** What Lodestar may do in one mailbox. */
 export interface AccountPermissions {
   /** Desktop notification for priority-1 mail. */
   notify: boolean;
-  /** Archive from the Pilot (moves mail in the real mailbox). */
+  /** Archive from Lodestar (moves mail in the real mailbox). */
   manage: boolean;
   /** off = suggest only, draft = save drafts in the mailbox, send = auto-send to trusted senders. */
   replies: ReplyMode;
@@ -75,9 +75,9 @@ export interface Account {
   /** "Gmail", "Microsoft 365", "Yahoo Mail", ... */
   providerName: string;
   addedAt: number;
-  /** The Pilot only reads mailboxes it is watching. */
+  /** Lodestar only reads mailboxes it is watching. */
   watching: boolean;
-  /** "readonly" connections were granted read scopes only; Pilot never writes to them. Missing = full. */
+  /** "readonly" connections were granted read scopes only; Lodestar never writes to them. Missing = full. */
   access?: 'full' | 'readonly';
   permissions: AccountPermissions;
   imap?: ServerConfig;
@@ -94,7 +94,7 @@ export interface Account {
   calendar?: boolean;
 }
 
-/** What the Pilot worked out from an email address. */
+/** What Lodestar worked out from an email address. */
 export interface Discovery {
   email: string;
   kind: ProviderKind;
@@ -270,7 +270,7 @@ export interface KeyItemDraft {
   evidence?: string;
 }
 
-/** A bill, deadline, appointment, event or delivery, with where it came from and how sure Pilot is. */
+/** A bill, deadline, appointment, event or delivery, with where it came from and how sure Lodestar is. */
 export interface KeyItem {
   id: string;
   accountId: string;
@@ -368,7 +368,7 @@ export interface AiSetupStatus {
   ramGB: number;
   vramGB?: number;
   recommended: { model: string; sizeGB: number; note?: string };
-  /** The installed model Pilot will use, if any. */
+  /** The installed model Lodestar will use, if any. */
   usable?: string;
   ready: boolean;
   /** A download or install in progress. */
@@ -380,7 +380,7 @@ export interface WeeklyDigest {
   /** Emails received in the last 7 days, and how many were important. */
   received: number;
   important: number;
-  /** Actions Pilot did on its own, replies you sent, and emails archived, last 7 days. */
+  /** Actions Lodestar did on its own, replies you sent, and emails archived, last 7 days. */
   autoActions: number;
   repliesSent: number;
   archived: number;
@@ -407,7 +407,7 @@ export interface RulePreview {
   match: Rule['match'];
   effect: Rule['effect'];
   description: string;
-  /** Emails Pilot has now that the rule would apply to. */
+  /** Emails Lodestar has now that the rule would apply to. */
   count: number;
   examples: { from: string; subject: string }[];
 }
@@ -432,7 +432,7 @@ export interface SuggestedRule {
 
 export type ActivityAction = 'archive' | 'label' | 'draft' | 'send' | 'unsubscribe';
 
-/** One entry in the audit trail of things Pilot did or proposes to do. */
+/** One entry in the audit trail of things Lodestar did or proposes to do. */
 export interface ActivityEntry {
   id: string;
   at: number;
@@ -556,7 +556,7 @@ export interface Update {
 }
 
 export interface Settings {
-  /** The one person this PC's Pilot works for. */
+  /** The one person this PC's Lodestar works for. */
   userName: string;
   /** Light, dark, or follow Windows. */
   appearance: import('./theme').Appearance;
@@ -586,9 +586,9 @@ export interface Settings {
   ollama: { url: string; model: string; fastModel: string; embedModel: string };
   /** Preview (dry-run): automatic actions become proposals you approve in Activity. */
   previewMode: boolean;
-  /** Encrypt Pilot's data file with the OS keystore (DPAPI on Windows). */
+  /** Encrypt Lodestar's data file with the OS keystore (DPAPI on Windows). */
   encryptAtRest: boolean;
-  /** Start Pilot (hidden in the tray) when you sign in to Windows. Installed app only. */
+  /** Start Lodestar (hidden in the tray) when you sign in to Windows. Installed app only. */
   launchAtLogin: boolean;
   /** Tell me about new versions; nothing is installed without you. */
   updates: { check: boolean; feedUrl: string };
@@ -731,7 +731,7 @@ export interface Api {
   /** Downloads Ollama's signed installer and installs it for this user. */
   aiInstallOllama(): Promise<void>;
   aiStartOllama(): Promise<void>;
-  /** Downloads the recommended model and makes it Pilot's model. */
+  /** Downloads the recommended model and makes it Lodestar's model. */
   aiPullModel(): Promise<void>;
   forgetStyle(): Promise<void>;
   previewSnooze(choice: string): Promise<{ label: string } | { error: string }>;

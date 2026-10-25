@@ -31,7 +31,7 @@ const WRITES: ActivityAction[] = ['archive', 'label', 'draft', 'send'];
 export function accessBlocker(account: Pick<Account, 'access' | 'email'>, action: ActivityAction | 'unsubscribe-email'): string | undefined {
   if (account.access !== 'readonly') return undefined;
   if (WRITES.includes(action as ActivityAction) || action === 'unsubscribe-email') {
-    return `${account.email} is connected read-only, so Pilot can't change it or send from it. Reconnect it with full access to allow this.`;
+    return `${account.email} is connected read-only, so Lodestar can't change it or send from it. Reconnect it with full access to allow this.`;
   }
   return undefined;
 }

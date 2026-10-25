@@ -28,8 +28,8 @@ export function renderNav(): HTMLElement {
   const watching = s.accounts.filter((a) => a.watching).length;
   const themeIcon = document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon';
   return h('aside', { class: 'g-side' },
-    h('div', { class: 'g-brand' }, h('span', { class: 'mark' }, icon('pilot', 12)),
-      h('div', {}, 'Inbox Pilot', h('small', {}, s.status.demo ? 'Demo mode' : s.settings.userName ? `${s.settings.userName}'s Pilot` : 'Your email Pilot'))),
+    h('div', { class: 'g-brand' }, h('span', { class: 'mark' }, icon('lodestar', 13)),
+      h('div', {}, 'Lodestar', h('small', {}, s.status.demo ? 'Demo mode' : s.settings.userName ? `${s.settings.userName}'s Lodestar` : 'Your email, read on your own PC'))),
     NAV.map((n) => h('button', { type: 'button', class: `g-nav${ui.view === n.v ? ' on' : ''}`, onclick: () => go(n.v), 'aria-current': ui.view === n.v ? 'page' : null },
       icon(n.icon), n.label, counts[n.v] ? h('span', { class: 'n' }, counts[n.v]!) : null)),
     h('div', { class: 'g-side-foot' },

@@ -5,7 +5,7 @@ import type { Settings } from '../shared/types';
 
 /**
  * OAuth clients that ship with the app (oauth-clients.json next to package.json), so people
- * using Inbox Pilot just click "Sign in". Values in Settings → Advanced override them.
+ * using Lodestar just click "Sign in". Values in Settings → Advanced override them.
  */
 interface Clients {
   google: { clientId: string; clientSecret: string };

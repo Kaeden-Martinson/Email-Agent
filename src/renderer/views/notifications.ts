@@ -22,9 +22,9 @@ const LEVEL_LABEL: Record<PrivacyLevel, string> = {
 
 /** What an important-email notification looks like at each level (example data). */
 const LEVEL_PREVIEW: Record<PrivacyLevel, string> = {
-  minimal: 'Pilot · Important email — You have an important new email.',
-  sender: 'Pilot · Important email — Chase · "Your payment is overdue"',
-  full: 'Pilot · Important email — Chase · "Your payment is overdue" — Your card payment of $84.50 is overdue; pay by Friday.',
+  minimal: 'Lodestar · Important email — You have an important new email.',
+  sender: 'Lodestar · Important email — Chase · "Your payment is overdue"',
+  full: 'Lodestar · Important email — Chase · "Your payment is overdue" — Your card payment of $84.50 is overdue; pay by Friday.',
 };
 
 const ns = () => ui.state.settings.notifications;
@@ -69,7 +69,7 @@ function channelCard(c: NotifyChannel, title: string, intro: HTMLElement | null,
       h('div', { class: 'preview' }, h('span', { class: 'hint' }, 'Example: '), LEVEL_PREVIEW[ch.level]),
       c !== 'desktop' && ch.level !== 'minimal'
         ? banner('warn', [
-            `At this level, email senders and subjects${ch.level === 'full' ? ' and summaries' : ''} pass through ${c === 'ntfy' ? (ns().ntfy.server.includes('ntfy.sh') ? 'the public ntfy.sh servers' : 'your ntfy server') : "Telegram's servers"}. Everything else in Pilot stays on this PC. Keep "Minimal" unless you're comfortable with that.`])
+            `At this level, email senders and subjects${ch.level === 'full' ? ' and summaries' : ''} pass through ${c === 'ntfy' ? (ns().ntfy.server.includes('ntfy.sh') ? 'the public ntfy.sh servers' : 'your ntfy server') : "Telegram's servers"}. Everything else in Lodestar stays on this PC. Keep "Minimal" unless you're comfortable with that.`])
         : null,
       h('div', { class: 'g-field' }, h('label', {}, 'Notify me about'),
         h('div', { class: 'events' }, (Object.keys(EVENT_LABEL) as NotifyEvent[]).map((ev) =>
@@ -125,7 +125,7 @@ export function renderNotifications(): HTMLElement {
 
     channelCard('ntfy', 'ntfy (phone)',
       h('p', { class: 'hint' },
-        'Free push notifications to the ntfy app (Android, iPhone). Install ntfy on your phone and subscribe to the topic below. ntfy.sh is a public relay: anyone who knows the topic name can read it, so Pilot makes a hard-to-guess name and the default "Minimal" level sends no email details. For fully private delivery, run your own ntfy server and enter its address.'),
+        'Free push notifications to the ntfy app (Android, iPhone). Install ntfy on your phone and subscribe to the topic below. ntfy.sh is a public relay: anyone who knows the topic name can read it, so Lodestar makes a hard-to-guess name and the default "Minimal" level sends no email details. For fully private delivery, run your own ntfy server and enter its address.'),
       [
         field('Server', h('input', { type: 'text', value: n.ntfy.server, onchange: (e: Event) => saveChannel('ntfy', { server: valueOf(e).trim() || 'https://ntfy.sh' }) })),
         field('Topic', h('div', { class: 'row' },

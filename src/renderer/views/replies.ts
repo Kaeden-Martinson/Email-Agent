@@ -28,7 +28,7 @@ function styleBlock(): HTMLElement {
           h('div', { class: 'g-hint' },
             [st.greeting && `Opens with "${st.greeting}"`, st.signoff && `closes with "${st.signoff}"`, `${st.length} emails`].filter(Boolean).join(' · ') +
               ` · learned from ${st.samples} sent emails ${relTime(st.learnedAt)}`))
-      : h('div', { class: 'g-hint' }, 'Pilot can read your recent sent emails once and describe how you write (greeting, sign-off, length, tone), so drafts sound like you. Only the short description is kept.'),
+      : h('div', { class: 'g-hint' }, 'Lodestar can read your recent sent emails once and describe how you write (greeting, sign-off, length, tone), so drafts sound like you. Only the short description is kept.'),
     h('div', { class: 'g-acts' },
       button(styleBusy ? 'Reading your sent mail…' : st ? 'Learn again' : 'Learn my writing style', { kind: st ? 'default' : 'primary', disabled: styleBusy, onClick: learn }),
       st ? button('Forget it', { kind: 'ghost', onClick: () => void run(() => api.forgetStyle(), 'Writing style removed') }) : null));
@@ -61,7 +61,7 @@ export function renderRules(): HTMLElement {
     sectionTitle('Which emails get replies'),
     card([
       h('p', { class: 'g-hint', style: 'margin-top:0' },
-        'Pilot only drafts or sends replies for emails it puts in these categories. Newsletters, promotions, automated notifications, mailing lists, no-reply senders and threads already answered are always skipped.'),
+        'Lodestar only drafts or sends replies for emails it puts in these categories. Newsletters, promotions, automated notifications, mailing lists, no-reply senders and threads already answered are always skipped.'),
       ...catChecks.map((x) => x.el)]),
     sectionTitle('Safeguards'),
     card([

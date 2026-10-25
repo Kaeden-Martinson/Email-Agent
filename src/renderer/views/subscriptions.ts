@@ -8,7 +8,7 @@ export function renderSubscriptions(): HTMLElement {
   const wrap = h('div', { class: 'g-page' });
   const subs = ui.state.subscriptions;
   wrap.append(h('p', { class: 'g-hint' },
-    'Newsletters and promotions your Pilot has seen in the last 30 days, busiest first. Turn automatic unsubscribing on per mailbox under Mailboxes → Permissions.'));
+    'Newsletters and promotions Lodestar has seen in the last 30 days, busiest first. Turn automatic unsubscribing on per mailbox under Mailboxes → Permissions.'));
   wrap.append(cleanupBox());
   if (!subs.length) {
     wrap.append(emptyState('No newsletters or promotions yet.'));

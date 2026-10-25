@@ -31,11 +31,11 @@
     "nodemailer": "^10.2.1",
     "pdfjs-dist": "^6.4.299"
   },
-  "productName": "Inbox Pilot",
-  "author": "Inbox Pilot",
+  "productName": "Lodestar",
+  "author": "Lodestar",
   "build": {
     "appId": "com.inboxpilot.app",
-    "productName": "Inbox Pilot",
+    "productName": "Lodestar",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -64,7 +64,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Inbox Pilot",
+      "shortcutName": "Lodestar",
       "runAfterFinish": true,
       "deleteAppDataOnUninstall": false
     }

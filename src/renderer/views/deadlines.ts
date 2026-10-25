@@ -124,7 +124,7 @@ export function renderDeadlines(): HTMLElement {
   wrap.append(tabs(TABS, deadlineKind, (k) => { deadlineKind = k; render(); },
     h('span', { class: 'muted small num' }, `${total} due in the next 2 weeks`)));
   wrap.append(h('p', { class: 'muted small' },
-    'Dates and amounts Pilot found in your email, each checked against the email text. Click a title to see the quote and any notes. Pilot never pays bills or moves money.'));
+    'Dates and amounts Lodestar found in your email, each checked against the email text. Click a title to see the quote and any notes. Lodestar never pays bills or moves money.'));
 
   const open = ui.state.items.filter((i) => i.status === 'open' && (deadlineKind === 'all' || i.kind === deadlineKind))
     .sort((a, b) => (a.at ?? Infinity) - (b.at ?? Infinity));

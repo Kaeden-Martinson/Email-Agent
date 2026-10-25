@@ -19,6 +19,9 @@ describe('icons', () => {
     assert.ok(names.length >= 35, `only ${names.length} icons`);
     for (const n of names) assert.match(ICON_PATHS[n as keyof typeof ICON_PATHS], /<(path|circle|rect|polyline|line)\b/, n);
   });
+  it('has the Lodestar mark', () => {
+    assert.match(ICON_PATHS.lodestar, /<path/);
+  });
   it('the renderer contains no emoji', () => {
     const root = path.join(process.cwd(), 'src', 'renderer');
     for (const f of files(root)) {

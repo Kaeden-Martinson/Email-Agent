@@ -26,7 +26,7 @@ function allEvents(on: boolean): Record<NotifyEvent, boolean> {
   return Object.fromEntries(NOTIFY_EVENTS.map((e) => [e, on])) as Record<NotifyEvent, boolean>;
 }
 
-/** Official releases (GitHub). Pilot only reports updates; installing stays your choice. */
+/** Official releases (GitHub). Lodestar only reports updates; installing stays your choice. */
 export const UPDATE_FEED = 'https://api.github.com/repos/Kaeden-Martinson/Email-Agent/releases/latest';
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -220,7 +220,7 @@ export class Store {
       try {
         const raw = migrate((await this.read(file)) as Record<string, unknown>) as Partial<Persisted>;
         if (!candidates.includes(file)) {
-          this.recovered = `Pilot's data file couldn't be read, so it was restored from the backup of ${path.basename(file).slice(6, 16)}.`;
+          this.recovered = `Lodestar's data file couldn't be read, so it was restored from the backup of ${path.basename(file).slice(6, 16)}.`;
           log.warn('store.restored_from_backup', { backup: path.basename(file) });
         }
         const settings = mergeSettings(DEFAULT_SETTINGS, raw.settings);
@@ -235,7 +235,7 @@ export class Store {
         }
       }
     }
-    if (candidates.length) this.recovered = "Pilot's data couldn't be read and no backup was usable, so it started fresh. The unreadable file was kept.";
+    if (candidates.length) this.recovered = "Lodestar's data couldn't be read and no backup was usable, so it started fresh. The unreadable file was kept.";
     return this.fresh();
   }
 

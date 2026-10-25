@@ -20,7 +20,7 @@ export function renderActivity(): HTMLElement {
   wrap.append(h('p', { class: 'hint' },
     ui.state.settings.previewMode
       ? 'Preview mode is on: automatic actions wait here for your approval. Turn it off in Settings once you trust them.'
-      : 'Everything Pilot did, newest first. Archive and label can be undone.'));
+      : 'Everything Lodestar did, newest first. Archive and label can be undone.'));
   const approveAll = activityFilter === 'waiting' && waiting.length > 1
     ? button('Approve all (no sends)', {
         kind: 'primary',
@@ -36,7 +36,7 @@ export function renderActivity(): HTMLElement {
     [{ id: 'waiting', label: 'Waiting for you', count: waiting.length }, { id: 'all', label: 'Everything', count: ui.state.activity.length }],
     activityFilter, (t) => { activityFilter = t; render(); }, approveAll));
   const list = activityFilter === 'waiting' ? waiting : ui.state.activity;
-  if (!list.length) wrap.append(emptyState('Nothing yet. Actions Pilot takes or proposes will appear here.'));
+  if (!list.length) wrap.append(emptyState('Nothing yet. Actions Lodestar takes or proposes will appear here.'));
   else wrap.append(h('div', { class: 'g-tl' }, list.map(activityRow)));
   return wrap;
 }

@@ -35,7 +35,7 @@ interface GraphMessage {
 export function microsoftOAuth(s: Settings, loginHint?: string, access: Access = 'full', calendar = false): OAuthConfig {
   const { microsoft } = oauthClients(s);
   if (!microsoft.clientId) {
-    throw new Error('Microsoft sign-in is not set up in this copy of Inbox Pilot yet (oauth-clients.json is missing a Microsoft client).');
+    throw new Error('Microsoft sign-in is not set up in this copy of Lodestar yet (oauth-clients.json is missing a Microsoft client).');
   }
   return {
     authUrl: `https://login.microsoftonline.com/${microsoft.tenant}/oauth2/v2.0/authorize`,

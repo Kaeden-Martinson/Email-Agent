@@ -1,5 +1,5 @@
 // Free meeting times from calendar busy blocks, for reply drafts. Pure, so it's tested without a calendar.
-// Pilot only offers these times in drafts you review; it never accepts or books anything.
+// Lodestar only offers these times in drafts you review; it never accepts or books anything.
 
 export interface Interval {
   start: number;
