@@ -221,3 +221,7 @@ mark { background: var(--accent-weak); color: var(--text); border-radius: 2px; p
 .g-page .g-hint { margin: 0 0 12px; }
 .g-page .g-card .g-hint { margin: 4px 0 8px; }
 .g-page .g-table .g-hint { margin: 2px 0 0; }
+
+/* bare helpers used outside .g-field */
+.hint { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+.err { color: var(--danger); font-size: 12px; }

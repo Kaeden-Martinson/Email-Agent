@@ -133,8 +133,9 @@ export function relTime(ms: number): string {
   return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+/** Legacy button helper: always a Graphite `g-btn`; legacy tokens (primary, ghost, danger, tiny) map to its modifiers. */
 export const btn = (label: string, onclick: () => void, cls = '', disabled = false) =>
-  h('button', { class: `btn ${cls}`, type: 'button', onclick, disabled }, label);
+  h('button', { class: ['g-btn', ...cls.split(/\s+/).filter(Boolean)].join(' '), type: 'button', onclick, disabled }, label);
 
 export const valueOf = (e: Event) => (e.target as HTMLInputElement).value;
 
