@@ -64,7 +64,8 @@ function titleCell(i: KeyItem): HTMLElement {
     icon(KIND_ICON[i.kind], 16),
     h('div', { style: 'min-width:0' },
       h('div', {}, h('a', { href: '#', class: 'ev-toggle', title: confLabel, style: 'font-weight:600;color:inherit;text-decoration:none', onclick: (e: Event) => { e.preventDefault(); if (!showEvidence.delete(i.id)) showEvidence.add(i.id); render(); } }, i.title),
-        i.notes.length ? ' ' : null, i.notes.length ? chip('Check', 'warn') : null),
+        i.notes.length ? ' ' : null, i.notes.length ? chip('Check', 'warn') : null,
+        deadlineOf(i) < Date.now() ? ' ' : null, deadlineOf(i) < Date.now() ? chip('Overdue', 'danger') : null),
       h('div', { class: 'muted small' }, `${KIND_LABEL[i.kind]} · from ${i.sender}${i.sourceKeys.length > 1 ? ` · in ${i.sourceKeys.length} emails` : ''}`)));
 }
 
@@ -98,8 +99,8 @@ function fixWidths(t: HTMLTableElement): void {
 function itemTable(items: KeyItem[]): HTMLTableElement {
   const t = table(COLUMNS, items.map((i) => ({ cells: [dateCell(i), titleCell(i), h('span', { class: 'num' }, fmtMoney(i)), actionsCell(i)] })));
   fixWidths(t);
-  const body = t.tBodies[0];
-  items.forEach((i, idx) => { const x = extraRow(i); if (x) body.rows[idx].after(x); });
+  const trs = [...t.tBodies[0].rows];
+  items.forEach((i, idx) => { const x = extraRow(i); if (x) trs[idx].after(x); });
   return t;
 }
 
