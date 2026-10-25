@@ -79,3 +79,22 @@ svg.g-i { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: r
 .keys-box { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-frame); padding: 18px 22px; min-width: 340px; box-shadow: 0 12px 32px rgba(0, 0, 0, .25); }
 .keys-box h3 { margin: 0 0 10px; font-size: 13.5px; }
 .keys-box td { padding: 4px 14px 4px 0; }
+.g-split { display: grid; grid-template-columns: 300px 1fr; border: 1px solid var(--line); border-radius: var(--r-card); background: var(--panel); min-height: calc(100vh - 110px); overflow: hidden; }
+.g-split .pl { border-right: 1px solid var(--line); overflow-y: auto; max-height: calc(100vh - 110px); }
+.g-split .pl .g-tabs { padding: 0 10px; margin: 0; position: sticky; top: 0; background: var(--panel); z-index: 1; }
+.g-split .pl .g-sec { margin: 12px 12px 4px; }
+.g-split .pl .g-row { border-top: 0; border-left: 2px solid transparent; }
+.g-split .pl .g-row.sel { border-left-color: var(--accent); box-shadow: none; }
+.g-split .pr { padding: 16px 20px; overflow-y: auto; max-height: calc(100vh - 110px); }
+.g-pane-subj { font-size: 16px; font-weight: 600; letter-spacing: -.01em; margin: 6px 0 4px; }
+.g-kv { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; margin: 12px 0; }
+.g-kv span { display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+@media (max-width: 900px) { .g-split { grid-template-columns: 1fr; } .g-split .pl { max-height: 40vh; border-right: 0; border-bottom: 1px solid var(--line); } }
+.g-pane-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.g-pane-head .r { margin-left: auto; font-size: 11px; color: var(--muted); white-space: nowrap; }
+.g-pane-sum { color: var(--muted); margin: 0 0 6px; line-height: 1.5; }
+.g-kv > div { min-width: 0; overflow-wrap: anywhere; }
+.g-similar { margin-top: 14px; border: 1px solid var(--line); border-radius: var(--r-card); }
+.g-similar .g-sec { margin: 8px 12px 2px; }
+.g-similar .g-acts { margin: 6px 12px 10px; }
+.g-split .pr .correct select.always { font: inherit; font-size: 11.5px; color: var(--muted); background: var(--panel); border: 1px solid var(--line-strong); border-radius: var(--r-ctl); padding: 1px 6px; }

@@ -213,15 +213,16 @@ export const SHORTCUTS: [string, string][] = [
   ['?', 'Show these shortcuts'],
 ];
 
+/** The rows of the Updates list, in order (the keyboard moves through these). */
 export function visibleCards(): HTMLElement[] {
-  return [...document.querySelectorAll<HTMLElement>('article.card[data-key]')].filter((el) => el.offsetParent !== null);
+  return [...document.querySelectorAll<HTMLElement>('.g-split .pl .g-row[data-key]')];
 }
 
+/** Selects an email: the list highlights it and the reading pane shows it. */
 export function select(key: string | null): void {
   ui.selectedKey = key;
-  for (const el of document.querySelectorAll('article.card.selected')) el.classList.remove('selected');
-  const el = key ? document.querySelector<HTMLElement>(`article.card[data-key="${CSS.escape(key)}"]`) : null;
-  el?.classList.add('selected');
+  render();
+  const el = key ? document.querySelector<HTMLElement>(`.g-split .pl .g-row[data-key="${CSS.escape(key)}"]`) : null;
   el?.scrollIntoView({ block: 'nearest' });
 }
 
@@ -273,7 +274,9 @@ document.addEventListener('keydown', (e) => {
   }
 
   const cards = visibleCards();
-  const at = cards.findIndex((c) => c.dataset.key === ui.selectedKey);
+  // A similar email picked from the pane's "Similar" list sits under its group's row, which is the one highlighted.
+  let at = cards.findIndex((c) => c.dataset.key === ui.selectedKey);
+  if (at < 0) at = cards.findIndex((c) => c.classList.contains('sel'));
   if (e.key === 'j' || e.key === 'k') {
     if (!cards.length) return;
     const next = at < 0 ? 0 : Math.max(0, Math.min(cards.length - 1, at + (e.key === 'j' ? 1 : -1)));

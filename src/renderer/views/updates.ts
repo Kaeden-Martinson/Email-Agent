@@ -1,97 +1,86 @@
-import type { ActivityEntry, CorrectionKind, ReplyRecord, TriageSource, Update } from '../../shared/types.js';
+import type { ActivityEntry, AppState, CorrectionKind, ReplyRecord, TriageSource, Update } from '../../shared/types.js';
 import { cluster } from '../../shared/group.js';
 import { accountOf, api, bodies, btn, CAT_LABEL, editors, go, h, keysOverlay, openReply, quickAct, relTime, render, run, showOriginal, showThread, toast, ui, valueOf } from '../core.js';
+import { banner, button, chip, emptyState, listRow, sectionTitle, tabs } from '../ui.js';
 import { CONFIDENCE, fmtMoney, fmtWhen, KIND_LABEL } from './deadlines.js';
 import { openRemind, remindBox } from './followups.js';
 
 // ---- updates ----
 
+/** Each list row's cluster of similar emails (newest first), by the row's key. Filled while the list renders. */
+const clusterOf = new Map<string, Update[]>();
+
 export function renderUpdates(): HTMLElement {
-  const wrap = h('div');
-  const watching = ui.state.accounts.filter((a) => a.watching);
-  if (!ui.state.accounts.length) {
-    wrap.append(h('div', { class: 'banner' },
-      h('strong', {}, 'Add a mailbox to get started. '),
-      'Type your email address and Pilot sets up the rest.',
-      h('div', { class: 'actions' }, btn('Add mailbox', () => { ui.addFlow = { email: '', busy: '', password: '' }; go('mailboxes'); }, 'primary'))));
+  const s = ui.state;
+  const wrap = h('div', {});
+  const watching = s.accounts.filter((a) => a.watching);
+  if (!s.accounts.length) {
+    wrap.append(banner('info', [h('strong', {}, 'Add a mailbox to get started. '), 'Type your email address and Pilot sets up the rest.'],
+      [button('Add mailbox', { kind: 'primary', onClick: () => { ui.addFlow = { email: '', busy: '', password: '' }; go('mailboxes'); } })]));
   } else if (!watching.length) {
-    wrap.append(h('div', { class: 'banner' },
-      h('strong', {}, "Pilot isn't watching any mailbox yet. "),
-      'Open Mailboxes, check the permissions, and press Start watching.',
-      h('div', { class: 'actions' }, btn('Go to Mailboxes', () => go('mailboxes'), 'primary'))));
+    wrap.append(banner('info', [h('strong', {}, "Pilot isn't watching any mailbox yet. "), 'Open Mailboxes, check the permissions, and press Start watching.'],
+      [button('Go to Mailboxes', { kind: 'primary', onClick: () => go('mailboxes') })]));
   }
-
   if (watching.length) wrap.append(renderBriefing());
-  const waiting = ui.state.activity.filter((a) => a.status === 'proposed').length;
-  if (waiting) {
-    wrap.append(h('div', { class: 'banner approve-banner' },
-      h('strong', {}, `${waiting} action${waiting === 1 ? '' : 's'} waiting for your approval. `),
-      'Preview mode is on, so Pilot proposes automatic actions instead of doing them.',
-      h('div', { class: 'actions' }, btn('Review in Activity', () => go('activity'), 'primary'))));
-  }
 
-  const open = ui.state.updates.filter((u) => u.status !== 'done');
-  const done = ui.state.updates.filter((u) => u.status === 'done');
-  const needYou = open.filter((u) => u.status === 'new' && u.triage?.priority === 1);
-  const normal = open.filter((u) => u.status === 'new' && u.triage?.priority === 2);
-  const low = open.filter((u) => u.status === 'new' && u.triage?.priority === 3);
-  const unread = open.filter((u) => u.status === 'new' && !u.triage);
-  const snoozed = open.filter((u) => u.status === 'snoozed');
-
-  if (open.length) {
-    const drafts = open.filter((u) => u.reply?.state === 'drafted').length;
-    wrap.append(h('div', { class: 'banner' },
-      `${needYou.length} need${needYou.length === 1 ? 's' : ''} you today · ${normal.length} worth a look · ${low.length} low priority`,
-      drafts ? ` · ${drafts} reply draft${drafts === 1 ? '' : 's'} waiting in your mailbox` : ''));
+  const open = s.updates.filter((u) => u.status !== 'done');
+  const done = s.updates.filter((u) => u.status === 'done');
+  const list = ui.tab === 'done' ? done : open;
+  if (!list.some((u) => u.key === ui.selectedKey)) ui.selectedKey = list[0]?.key ?? null;
+  const groups: [string, Update[]][] = ui.tab === 'done' ? [['Done', done]] : [
+    ['Needs you', open.filter((u) => u.status === 'new' && u.triage?.priority === 1)],
+    ['Worth a look', open.filter((u) => u.status === 'new' && u.triage?.priority === 2)],
+    ['Not read yet', open.filter((u) => u.status === 'new' && !u.triage)],
+    ['Snoozed', open.filter((u) => u.status === 'snoozed')],
+    ['Low priority', open.filter((u) => u.status === 'new' && u.triage?.priority === 3)],
+  ];
+  clusterOf.clear();
+  const shortcuts = h('button', { class: 'g-btn ghost tiny keys-hint', type: 'button', title: 'Keyboard shortcuts', onclick: () => { ui.showKeys = true; document.body.append(keysOverlay()); } }, 'Shortcuts: ?');
+  const left = h('div', { class: 'pl' },
+    tabs([{ id: 'open', label: 'Open', count: open.length }, { id: 'done', label: 'Done', count: done.length }], ui.tab, (t) => { ui.tab = t; render(); }, shortcuts),
+    ...groups.filter(([, xs]) => xs.length).flatMap(([title, xs]) => [sectionTitle(title, xs.length), ...paneRows(xs)]));
+  const sel = list.find((u) => u.key === ui.selectedKey);
+  const right = h('div', { class: 'pr' }, sel
+    ? emailPane(sel)
+    : emptyState(ui.tab === 'done' ? 'Nothing marked done yet.' : watching.length ? "You're all caught up." : 'Nothing here yet.'));
+  if (s.activity.some((a) => a.status === 'proposed')) {
+    const n = s.activity.filter((a) => a.status === 'proposed').length;
+    wrap.append(banner('warn', [h('strong', {}, `${n} action${n === 1 ? '' : 's'} waiting for your approval. `), 'Preview mode is on, so Pilot proposes automatic actions instead of doing them.'], [button('Review in Activity', { onClick: () => go('activity') })]));
   }
-
-  wrap.append(h('div', { class: 'tabs' },
-    h('button', { class: ui.tab === 'open' ? 'active' : '', onclick: () => { ui.tab = 'open'; render(); } }, `Open (${open.length})`),
-    h('button', { class: ui.tab === 'done' ? 'active' : '', onclick: () => { ui.tab = 'done'; render(); } }, `Done (${done.length})`),
-    h('button', { class: 'keys-hint', title: 'Keyboard shortcuts', onclick: () => { ui.showKeys = true; document.body.append(keysOverlay()); } }, 'Shortcuts: ?')));
-
-  if (ui.tab === 'done') {
-    wrap.append(done.length ? group('Done', done) : h('div', { class: 'empty' }, 'Nothing marked done yet.'));
-    return wrap;
-  }
-  if (!open.length) {
-    wrap.append(h('div', { class: 'empty' }, watching.length ? "You're all caught up." : ''));
-    return wrap;
-  }
-  if (needYou.length) wrap.append(group('Needs you', needYou));
-  if (normal.length) wrap.append(group('Worth a look', normal));
-  if (unread.length) wrap.append(group('Not read yet', unread));
-  if (snoozed.length) wrap.append(group('Snoozed', snoozed, true));
-  if (low.length) wrap.append(group('Low priority', low, true));
+  wrap.append(h('div', { class: 'g-split' }, left, right));
   return wrap;
 }
 
-function group(title: string, items: Update[], collapsed = false): HTMLElement {
-  const body = groupedCards(items);
-  if (collapsed) return h('details', { class: 'group' }, h('summary', {}, `${title} (${items.length})`), body);
-  return h('section', { class: 'group' }, h('h2', {}, title), body);
-}
-
-/** Repeats of the same alert or notification show as one card with "+N similar" under it. */
-function groupedCards(items: Update[]): HTMLElement[] {
-  const byKey = new Map(items.map((u) => [u.key, u]));
-  const clusters = cluster(items.map((u) => ({ key: u.key, from: u.message.from.email, subject: u.message.subject, at: u.message.receivedAt })));
+/** Similar emails collapse into one row with a count; clicking selects the newest. */
+function paneRows(xs: Update[]): HTMLElement[] {
+  const byKey = new Map(xs.map((u) => [u.key, u]));
+  const clusters = cluster(xs.map((u) => ({ key: u.key, from: u.message.from.email, subject: u.message.subject, at: u.message.receivedAt })));
   // Keep the section's own order (by importance), placing each cluster where its newest email was.
-  const order = new Map(items.map((u, i) => [u.key, i]));
+  const order = new Map(xs.map((u, i) => [u.key, i]));
   clusters.sort((a, b) => Math.min(...a.map((x) => order.get(x.key)!)) - Math.min(...b.map((x) => order.get(x.key)!)));
   return clusters.map((c) => {
-    const [first, ...rest] = c.map((x) => byKey.get(x.key)!);
-    if (!rest.length) return card(first);
-    const open = [first, ...rest].filter((u) => u.status !== 'done');
-    return h('div', { class: 'cluster' },
-      card(first),
-      h('details', { class: 'similar' },
-        h('summary', {}, `+${rest.length} similar from ${first.message.from.name || first.message.from.email}`),
-        rest.map(card),
-        open.length > 1
-          ? h('div', { class: 'actions' }, btn(`Mark all ${open.length} done`, () => void run(() => api.doneMany(open.map((u) => u.key)), `Marked ${open.length} done`)))
-          : null));
+    const u = byKey.get(c[0].key)!;
+    const members = c.map((x) => byKey.get(x.key)!);
+    clusterOf.set(u.key, members);
+    const t = u.triage;
+    return listRow({
+      key: u.key,
+      dot: t?.priority === 1 ? 'p1' : t?.priority === 2 ? 'p2' : 'low',
+      title: [h('span', { style: 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, u.message.from.name || u.message.from.email), c.length > 1 ? chip(String(c.length)) : null],
+      sub: u.message.subject || '(no subject)',
+      right: relTime(u.message.receivedAt),
+      selected: members.some((m) => m.key === ui.selectedKey),
+      onClick: () => { ui.selectedKey = u.key; render(); },
+    });
   });
+}
+
+/** The row to select after the selected email leaves the list (Done, Archive, Snooze). */
+export function nextKeyAfter(key: string): string | null {
+  const rows = [...document.querySelectorAll<HTMLElement>('.g-split .pl .g-row[data-key]')];
+  const at = rows.findIndex((r) => r.dataset.key === key);
+  if (at < 0) return ui.selectedKey;
+  return rows[at + 1]?.dataset.key ?? rows[at - 1]?.dataset.key ?? null;
 }
 
 function replyLine(r: ReplyRecord): HTMLElement {
@@ -168,78 +157,121 @@ function snoozeBox(u: Update): HTMLElement {
     preview);
 }
 
-function card(u: Update): HTMLElement {
+/** The selected email in full: what it says, what it asks of you, and every action on it. */
+export function emailPane(u: Update): HTMLElement {
   const m = u.message;
   const t = u.triage;
   const account = accountOf(u);
   const isOpen = u.status !== 'done';
   const canOpen = !!(m.webLink || account?.webmailUrl);
-
-  const openEditor = () => openReply(u);
-
-  const actions = isOpen
-    ? [
-        btn('Done', () => quickAct(u, 'done')),
-        account?.permissions.manage ? btn('Archive', () => quickAct(u, 'archive')) : null,
-        u.status === 'new'
-          ? btn('Snooze…', () => { ui.snoozeFor = ui.snoozeFor === u.key ? null : u.key; snoozeText = ''; render(); })
-          : btn('Unsnooze', () => void run(() => api.act(u.key, 'reopen'))),
-        editors.has(u.key) ? null : btn(t?.draftReply ? 'Review reply' : 'Reply', openEditor),
-        t?.needsReply && !t.repliedAlready ? btn('Remind me…', () => openRemind(`u:${u.key}`)) : null,
-        canOpen ? btn('Open in mail', () => void run(() => api.open(u.key)), 'ghost') : null,
-        u.thread?.length
-          ? btn(showThread.has(u.key) ? 'Hide conversation' : `Conversation (${u.thread.length})`, () => {
-              if (!showThread.delete(u.key)) showThread.add(u.key);
-              render();
-            }, 'ghost')
-          : null,
-        btn(showOriginal.has(u.key) ? 'Hide email' : 'Show email', () => {
-          if (!showOriginal.delete(u.key)) {
-            showOriginal.add(u.key);
-            if (!bodies.has(u.key)) {
-              void api.getBody(u.key).then((b) => {
-                bodies.set(u.key, b || m.snippet || '(empty)');
-                render();
-              });
-            }
-          }
+  // Done/Archive take the email out of the list; select the next row so the pane follows.
+  const leave = (action: 'done' | 'archive') => { ui.selectedKey = nextKeyAfter(u.key); quickAct(u, action); };
+  const toggleOriginal = () => {
+    if (!showOriginal.delete(u.key)) {
+      showOriginal.add(u.key);
+      if (!bodies.has(u.key)) {
+        void api.getBody(u.key).then((b) => {
+          bodies.set(u.key, b || m.snippet || '(empty)');
           render();
-        }, 'ghost'),
-        btn('Re-read', () => void run(() => api.redraft(u.key), 'Summary refreshed'), 'ghost'),
+        });
+      }
+    }
+    render();
+  };
+  const original = button(showOriginal.has(u.key) ? 'Hide original' : 'Show original', { kind: 'ghost', icon: 'eye', onClick: toggleOriginal });
+  const openInMail = canOpen ? button('Open in mail', { kind: 'ghost', icon: 'link', onClick: () => void run(() => api.open(u.key)) }) : null;
+
+  const acts: (HTMLElement | null)[] = isOpen
+    ? [
+        editors.has(u.key) ? null : button(t?.draftReply ? 'Review reply' : 'Reply', { kind: 'primary', icon: 'reply', onClick: () => openReply(u) }),
+        button('Done', { icon: 'check', onClick: () => leave('done') }),
+        account?.permissions.manage ? button('Archive', { icon: 'archive', onClick: () => leave('archive') }) : null,
+        u.status === 'new'
+          ? button('Snooze', { icon: 'snooze', onClick: () => { ui.snoozeFor = ui.snoozeFor === u.key ? null : u.key; snoozeText = ''; render(); } })
+          : button('Unsnooze', { icon: 'snooze', onClick: () => void run(() => api.act(u.key, 'reopen')) }),
+        t?.needsReply && !t.repliedAlready ? button('Remind me', { icon: 'clock', onClick: () => openRemind(`u:${u.key}`) }) : null,
+        h('span', { class: 'g-spacer' }),
+        openInMail,
+        u.thread?.length
+          ? button(showThread.has(u.key) ? 'Hide conversation' : `Conversation (${u.thread.length})`, {
+              kind: 'ghost',
+              onClick: () => {
+                if (!showThread.delete(u.key)) showThread.add(u.key);
+                render();
+              },
+            })
+          : null,
+        original,
+        button('Re-read', { kind: 'ghost', icon: 'refresh', title: 'Read this email again and refresh the summary', onClick: () => void run(() => api.redraft(u.key), 'Summary refreshed') }),
       ]
     : [
-        btn('Move back to open', () => void run(() => api.act(u.key, 'reopen'))),
-        canOpen ? btn('Open in mail', () => void run(() => api.open(u.key)), 'ghost') : null,
+        button('Move back to open', { icon: 'undo', onClick: () => void run(() => api.act(u.key, 'reopen')) }),
+        h('span', { class: 'g-spacer' }),
+        openInMail,
+        original,
       ];
 
-  return h('article', { class: `card p${t?.priority ?? 0} ${isOpen ? '' : 'done'} ${ui.selectedKey === u.key ? 'selected' : ''}`, 'data-key': u.key },
-    h('div', { class: 'card-head' },
-      h('span', { class: 'from', title: m.from.email }, m.from.name || m.from.email || 'Unknown sender'),
-      t ? h('span', { class: `chip c-${t.category}` }, CAT_LABEL[t.category]) : null,
-      h('span', { class: 'meta' }, `${relTime(m.receivedAt)}${ui.state.accounts.length > 1 && account ? ` · ${account.email}` : ''}`)),
-    h('div', { class: 'subject' }, m.subject || '(no subject)'),
-    h('p', { class: 'summary' }, t ? t.summary : u.triageError ? `Couldn't summarize this one: ${u.triageError}` : m.snippet),
-    m.attachmentNames?.length ? h('div', { class: 'hint' }, `Read the attached ${m.attachmentNames.join(', ')}`) : null,
-    t?.actionItems.length ? h('ul', { class: 'todos' }, t.actionItems.map((a) => h('li', {}, a))) : null,
-    t?.openQuestions?.length && !t.repliedAlready
-      ? h('div', { class: 'thread-facts' }, h('strong', {}, 'Still waiting on you: '), t.openQuestions.join(' · '))
+  const dates = ui.state.items.filter((i) => i.status === 'open' && i.sourceKeys.includes(u.key));
+  const kv: [string, string][] = [];
+  if (t?.openQuestions?.length && !t.repliedAlready) kv.push(['Still waiting on you', t.openQuestions.join(' · ')]);
+  if (t?.userPromises?.length) kv.push(['You promised', t.userPromises.join(' · ')]);
+  if (dates.length) kv.push(['Deadline', dateText(dates[0])]);
+  if (m.attachmentNames?.length) kv.push([m.attachmentNames.length === 1 ? 'Attachment' : 'Attachments', `${m.attachmentNames.join(', ')} (read)`]);
+  if (t?.actionItems.length) kv.push(['To do', t.actionItems.join(' · ')]);
+
+  const members = [...clusterOf.values()].find((c) => c.some((x) => x.key === u.key)) ?? [];
+
+  return h('article', { class: `g-pane p${t?.priority ?? 0}${isOpen ? '' : ' done'}`, 'data-key': u.key },
+    h('div', { class: 'g-pane-head' },
+      h('strong', { title: m.from.email }, m.from.name || m.from.email || 'Unknown sender'),
+      t ? chip(CAT_LABEL[t.category], t.priority === 1 ? 'accent' : 'neutral') : null,
+      m.from.name ? h('span', { class: 'g-hint', style: 'margin:0' }, m.from.email) : null,
+      h('span', { class: 'r' }, `${relTime(m.receivedAt)}${ui.state.accounts.length > 1 && account ? ` · ${account.email}` : ''}`)),
+    h('div', { class: 'g-pane-subj' }, m.subject || '(no subject)'),
+    h('p', { class: 'g-pane-sum' }, t ? t.summary : u.triageError ? `Couldn't summarize this one: ${u.triageError}` : m.snippet),
+    u.status === 'snoozed' && u.snoozeUntil
+      ? h('div', { class: 'g-hint' }, u.snoozeUntilReply ? `Snoozed until they reply (at the latest ${new Date(u.snoozeUntil).toLocaleDateString()})` : `Snoozed until ${new Date(u.snoozeUntil).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`)
       : null,
-    t?.userPromises?.length ? h('div', { class: 'thread-facts' }, h('strong', {}, 'You promised: '), t.userPromises.join(' · ')) : null,
-    keyDates(u),
+    kv.length ? h('div', { class: 'g-kv' }, kv.map(([k, v]) => h('div', {}, h('span', {}, k), v))) : null,
+    dates.length > 1 ? keyDates(u) : null,
     t ? whyLine(u) : null,
     u.reply ? replyLine(u.reply) : null,
     autoLine(u),
     proposalsFor(u),
     showThread.has(u.key) && u.thread ? conversation(u) : null,
     showOriginal.has(u.key) ? h('pre', { class: 'original' }, bodies.get(u.key) ?? 'Loading…') : null,
+    h('div', { class: 'g-acts' }, acts),
     editors.has(u.key) ? replyEditor(u) : null,
     ui.remindFor === `u:${u.key}` ? remindBox({ kind: 'update', key: u.key }) : null,
     ui.snoozeFor === u.key ? snoozeBox(u) : null,
-    u.status === 'snoozed' && u.snoozeUntil
-      ? h('div', { class: 'hint' }, u.snoozeUntilReply ? `Snoozed until they reply (at the latest ${new Date(u.snoozeUntil).toLocaleDateString()})` : `Snoozed until ${new Date(u.snoozeUntil).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`)
-      : null,
-    h('div', { class: 'actions' }, actions),
-    t && isOpen ? correctionBar(u) : null);
+    t && isOpen ? correctionBar(u) : null,
+    members.length > 1 ? similarBox(members) : null);
+}
+
+/** Kept for older callers: the email card is now the reading pane. */
+export const card = emailPane;
+
+/** One key date as plain text, for the pane's Deadline field. */
+function dateText(i: AppState['items'][number]): string {
+  return `${i.title} · ${fmtWhen(i)}${i.amount !== undefined ? ` · ${fmtMoney(i)}` : ''}`;
+}
+
+/** The emails collapsed into one list row, each selectable, with "Mark all done". */
+function similarBox(members: Update[]): HTMLElement {
+  const first = members[0];
+  const open = members.filter((x) => x.status !== 'done');
+  return h('div', { class: 'g-similar' },
+    sectionTitle(`Similar from ${first.message.from.name || first.message.from.email}`, members.length),
+    members.map((x) => listRow({
+      dot: null,
+      title: x.message.subject || '(no subject)',
+      right: relTime(x.message.receivedAt),
+      selected: x.key === ui.selectedKey,
+      onClick: () => { ui.selectedKey = x.key; render(); },
+    })),
+    open.length > 1
+      ? h('div', { class: 'g-acts' }, button(`Mark all ${open.length} done`, { icon: 'check', onClick: () => void run(() => api.doneMany(open.map((x) => x.key)), `Marked ${open.length} done`) }))
+      : null);
 }
 
 /** The messages behind a summary: quoted history stripped, the ones the AI relied on highlighted. */
@@ -292,10 +324,10 @@ function correctionBar(u: Update): HTMLElement {
     h('option', { value: 'more:domain' }, `Important: anyone @${domain}`),
     h('option', { value: 'less:domain' }, `Low priority: anyone @${domain}`));
   return h('div', { class: 'correct' },
-    h('span', { class: 'hint' }, 'Teach Pilot:'),
-    btn('More important', () => fix('more', 'once', 'Got it. Only this email changes.'), 'tiny'),
-    btn('Less important', () => fix('less', 'once', 'Got it. Only this email changes.'), 'tiny'),
-    btn('Junk', () => fix('junk', 'once', 'Moved to Done. Only this email changes.'), 'tiny'),
+    h('span', { class: 'g-hint', style: 'margin:0' }, 'Teach Pilot:'),
+    button('More important', { kind: 'ghost', tiny: true, icon: 'thumbUp', onClick: () => fix('more', 'once', 'Got it. Only this email changes.') }),
+    button('Less important', { kind: 'ghost', tiny: true, icon: 'thumbDown', onClick: () => fix('less', 'once', 'Got it. Only this email changes.') }),
+    button('Junk', { kind: 'ghost', tiny: true, icon: 'trash', onClick: () => fix('junk', 'once', 'Moved to Done. Only this email changes.') }),
     always);
 }
 
