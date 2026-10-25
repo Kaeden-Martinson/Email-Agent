@@ -160,7 +160,7 @@ export function render(): void {
     return;
   }
   const view = views.get(ui.view)!;
-  root.replaceChildren(h('div', { class: 'layout' }, chrome.nav(), h('main', {}, chrome.header(), chrome.notice(), view())));
+  root.replaceChildren(h('div', { class: 'g-shell' }, chrome.nav(), h('main', { class: 'g-main' }, chrome.header(), chrome.notice(), view())));
 }
 
 /** On a state push, re-render unless the user is typing; the form views keep their own values. */
@@ -173,8 +173,8 @@ export function onState(next: AppState): void {
     (active instanceof HTMLInputElement && active.type !== 'checkbox' && active.type !== 'radio') ||
     active instanceof HTMLSelectElement;
   if (ui.state.settings.onboarded && (ui.view === 'rules' || ui.view === 'settings')) {
-    document.querySelector('nav')?.replaceWith(chrome.nav());
-    document.querySelector('header.top')?.replaceWith(chrome.header());
+    document.querySelector('.g-side')?.replaceWith(chrome.nav());
+    document.querySelector('.g-head')?.replaceWith(chrome.header());
   } else if (typing) {
     ui.deferredRender = true;
   } else {
