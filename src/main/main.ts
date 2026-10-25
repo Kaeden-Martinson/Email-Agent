@@ -23,6 +23,9 @@ import { Store } from './store';
 app.setPath('userData', path.join(app.getPath('appData'), 'inbox-pilot'));
 const DEMO = process.argv.includes('--demo');
 if (DEMO) app.setPath('userData', path.join(app.getPath('userData'), 'demo'));
+// Source runs only: a separate data folder for testing first-run setup (`--profile=<folder>`).
+const PROFILE = process.argv.find((a) => a.startsWith('--profile='))?.slice(10);
+if (PROFILE && !app.isPackaged) app.setPath('userData', path.resolve(PROFILE));
 /** Developer mode: DevTools (Ctrl+Shift+I) and logs echoed to the console. On when running from source. */
 const DEV = !app.isPackaged || process.argv.includes('--dev');
 /** Started by Windows at sign-in: stay in the tray. */
@@ -192,6 +195,10 @@ function registerIpc(engine: Engine): void {
   ipcMain.handle('cleanupPreview', (_e, f) => engine.cleanupPreview(cleanupFilter(f)));
   ipcMain.handle('cleanupRun', (_e, f) => engine.cleanupRun(cleanupFilter(f)));
   ipcMain.handle('undoMany', (_e, ids: string[]) => engine.undoMany(Array.isArray(ids) ? ids.filter((x) => typeof x === 'string') : []));
+  ipcMain.handle('aiStatus', () => engine.aiStatus());
+  ipcMain.handle('aiInstallOllama', () => engine.aiInstallOllama());
+  ipcMain.handle('aiStartOllama', () => engine.aiStartOllama());
+  ipcMain.handle('aiPullModel', () => engine.aiPullModel());
   ipcMain.handle('learnStyle', () => engine.learnStyle());
   ipcMain.handle('forgetStyle', () => engine.forgetStyle());
   ipcMain.handle('snooze', (_e, key: string, choice: string) => engine.snooze(String(key), String(choice ?? '')));

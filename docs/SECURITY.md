@@ -1,6 +1,6 @@
 # Pilot: data flows and security
 
-This page says exactly what data Pilot touches, where it goes, and how it is protected. It describes the code in this repository as of version 0.12.0.
+This page says exactly what data Pilot touches, where it goes, and how it is protected. It describes the code in this repository as of version 0.13.0.
 
 ## Where data goes
 
@@ -15,7 +15,8 @@ This page says exactly what data Pilot touches, where it goes, and how it is pro
 | The **domain** of an address you add (for example `yahoo.com`) | Mozilla's autoconfig database (Thunderbird ISPDB) and Cloudflare DNS-over-HTTPS | When you add a mailbox | Only the domain, never the full address or any mail. |
 | One-click unsubscribe | The sender's own unsubscribe URL (RFC 8058 POST) | When you click Unsubscribe, or automatic mode for repeat senders | The request body is `List-Unsubscribe=One-Click`, nothing else. |
 | Update check | The update feed URL you configure (none by default) | Daily, if configured | Only a GET request, with no data from your mail. |
-| Model download | Ollama's model registry | Only when you click to enable semantic search | Downloads `nomic-embed-text`; no data from your mail. |
+| Model download | Ollama's model registry | When you click Download model in AI setup, or enable semantic search | Downloads the chat model or `nomic-embed-text`; no data from your mail. |
+| Ollama installer | ollama.com (redirects to Ollama's GitHub releases) | Only when you click Install Ollama for me | Pilot runs it only if Windows reports a valid code signature from Ollama Inc.; installed per-user, silently. |
 
 Pilot has **no server of its own**. Nothing is sent to the app's developer.
 

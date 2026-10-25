@@ -16,6 +16,7 @@ import type {
   ReminderTarget,
   Priority,
   Rule,
+  AiSetupStatus,
   CleanupPreview,
   RulePreview,
   SuggestedRule,
@@ -49,7 +50,7 @@ const root = document.getElementById('app')!;
 let state: AppState;
 let view: View = 'today';
 let tab: 'open' | 'done' = 'open';
-let onboardStep: 'name' | 'mail' = 'name';
+let onboardStep: 'name' | 'ai' | 'mail' = 'name';
 /** Reply text being edited, by update key. Survives re-renders. */
 const editors = new Map<string, string>();
 const showOriginal = new Set<string>();
@@ -288,12 +289,25 @@ function renderOnboarding(): HTMLElement {
         const userName = name.value.trim();
         if (!userName) return toast('Enter your name to continue.');
         void run(async () => {
-          onboardStep = 'mail';
+          onboardStep = 'ai';
           await api.saveSettings({ userName });
+          // The name box still has focus (Enter), which would hold back the redraw.
+          (document.activeElement as HTMLElement | null)?.blur();
+          render();
         });
       } },
         field('What should your Pilot call you?', name, 'It uses this when it writes replies for you.'),
         h('button', { class: 'btn primary', type: 'submit' }, 'Continue')));
+  }
+
+  if (onboardStep === 'ai') {
+    return h('div', { class: 'onboard' },
+      h('h1', {}, 'Set up the AI on this PC'),
+      h('p', { class: 'lede' }, 'Pilot reads your email with an AI that runs on this computer, so your mail never goes to an AI company. This is a one-time setup.'),
+      aiSetupPanel(() => { onboardStep = 'mail'; render(); }),
+      h('div', { class: 'actions' },
+        btn('Back', () => { onboardStep = 'name'; render(); }, 'ghost'),
+        btn('Skip for now', () => { onboardStep = 'mail'; render(); }, 'ghost')));
   }
 
   const finish = async (accountId?: string) => {
@@ -310,8 +324,77 @@ function renderOnboarding(): HTMLElement {
       toast('Mailbox added. Choose what Pilot may do there, then press Start watching.');
     }),
     h('div', { class: 'actions' },
-      btn('Back', () => { onboardStep = 'name'; render(); }, 'ghost'),
+      btn('Back', () => { onboardStep = 'ai'; render(); }, 'ghost'),
       btn('Skip for now', () => void finish(), 'ghost')));
+}
+
+// ---- AI setup ----
+
+let aiStatus: AiSetupStatus | null = null;
+let aiBusy = false;
+let aiPoll: number | undefined;
+
+function refreshAi(): void {
+  void api.aiStatus().then((s) => { aiStatus = s; render(); }).catch(() => {});
+}
+
+/** Install Ollama, start it, download a model that fits: each a button, with progress. */
+function aiSetupPanel(onReady?: () => void): HTMLElement {
+  if (!aiStatus) {
+    refreshAi();
+    return h('div', { class: 'banner' }, 'Checking this PC…');
+  }
+  const s = aiStatus;
+  const step = (fn: () => Promise<void>, done: string) => {
+    aiBusy = true;
+    render();
+    void run(async () => {
+      try {
+        await fn();
+      } finally {
+        aiBusy = false;
+        aiStatus = await api.aiStatus().catch(() => aiStatus);
+        render();
+      }
+    }, done);
+  };
+  const p = state.aiProgress;
+  const progress = p
+    ? h('div', { class: 'rule-preview' },
+        h('div', {}, h('strong', {}, p.step), p.percent !== undefined ? ` ${p.percent}%` : '…'),
+        p.percent !== undefined ? h('progress', { max: 100, value: p.percent }) : null)
+    : null;
+  const pc = `This PC: ${s.ramGB} GB memory${s.vramGB ? `, ${s.vramGB} GB graphics memory` : ''}.`;
+
+  if (s.ready) {
+    clearInterval(aiPoll);
+    aiPoll = undefined;
+    return h('div', { class: 'banner' },
+      h('strong', {}, 'The AI is ready. '), `Pilot will use ${s.usable}. ${pc}`,
+      onReady ? h('div', { class: 'actions' }, btn('Continue', onReady, 'primary')) : null);
+  }
+  if (s.ollama === 'missing') {
+    // Someone may install Ollama by hand meanwhile: keep checking.
+    aiPoll ??= window.setInterval(refreshAi, 5000);
+    return h('div', { class: 'banner' },
+      h('div', {}, h('strong', {}, 'Step 1 of 2: install Ollama. '), 'Ollama is the free program that runs the AI on this PC (about 1.7 GB download, no admin rights needed). Pilot downloads it from ollama.com and checks it is genuinely signed by Ollama before installing.'),
+      progress,
+      h('div', { class: 'actions' },
+        btn(aiBusy ? 'Installing…' : 'Install Ollama for me', () => step(() => api.aiInstallOllama(), 'Ollama installed'), 'primary', aiBusy),
+        btn('Get it myself', () => void run(() => api.openUrl('https://ollama.com/download/windows')), 'ghost')));
+  }
+  if (s.ollama === 'stopped') {
+    return h('div', { class: 'banner' },
+      h('strong', {}, 'Ollama is installed but not running. '),
+      h('div', { class: 'actions' }, btn(aiBusy ? 'Starting…' : 'Start Ollama', () => step(() => api.aiStartOllama(), 'Ollama started'), 'primary', aiBusy)));
+  }
+  return h('div', { class: 'banner' },
+    h('div', {}, h('strong', {}, 'Step 2 of 2: download the AI model. '),
+      `Pilot picked ${s.recommended.model} (${s.recommended.sizeGB} GB) for this PC. ${pc}`),
+    s.recommended.note ? h('div', { class: 'hint' }, s.recommended.note) : null,
+    progress,
+    h('div', { class: 'actions' },
+      btn(aiBusy ? 'Downloading…' : `Download ${s.recommended.sizeGB} GB model`, () => step(() => api.aiPullModel(), 'AI model ready'), 'primary', aiBusy)));
 }
 
 // ---- add mailbox ----
@@ -389,7 +472,10 @@ function renderAddMailbox(onAdded: (id: string) => void, onCancel?: () => void):
   const footer = [
     f.busy ? h('div', { class: 'hint busy' }, f.busy) : null,
     f.busy && d.kind !== 'imap'
-      ? h('div', { class: 'hint' }, "Blocked, or closed the browser tab? Cancel and sign in again.",
+      ? h('div', { class: 'hint' },
+          d.kind === 'gmail'
+            ? 'If Google says "Access blocked", the person who shared Inbox Pilot needs to add your Gmail address to its test users first. Closed the browser tab? Cancel and sign in again. '
+            : 'Blocked, or closed the browser tab? Cancel and sign in again. ',
           btn('Cancel sign-in', () => void run(() => api.cancelSignIn())))
       : null,
     onCancel ? btn('Cancel', () => { addFlow = null; onCancel(); }, 'ghost', !!f.busy) : null,
@@ -1587,6 +1673,9 @@ function renderToday(): HTMLElement {
     wrap.append(h('div', { class: 'banner approve-banner' },
       h('strong', {}, `Pilot ${up.latest} is available. `), `You have ${state.app.version}.`,
       h('div', { class: 'actions' }, btn('Download', () => void run(() => api.openUrl(up.url!)), 'primary'))));
+  }
+  if (state.status.ollamaOk === false || (aiStatus && !aiStatus.ready)) {
+    wrap.append(h('section', { class: 'group' }, h('h2', {}, 'Finish setting up the AI'), aiSetupPanel()));
   }
   wrap.append(h('div', { class: 'today-head' },
     h('h2', {}, greeting()),

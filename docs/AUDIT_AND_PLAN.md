@@ -214,3 +214,11 @@
 - **Weekly digest:** a Your week card on Today and a Monday count-only notification (safe at Minimal); bill totals only when all amounts share a currency.
 - **Verified:** 217 tests pass; demo screenshots of each new screen; 0.12.0 installed and running on real data with no errors.
 - **Confirmed by you after release:** v0.12.0 published on GitHub (installer size matches the build), calendar connected, and Insert my free times showed your real free times.
+
+**2026-10-25: ready to share with family (version 0.13.0)**
+
+- **First-run AI setup:** a new onboarding step finds Ollama (running, installed but stopped, or missing). Install Ollama for me downloads `OllamaSetup.exe` from ollama.com (1.66 GB) with progress, runs it only if Windows reports a valid Authenticode signature with subject `CN=Ollama Inc.`, installs per-user silently and starts it. Download model pulls a model sized to the PC (RAM, plus NVIDIA graphics memory when `nvidia-smi` is present) with progress and makes it Pilot's model. Today shows the same panel if the AI stops working.
+- **Tested:** the signature check accepted the real `ollama app.exe`, and rejected a fake file and a validly signed non-Ollama program (node.exe). Streaming model download parsed progress to 100%. The setup step renders on a fresh profile (dev-only `--profile=` flag added for this). The full 1.66 GB installer download was not run, to spare bandwidth.
+- **Bug fixed:** pressing Enter on the name step could leave the screen stuck (the redraw waited for the text box to lose focus).
+- **Family guide** at `docs/install.html` (requirements, SmartScreen, AI setup, Google's unverified-app screen, weekly Reconnect). The homepage no longer claims Outlook works.
+- Gmail sign-in now explains "Access blocked" (address not on the test-user list).

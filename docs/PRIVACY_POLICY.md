@@ -3,7 +3,7 @@
 > **Draft for review.** Before publishing:
 > - Have it reviewed.
 > - Google requires the privacy policy to be hosted on the **same domain** as the app's public homepage.
-> - This draft reflects Inbox Pilot 0.12.0 as built. Update it whenever data handling changes.
+> - This draft reflects Inbox Pilot 0.13.0 as built. Update it whenever data handling changes.
 
 *Last updated: October 24, 2026*
 

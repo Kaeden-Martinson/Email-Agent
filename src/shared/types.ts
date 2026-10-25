@@ -363,6 +363,18 @@ export interface Rule {
   lastHitAt?: number;
 }
 
+export interface AiSetupStatus {
+  ollama: 'running' | 'stopped' | 'missing';
+  ramGB: number;
+  vramGB?: number;
+  recommended: { model: string; sizeGB: number; note?: string };
+  /** The installed model Pilot will use, if any. */
+  usable?: string;
+  ready: boolean;
+  /** A download or install in progress. */
+  progress?: { step: string; percent?: number };
+}
+
 export interface WeeklyDigest {
   at: number;
   /** Emails received in the last 7 days, and how many were important. */
@@ -641,6 +653,8 @@ export interface AppState {
   /** Whether Google / Microsoft sign-in is configured in this build. */
   signIn: { gmail: boolean; outlook: boolean };
   weekly: WeeklyDigest;
+  /** A download or install from the AI setup screen, in progress. */
+  aiProgress?: { step: string; percent?: number };
 }
 
 export type UpdateAction = 'done' | 'reopen' | 'archive' | 'snooze';
@@ -711,6 +725,12 @@ export interface Api {
   undoMany(ids: string[]): Promise<number>;
   /** Reads recent sent mail and saves a short description of how you write. */
   learnStyle(): Promise<void>;
+  aiStatus(): Promise<AiSetupStatus>;
+  /** Downloads Ollama's signed installer and installs it for this user. */
+  aiInstallOllama(): Promise<void>;
+  aiStartOllama(): Promise<void>;
+  /** Downloads the recommended model and makes it Pilot's model. */
+  aiPullModel(): Promise<void>;
   forgetStyle(): Promise<void>;
   previewSnooze(choice: string): Promise<{ label: string } | { error: string }>;
   replyOptions(key: string): Promise<{ tone: string; text: string }[]>;

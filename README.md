@@ -137,6 +137,14 @@ These checks live in code, so nothing written in an email can talk the model pas
 - Auto-send works only for that mailbox's trusted senders, under a daily cap. Everyone else gets a draft.
 - The model is told never to agree to meetings, payments or deadlines. Email text is passed to it as untrusted data.
 
+## Sharing with family and friends
+
+1. Send them the install guide: https://kaeden-martinson.github.io/Email-Agent/install.html (download link, SmartScreen, setup).
+2. **Add each Gmail address as a test user** before they sign in: [Google Auth Platform → Audience](https://console.cloud.google.com/auth/audience?project=inbox-pilot-512603) → Test users → Add users (up to 100). Without this Google shows "Access blocked".
+3. On first run, Pilot installs Ollama for them (official installer, signature checked) and downloads a model sized to their PC: `qwen2.5:7b` with 16 GB RAM or a 6 GB+ graphics card, `qwen2.5:3b` with 8–16 GB, `qwen2.5:1.5b` below that.
+4. They'll see "Google hasn't verified this app" and must re-sign-in about weekly (Reconnect button) until the app is verified by Google.
+5. Yahoo, iCloud and other IMAP mail work with an app password. Outlook needs the Azure client first.
+
 ## Developer setup (one time)
 
 People using the app just click "Sign in with Google/Microsoft". For that to work, the app ships with its own OAuth clients, which **you create once** and put in `oauth-clients.json` next to `package.json`. Copy `oauth-clients.example.json` to start. Yahoo, iCloud and other IMAP mailboxes need no setup.

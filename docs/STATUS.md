@@ -1,10 +1,10 @@
-# Pilot: status (2026-10-25, version 0.12.0)
+# Pilot: status (2026-10-25, version 0.13.0)
 
 ## What's done
 
 | # | Stage | State |
 |---|---|---|
-| 1 | Git + test harness | Done. **217 tests** passing; public on GitHub; safety logic in pure modules under `src/main/core`. |
+| 1 | Git + test harness | Done. **220 tests** passing; public on GitHub; safety logic in pure modules under `src/main/core`. |
 | 2 | Fast multi-stage pipeline | Done. Rules → prefilter → quick AI → full AI; 18 of 28 real emails needed no AI. |
 | 3 | Learned rules, activity log, preview, undo | Done. Rules can also be written in plain English, and Pilot learns from what you archive and reply to. |
 | 4 | Thread understanding | Done. Whole conversations, quote stripping, open questions, promises, source messages. |
@@ -16,6 +16,8 @@
 | 10 | Outlook and provider hardening | Done in code. **Live Outlook untested** (needs Azure). |
 | 11 | Production readiness | Homepage and privacy policy live at https://kaeden-martinson.github.io/Email-Agent/. Google publishing still needs the steps below. |
 | 12 | Engineering quality | Done. Encrypted data, backups, migrations, recovery, redacting logs. |
+
+New in 0.13.0: first-run AI setup (installs Ollama after checking its signature, downloads a model sized to the PC), a family install guide on the website, and a hint when Google blocks an address that isn't a test user.
 
 New in 0.12.0: smarter snooze (until they reply, plain-English times), bulk cleanup with preview and Undo all, learning your writing style, the weekly digest, and a once-per-session check that the AI model really answers.
 
@@ -33,6 +35,12 @@ New in 0.10.0: three reply versions (brief, friendly, formal), grouped similar e
 - **AI:** `qwen2.5:7b` gives reply versions in about 10 s with no invented facts, and parses plain-English rules correctly (6 of 6 tests).
 - **PDF reading** works inside the packaged app.
 - **Housekeeping:** the plain-text safety copies were deleted.
+
+## Sharing with family and friends
+
+- Install guide for them: https://kaeden-martinson.github.io/Email-Agent/install.html
+- For each Gmail user: add their address under Google Auth Platform → Audience → Test users (max 100).
+- First run installs Ollama and a right-sized model for them.
 
 ## Not verified, or blocked on you
 

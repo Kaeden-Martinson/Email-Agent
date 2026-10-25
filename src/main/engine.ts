@@ -19,6 +19,7 @@ import {
   type PipelineStats,
   type EmailMessage,
   type Rule,
+  type AiSetupStatus,
   type CleanupPreview,
   type WeeklyDigest,
   type RulePreview,
@@ -35,6 +36,7 @@ import { Asker } from './ask';
 import { suggestReplies } from './ai/replies';
 import { parseRuleText } from './ai/ruletext';
 import { learnStyle, styleSamples } from './ai/style';
+import { AiSetup } from './aisetup';
 import { triage } from './ai/triage';
 import { oauthClients } from './clients';
 import { accessBlocker } from './core/access';
@@ -109,6 +111,7 @@ export class Engine extends EventEmitter {
   appInfo: AppInfo = { version: '0.0.0', packaged: false, devMode: false };
   readonly tracker: Tracker;
   readonly asker: Asker;
+  readonly aiSetup: AiSetup;
   readonly notifier: Notifier;
   /** Models Ollama failed to load this session; skipped when choosing a model. */
   private failedModels = new Set<string>();
@@ -132,6 +135,7 @@ export class Engine extends EventEmitter {
         void this.notifier.notify({ event: 'reply', key: `reply:${f.id}`, sender: f.to.email, subject: f.subject, detail: `They replied to: "${f.asked}"` }),
     });
     this.asker = new Asker(store, () => this.s);
+    this.aiSetup = new AiSetup(() => this.s.ollama.url, () => this.emit('changed'));
   }
 
   private get s(): Settings {
@@ -198,6 +202,7 @@ export class Engine extends EventEmitter {
       app: this.appInfo,
       signIn: { gmail: !!clients.google.clientId, outlook: !!clients.microsoft.clientId },
       weekly: this.weekly(),
+      aiProgress: this.aiSetup.progress,
     };
   }
 
@@ -648,6 +653,36 @@ export class Engine extends EventEmitter {
     this.d.settings = mergeSettings(this.s, { writingStyle: style });
     log.info('style.learned', { samples: style.samples });
     this.changed();
+  }
+
+  async aiStatus(): Promise<AiSetupStatus> {
+    const st = await this.aiSetup.status();
+    // Use what's installed when the chosen model isn't (a fresh PC, or a smaller model picked for it).
+    if (st.usable && st.ollama === 'running') {
+      const models = await listModels(this.s.ollama.url).catch(() => [] as string[]);
+      if (!models.includes(this.s.ollama.model)) {
+        this.d.settings = mergeSettings(this.s, { ollama: { ...this.s.ollama, model: st.usable } });
+        this.changed();
+      }
+    }
+    return st;
+  }
+
+  aiInstallOllama(): Promise<void> {
+    return this.aiSetup.installOllama();
+  }
+
+  aiStartOllama(): Promise<void> {
+    return this.aiSetup.start();
+  }
+
+  async aiPullModel(): Promise<void> {
+    const st = await this.aiSetup.status();
+    await this.aiSetup.pull(st.recommended.model);
+    this.d.settings = mergeSettings(this.s, { ollama: { ...this.s.ollama, model: st.recommended.model } });
+    this.failedModels.delete(st.recommended.model);
+    this.changed();
+    void this.sync();
   }
 
   forgetStyle(): void {
