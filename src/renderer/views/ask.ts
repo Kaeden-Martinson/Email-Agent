@@ -85,8 +85,10 @@ function highlight(text: string, terms: string[]): (string | HTMLElement)[] {
 }
 
 function openEmail(key: string): void {
+  const u = ui.state.updates.find((x) => x.key === key);
+  if (!u) { void run(() => api.open(key)); return; }
+  ui.tab = u.status === 'done' ? 'done' : 'open';
   ui.selectedKey = key;
-  ui.tab = 'open';
   go('updates');
 }
 
