@@ -184,6 +184,8 @@ function registerIpc(engine: Engine): void {
     applyLoginItem(engine.state().settings);
   });
   ipcMain.handle('getBody', (_e, key: string) => engine.getBody(String(key)));
+  ipcMain.handle('snooze', (_e, key: string, choice: string) => engine.snooze(String(key), String(choice ?? '')));
+  ipcMain.handle('previewSnooze', (_e, choice: string) => engine.previewSnooze(String(choice ?? '')));
   ipcMain.handle('freeTimes', (_e, key: string) => engine.freeTimes(String(key)));
   ipcMain.handle('replyOptions', (_e, key: string) => engine.replyOptions(String(key)));
   ipcMain.handle('checkForUpdates', () => engine.checkForUpdates());

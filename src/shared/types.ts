@@ -507,6 +507,8 @@ export interface Update {
   triageError?: string;
   status: UpdateStatus;
   snoozeUntil?: number;
+  /** Snoozed until the sender writes again in this conversation. */
+  snoozeUntilReply?: boolean;
   reply?: ReplyRecord;
   /** The conversation up to this message, oldest first (personal mail only). */
   thread?: ThreadMessage[];
@@ -663,6 +665,9 @@ export interface Api {
   /** Three alternative replies (Brief, Friendly, Formal), conversation-aware. Nothing is sent. */
   /** Free times from the mailbox's calendar (free/busy only). */
   freeTimes(key: string): Promise<string[]>;
+  /** "tomorrow", "nextweek", "reply" or plain English. Resolves with a description. */
+  snooze(key: string, choice: string): Promise<string>;
+  previewSnooze(choice: string): Promise<{ label: string } | { error: string }>;
   replyOptions(key: string): Promise<{ tone: string; text: string }[]>;
   checkForUpdates(): Promise<void>;
   openFolder(which: 'logs' | 'data'): Promise<void>;

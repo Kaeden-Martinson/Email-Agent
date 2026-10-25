@@ -749,6 +749,43 @@ function renderBriefing(): HTMLElement {
     h('p', {}, b.text));
 }
 
+let snoozeFor: string | null = null;
+let snoozeText = '';
+
+function snoozeBox(u: Update): HTMLElement {
+  const go = (choice: string) =>
+    void run(async () => {
+      const label = await api.snooze(u.key, choice);
+      snoozeFor = null;
+      toast(label, { label: 'Undo', fn: () => void run(() => api.act(u.key, 'reopen'), 'Undone') });
+    });
+  const preview = h('div', { class: 'hint' }, 'Or type a time: "Friday 3pm", "in 3 days", "Monday if they haven\'t replied".');
+  let timer: number | undefined;
+  const input = h('input', {
+    type: 'text',
+    value: snoozeText,
+    placeholder: 'Snooze until…',
+    oninput: (e: Event) => {
+      snoozeText = valueOf(e);
+      clearTimeout(timer);
+      timer = window.setTimeout(async () => {
+        if (!snoozeText.trim()) return;
+        const r = await api.previewSnooze(snoozeText);
+        preview.textContent = 'error' in r ? r.error : `Snooze ${r.label}.`;
+        preview.classList.toggle('err', 'error' in r);
+      }, 250);
+    },
+  });
+  return h('form', { class: 'remind-box', onsubmit: (e: Event) => { e.preventDefault(); if (snoozeText.trim()) go(snoozeText); } },
+    h('div', { class: 'row' },
+      btn('Tomorrow', () => go('tomorrow')),
+      btn('Next week', () => go('nextweek')),
+      btn('Until they reply', () => go('reply')),
+      btn('Cancel', () => { snoozeFor = null; render(); }, 'ghost')),
+    h('div', { class: 'row' }, input, h('button', { class: 'btn primary', type: 'submit' }, 'Snooze')),
+    preview);
+}
+
 function openReply(u: Update): void {
   const sig = accountOf(u)?.permissions.signature.trim();
   if (!editors.has(u.key)) editors.set(u.key, (u.triage?.draftReply ?? '') + (sig ? `\n\n${sig}` : ''));
@@ -770,7 +807,7 @@ function card(u: Update): HTMLElement {
         btn('Done', () => quickAct(u, 'done')),
         account?.permissions.manage ? btn('Archive', () => quickAct(u, 'archive')) : null,
         u.status === 'new'
-          ? btn('Snooze till tomorrow', () => quickAct(u, 'snooze'))
+          ? btn('Snooze…', () => { snoozeFor = snoozeFor === u.key ? null : u.key; snoozeText = ''; render(); })
           : btn('Unsnooze', () => void run(() => api.act(u.key, 'reopen'))),
         editors.has(u.key) ? null : btn(t?.draftReply ? 'Review reply' : 'Reply', openEditor),
         t?.needsReply && !t.repliedAlready ? btn('Remind me…', () => openRemind(`u:${u.key}`)) : null,
@@ -822,6 +859,10 @@ function card(u: Update): HTMLElement {
     showOriginal.has(u.key) ? h('pre', { class: 'original' }, bodies.get(u.key) ?? 'Loading…') : null,
     editors.has(u.key) ? replyEditor(u) : null,
     remindFor === `u:${u.key}` ? remindBox({ kind: 'update', key: u.key }) : null,
+    snoozeFor === u.key ? snoozeBox(u) : null,
+    u.status === 'snoozed' && u.snoozeUntil
+      ? h('div', { class: 'hint' }, u.snoozeUntilReply ? `Snoozed until they reply (at the latest ${new Date(u.snoozeUntil).toLocaleDateString()})` : `Snoozed until ${new Date(u.snoozeUntil).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`)
+      : null,
     h('div', { class: 'actions' }, actions),
     t && isOpen ? correctionBar(u) : null);
 }

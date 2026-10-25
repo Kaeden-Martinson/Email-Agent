@@ -60,6 +60,7 @@ import { compareVersions, parseFeed } from './core/version';
 import { log } from './logger';
 import { extractPdfText, isPdf, PDF_LIMITS } from './core/pdf';
 import { asksForTime, formatSlot, freeSlots, type Interval } from './core/slots';
+import { snoozeTime } from './core/when';
 import { Notifier } from './notifier';
 import { Tracker } from './tracker';
 import type { Formatted } from './core/notify';
@@ -330,6 +331,7 @@ export class Engine extends EventEmitter {
           continue;
         }
         const key = `${account.id}:${m.id}`;
+        if (!this.d.updates[key]) this.wakeOnReply(account, m);
         this.d.updates[key] ??= { key, message: m, status: 'new' };
       }
       account.lastSyncAt = started;
@@ -553,11 +555,40 @@ export class Engine extends EventEmitter {
     }
   }
 
+  /** A new message from someone else in a conversation snoozed "until they reply" brings it back. */
+  private wakeOnReply(account: Account, m: EmailMessage): void {
+    if (m.from.email.toLowerCase() === account.email.toLowerCase()) return;
+    for (const u of Object.values(this.d.updates)) {
+      if (u.status === 'snoozed' && u.snoozeUntilReply && u.message.accountId === account.id && u.message.threadId === m.threadId) {
+        u.status = 'new';
+        u.snoozeUntil = undefined;
+        u.snoozeUntilReply = undefined;
+      }
+    }
+  }
+
+  previewSnooze(choice: string): { label: string } | { error: string } {
+    const r = snoozeTime(choice);
+    return 'error' in r ? r : { label: r.label };
+  }
+
+  snooze(key: string, choice: string): string {
+    const { u } = this.get(key);
+    const r = snoozeTime(choice);
+    if ('error' in r) throw new Error(r.error);
+    u.status = 'snoozed';
+    u.snoozeUntil = r.at;
+    u.snoozeUntilReply = r.untilReply || undefined;
+    this.changed();
+    return `Snoozed ${r.label}`;
+  }
+
   private unsnooze(): void {
     for (const u of Object.values(this.d.updates)) {
       if (u.status === 'snoozed' && (u.snoozeUntil ?? 0) <= Date.now()) {
         u.status = 'new';
         u.snoozeUntil = undefined;
+        u.snoozeUntilReply = undefined;
       }
     }
   }
@@ -1187,6 +1218,7 @@ export class Engine extends EventEmitter {
       case 'reopen':
         u.status = 'new';
         u.snoozeUntil = undefined;
+        u.snoozeUntilReply = undefined;
         break;
       case 'snooze': {
         const until = new Date(Date.now() + DAY);

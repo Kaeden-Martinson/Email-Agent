@@ -160,3 +160,33 @@ export function describeWhen(at: number, now: Date = new Date()): string {
   if (days > 1 && days < 7) return `${d.toLocaleDateString(undefined, { weekday: 'long' })} at ${time}`;
   return `${d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} at ${time}`;
 }
+
+export type SnoozeChoice = 'tomorrow' | 'nextweek' | 'reply' | string;
+
+/**
+ * When a snooze ends. "tomorrow" = 8:00 tomorrow, "nextweek" = Monday 8:00, "reply" = when they reply
+ * (with a 14-day fallback), anything else is parsed as plain English ("Friday 3pm", "in 2 days").
+ */
+export function snoozeTime(choice: SnoozeChoice, now: Date = new Date()): { at: number; untilReply: boolean; label: string } | { error: string } {
+  const morning = (d: Date) => {
+    d.setHours(8, 0, 0, 0);
+    return d.getTime();
+  };
+  if (choice === 'tomorrow') {
+    const d = new Date(now);
+    d.setDate(d.getDate() + 1);
+    return { at: morning(d), untilReply: false, label: 'until tomorrow morning' };
+  }
+  if (choice === 'nextweek') {
+    const d = new Date(now);
+    d.setDate(d.getDate() + (((8 - d.getDay()) % 7) || 7));
+    return { at: morning(d), untilReply: false, label: 'until Monday morning' };
+  }
+  if (choice === 'reply') {
+    return { at: now.getTime() + 14 * 86_400_000, untilReply: true, label: 'until they reply (or 2 weeks)' };
+  }
+  const r = parseWhen(choice, now, 8);
+  if ('error' in r) return r;
+  if (r.at <= now.getTime()) return { error: 'That time has already passed.' };
+  return { at: r.at, untilReply: r.unlessReplied, label: `until ${describeWhen(r.at, now)}${r.unlessReplied ? ', or sooner if they reply' : ''}` };
+}
