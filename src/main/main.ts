@@ -79,6 +79,8 @@ function createWindow(icon: Electron.NativeImage, appearance: Settings['appearan
     minHeight: 500,
     title: DEMO ? 'Lodestar (demo)' : 'Lodestar',
     icon,
+    // Lodestar draws its own title bar (logo, title, minimize/maximize/close) in the page.
+    frame: false,
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, '../preload/preload.js'),
@@ -97,6 +99,10 @@ function createWindow(icon: Electron.NativeImage, appearance: Settings['appearan
     if (details.reason !== 'clean-exit') setTimeout(() => win?.reload(), 1000);
   });
   win.on('unresponsive', () => log.warn('window.unresponsive'));
+  // The page's maximize button shows maximize or restore to match the window.
+  const sendMaximized = () => win?.webContents.send('window-maximized', win.isMaximized());
+  win.on('maximize', sendMaximized);
+  win.on('unmaximize', sendMaximized);
   win.webContents.on('before-input-event', (e, input) => {
     if (DEV && input.control && input.shift && input.key.toLowerCase() === 'i') {
       win?.webContents.toggleDevTools();
@@ -133,6 +139,11 @@ function openHttps(url: string): Promise<void> {
 
 function registerIpc(engine: Engine): void {
   ipcMain.handle('getState', () => engine.state());
+  // Title bar buttons drawn by the page. Close goes through the normal close path (hide to tray).
+  ipcMain.handle('windowMinimize', () => win?.minimize());
+  ipcMain.handle('windowToggleMaximize', () => (win?.isMaximized() ? win.unmaximize() : win?.maximize()));
+  ipcMain.handle('windowClose', () => win?.close());
+  ipcMain.handle('windowIsMaximized', () => !!win?.isMaximized());
   ipcMain.handle('discover', (_e, email: string) => engine.discover(String(email)));
   ipcMain.handle('connect', (_e, req: ConnectRequest) => {
     if (!['gmail', 'outlook', 'imap'].includes(req?.kind)) throw new Error('Unknown provider');

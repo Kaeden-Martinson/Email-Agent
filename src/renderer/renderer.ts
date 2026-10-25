@@ -1,4 +1,5 @@
 import { initTheme } from './theme.js';
+import { initTitlebar } from './titlebar.js';
 import { api, onState, registerChrome, registerView, render, ui } from './core.js';
 import { renderHeader, renderNav, renderNotice } from './shell.js';
 import { renderOnboarding } from './views/onboarding.js';
@@ -29,9 +30,12 @@ registerView('rules', renderRules);
 registerView('notifications', renderNotifications);
 registerView('settings', renderSettings);
 
+// The title bar comes first, so the window can always be moved or closed even before data loads.
+initTitlebar(false);
 api.onState(onState);
 api.getState().then((s) => {
   ui.state = s;
+  if (s.status.demo) initTitlebar(true);
   initTheme(() => ui.state.settings.appearance);
   if (s.settings.userName) ui.onboardStep = 'mail';
   render();

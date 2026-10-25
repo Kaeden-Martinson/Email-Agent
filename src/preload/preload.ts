@@ -57,6 +57,15 @@ const api: Api = {
   dismissNotice: () => ipcRenderer.invoke('dismissNotice'),
   saveSettings: (patch) => ipcRenderer.invoke('saveSettings', patch),
   listModels: () => ipcRenderer.invoke('listModels'),
+  windowMinimize: () => ipcRenderer.invoke('windowMinimize'),
+  windowToggleMaximize: () => ipcRenderer.invoke('windowToggleMaximize'),
+  windowClose: () => ipcRenderer.invoke('windowClose'),
+  windowIsMaximized: () => ipcRenderer.invoke('windowIsMaximized'),
+  onWindowMaximized: (cb) => {
+    const listener = (_e: IpcRendererEvent, maximized: boolean) => cb(maximized);
+    ipcRenderer.on('window-maximized', listener);
+    return () => ipcRenderer.removeListener('window-maximized', listener);
+  },
   onState: (cb) => {
     const listener = (_e: IpcRendererEvent, state: AppState) => cb(state);
     ipcRenderer.on('state', listener);

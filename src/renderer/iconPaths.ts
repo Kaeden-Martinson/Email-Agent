@@ -42,6 +42,10 @@ export const ICON_PATHS = {
   thumbDown: '<path d="m6 9 6 6 6-6"/><path d="M12 15V3"/>',
   trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  winMinimize: '<path d="M6 12h12"/>',
+  winMaximize: '<rect x="6.5" y="6.5" width="11" height="11" rx="1"/>',
+  winRestore: '<rect x="6.5" y="9" width="8.5" height="8.5" rx="1"/><path d="M9 9V7.5a1 1 0 0 1 1-1h6.5a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H15"/>',
+  winClose: '<path d="M7 7l10 10M17 7 7 17"/>',
 } as const;
 
 export type IconName = keyof typeof ICON_PATHS;

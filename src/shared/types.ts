@@ -742,4 +742,10 @@ export interface Api {
   saveSettings(patch: Partial<Settings>): Promise<void>;
   listModels(): Promise<string[]>;
   onState(cb: (state: AppState) => void): () => void;
+  /** The page's own title bar buttons. */
+  windowMinimize(): Promise<void>;
+  windowToggleMaximize(): Promise<void>;
+  windowClose(): Promise<void>;
+  windowIsMaximized(): Promise<boolean>;
+  onWindowMaximized(cb: (maximized: boolean) => void): () => void;
 }
