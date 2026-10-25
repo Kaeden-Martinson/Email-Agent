@@ -249,7 +249,9 @@ if (!app.requestSingleInstanceLock()) {
   app.on('child-process-gone', (_e, d) => log.warn('child.gone', { type: d.type, reason: d.reason }));
 
   app.whenReady().then(async () => {
-    app.setAppUserModelId('com.inboxpilot.app');
+    // Windows takes the taskbar icon from the Start menu shortcut with this ID. Dev runs get their own ID so a
+    // shortcut to node_modules' electron.exe can never claim the installed app's icon.
+    app.setAppUserModelId(app.isPackaged ? 'com.inboxpilot.app' : 'com.inboxpilot.app.dev');
     initLogger(DEV);
     log.info('app.start', { version: app.getVersion(), packaged: app.isPackaged, demo: DEMO, hidden: HIDDEN });
     await initSecrets();
