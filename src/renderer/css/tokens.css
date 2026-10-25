@@ -1,0 +1,22 @@
+@font-face { font-family: "Inter"; font-weight: 400; font-style: normal; font-display: swap; src: url("../fonts/inter-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 500; font-style: normal; font-display: swap; src: url("../fonts/inter-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 600; font-style: normal; font-display: swap; src: url("../fonts/inter-latin-600-normal.woff2") format("woff2"); }
+
+:root {
+  --font: "Inter", "Segoe UI", system-ui, sans-serif;
+  --bg: #fbfbfc; --side: #f4f5f7; --panel: #ffffff; --text: #111318; --muted: #6b7180;
+  --line: #e7e9ee; --line-strong: #d5d9e1; --nav-on: #e8ebf1; --hover: #f2f4f7;
+  --accent: #2b59d9; --accent-weak: #e9effc; --accent-text: #2b59d9; --on-accent: #ffffff;
+  --danger: #d43c3c; --ok: #1f9d63; --warn: #b7791f;
+  /* legacy names still used by styles.css until Task 18 */
+  --chip: var(--nav-on); --p1: var(--danger); --p2: var(--accent); --p3: var(--line-strong); --accent-text-legacy: var(--on-accent);
+  --r-ctl: 5px; --r-card: 6px; --r-frame: 8px;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg: #0e0f12; --side: #121418; --panel: #16181d; --text: #e9ebf0; --muted: #8a909c;
+  --line: #23262d; --line-strong: #30343c; --nav-on: #1e2128; --hover: #1b1e24;
+  --accent: #5b84f2; --accent-weak: #1a2440; --accent-text: #86a5f7; --on-accent: #0b1020;
+  --danger: #f06a6a; --ok: #3ccf8e; --warn: #e3a64a;
+  color-scheme: dark;
+}

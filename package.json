@@ -17,6 +17,7 @@
     "dist:dir": "npm run build && npm run icon && electron-builder --win dir"
   },
   "devDependencies": {
+    "@fontsource/inter": "^5.3.0",
     "@types/mailparser": "^3.9.0",
     "@types/node": "^26.6.5",
     "@types/nodemailer": "^8.0.2",
