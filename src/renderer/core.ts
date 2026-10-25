@@ -1,3 +1,4 @@
+import { applyTheme } from './theme.js';
 import type { Api, AppState, Category, Discovery, Update } from '../shared/types.js';
 
 declare global {
@@ -164,6 +165,7 @@ export function render(): void {
 
 /** On a state push, re-render unless the user is typing; the form views keep their own values. */
 export function onState(next: AppState): void {
+  applyTheme(next.settings.appearance);
   ui.state = next;
   const active = document.activeElement;
   const typing =

@@ -1,3 +1,4 @@
+import { initTheme } from './theme.js';
 import { api, onState, registerChrome, registerView, render, ui } from './core.js';
 import { renderHeader, renderNav, renderNotice } from './shell.js';
 import { renderOnboarding } from './views/onboarding.js';
@@ -31,6 +32,7 @@ registerView('settings', renderSettings);
 api.onState(onState);
 api.getState().then((s) => {
   ui.state = s;
+  initTheme(() => ui.state.settings.appearance);
   if (s.settings.userName) ui.onboardStep = 'mail';
   render();
 });
