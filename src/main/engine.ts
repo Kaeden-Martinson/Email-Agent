@@ -27,7 +27,7 @@ import {
   type Update,
   type UpdateAction,
 } from '../shared/types';
-import { chatJson, listModels, ModelLoadError, OllamaUnavailableError, pullModel } from './ai/ollama';
+import { chatJson, listModels, ModelLoadError, OllamaUnavailableError, probeModel, pullModel } from './ai/ollama';
 import { pickModel } from './core/models';
 import { Asker } from './ask';
 import { suggestReplies } from './ai/replies';
@@ -55,7 +55,7 @@ import {
 import { buildThread, stripQuoted, type ThreadView } from './core/thread';
 import { createProvider, discover, signIn, verifyImap } from './providers';
 import { channelSecrets, passwords, tokens } from './secrets';
-import { mergeSettings, type Store } from './store';
+import { DEFAULT_SETTINGS, mergeSettings, type Store } from './store';
 import { compareVersions, parseFeed } from './core/version';
 import { log } from './logger';
 import { extractPdfText, isPdf, PDF_LIMITS } from './core/pdf';
@@ -601,7 +601,32 @@ export class Engine extends EventEmitter {
     } catch {
       return; // Ollama is down; triage reports that.
     }
-    if (!models.length || (models.includes(this.s.ollama.model) && !this.failedModels.has(this.s.ollama.model))) return;
+    // Installs from before 0.10 kept the old default, which is slow or hangs on some PCs. Switch once;
+    // choosing it again in Settings afterwards is respected.
+    if (!this.d.modelDefaultMigrated) {
+      this.d.modelDefaultMigrated = true;
+      const next = DEFAULT_SETTINGS.ollama.model;
+      if (this.s.ollama.model === 'gemma4:e4b' && models.includes(next)) {
+        log.info('model.switched', { from: this.s.ollama.model, to: next, reason: 'old default' });
+        this.d.settings = mergeSettings(this.s, { ollama: { ...this.s.ollama, model: next } });
+        this.status.message = `Pilot now uses "${next}", which is faster and more reliable here. You can change it in Settings.`;
+        this.changed();
+      }
+    }
+    if (models.includes(this.s.ollama.model) && !this.failedModels.has(this.s.ollama.model)) {
+      // Once per session, check that the chosen model actually loads, so a broken one is replaced
+      // before an email is waiting on it.
+      if (this.modelProbed === this.s.ollama.model) return;
+      this.modelProbed = this.s.ollama.model;
+      try {
+        await probeModel(this.s.ollama.url, this.s.ollama.model);
+        return;
+      } catch (e) {
+        if (e instanceof ModelLoadError) await this.switchModel(e);
+        return;
+      }
+    }
+    if (!models.length) return;
     const pick = pickModel(models, this.failedModels);
     if (pick && pick !== this.s.ollama.model) {
       log.info('model.switched', { from: this.s.ollama.model, to: pick, reason: 'not installed or failed to load' });
@@ -609,7 +634,6 @@ export class Engine extends EventEmitter {
     }
   }
 
-  /** A model that won't load is skipped for the rest of the session; returns true if another was chosen. */
   /** Runs a model call; if Ollama can't load the model, switches to an installed one and tries once more. */
   private async withModelFallback<T>(fn: () => Promise<T>): Promise<T> {
     try {
@@ -620,6 +644,9 @@ export class Engine extends EventEmitter {
     }
   }
 
+  private modelProbed = '';
+
+  /** A model that won't load is skipped for the rest of the session; returns true if another was chosen. */
   private async switchModel(e: ModelLoadError): Promise<boolean> {
     this.failedModels.add(e.model);
     log.warn('model.load_failed', { model: e.model, error: e.message });

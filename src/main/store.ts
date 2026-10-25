@@ -100,6 +100,8 @@ interface Persisted {
     phoneTimes: number[];
     status: Partial<Record<'desktop' | 'ntfy' | 'telegram', { lastSentAt?: number; lastError?: string }>>;
   };
+  /** The old default model (gemma4:e4b) was replaced with the current default once. */
+  modelDefaultMigrated?: boolean;
   /** When each owed reply's conversation was last checked for your reply. */
   owedCheckedAt: Record<string, number>;
 }
