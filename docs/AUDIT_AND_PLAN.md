@@ -213,3 +213,4 @@
 - **Writing style:** up to 40 sent emails from the last 90 days, quotes and signatures stripped, are described in one line (greeting, sign-off, length, tone); only the description is saved. Real-model test: correct description, and a planted instruction in a sample was ignored.
 - **Weekly digest:** a Your week card on Today and a Monday count-only notification (safe at Minimal); bill totals only when all amounts share a currency.
 - **Verified:** 217 tests pass; demo screenshots of each new screen; 0.12.0 installed and running on real data with no errors.
+- **Confirmed by you after release:** v0.12.0 published on GitHub (installer size matches the build), calendar connected, and Insert my free times showed your real free times.

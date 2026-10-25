@@ -27,6 +27,8 @@ New in 0.10.0: three reply versions (brief, friendly, formal), grouped similar e
 
 - **Gmail:** sync, threads, sent mail, triage, extraction, Ask; a real archive followed by Undo restored the email to the inbox.
 - **Installed app:** 0.12.0 installed over 0.11.0 with data kept; switched itself from the old `gemma4:e4b` to `qwen2.5:7b`; synced, no errors; update check reads the GitHub release.
+- **Calendar:** connected on your Gmail; Insert my free times showed your real free times.
+- **Releases:** v0.11.0 and v0.12.0 published on GitHub; the installed app's update check reads them.
 - **Google Cloud:** Calendar API enabled and `calendar.freebusy` added under Data Access (Google lists it as non-sensitive).
 - **AI:** `qwen2.5:7b` gives reply versions in about 10 s with no invented facts, and parses plain-English rules correctly (6 of 6 tests).
 - **PDF reading** works inside the packaged app.
@@ -38,9 +40,7 @@ New in 0.10.0: three reply versions (brief, friendly, formal), grouped similar e
 |---|---|---|
 | PDF on a real email | None with a PDF arrived during testing | Check the next bill or invoice card; it says "Read the attached …". |
 | Phone notifications | Needs the ntfy app on your phone | Install ntfy and subscribe to topic `pilot-b3cqclzslv9p`. |
-| Calendar on real data | Needs your consent on Google's screen | Mailboxes → Connect calendar. |
 | Writing style on real data | Reads your sent mail, so it waits for you | Replies → Learn my writing style. |
-| 0.12.0 GitHub release | The installer is too big for me to upload | Attach `release/Inbox Pilot Setup 0.12.0.exe` on the open release page and publish. |
 | Google's 7-day sign-out | Apps in Testing get signed out weekly | Use **Reconnect** when asked. To end it: verify `kaeden-martinson.github.io` in Google Search Console, add the homepage and privacy URLs under Branding, then Publish app. Restricted Gmail scopes still need Google's verification for anyone but you and your test users. |
 | Outlook | Needs an Azure app registration on a personal Microsoft account | See README → Microsoft client. |
 | Telegram | Needs your bot token | Notifications → Telegram. |
