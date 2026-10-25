@@ -1,6 +1,6 @@
 # Pilot: data flows and security
 
-This page says exactly what data Pilot touches, where it goes, and how it is protected. It describes the code in this repository as of version 0.10.0.
+This page says exactly what data Pilot touches, where it goes, and how it is protected. It describes the code in this repository as of version 0.11.0.
 
 ## Where data goes
 
@@ -8,6 +8,7 @@ This page says exactly what data Pilot touches, where it goes, and how it is pro
 |---|---|---|---|
 | Your mail (read, archive, label, drafts, send) | Google (Gmail API) or Microsoft (Graph), or your IMAP/SMTP server | Only for mailboxes you connect and watch | Over HTTPS/TLS with your OAuth token or app password. Read-only connections can never write or send. |
 | PDF attachments (up to two per email, 10 MB each) | Downloaded read-only from your mail provider, read **on your PC** with pdf.js | When the AI reads an email that has a PDF | Only the extracted text is kept (capped at 6,000 characters, inside the encrypted data file); the file itself is not saved. |
+| Calendar free/busy times (only after Connect calendar) | Read from Google Calendar or Microsoft Graph | When you ask for reply suggestions on an email about meeting, or press Insert my free times | Busy start and end times only, never titles or attendees; cached in memory for 10 minutes, not saved. |
 | Email text for summaries, drafts, extraction and answers | **Your local Ollama** (`http://127.0.0.1:11434` by default) | Each new email; when you Ask | Stays on your PC. If you point the Ollama address at another machine, mail goes there instead, so keep it local. |
 | Embeddings (only if you turn on semantic search) | Local Ollama, stored in `embeddings.json` | In the background after syncs | Numeric vectors derived from your mail, stored on your PC. |
 | Phone notifications | ntfy (ntfy.sh or your own server) or Telegram | Only if you turn on a phone channel | At **Minimal** (the default), no email content is sent, only "you have an important email" or counts. At Sender or Full, senders, subjects and summaries go through that service. |

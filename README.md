@@ -98,6 +98,7 @@ Each email has **More important**, **Less important** and **Junk**. These change
 - **Keyboard:** `j`/`k` move between emails, `e` archive, `d` done, `s` snooze, `r` reply, `o` open in your mail, `g` then `u`/`t`/`d` to jump to Updates/Today/Deadlines, `Ctrl+K` to Ask, `?` for the list.
 - **Undo:** Done, Snooze and Archive show an **Undo** button in the message at the bottom for 8 seconds.
 - **Similar emails are grouped:** repeats of the same alert or notification within a week show as one card with "+N similar" and a **Mark all done** button.
+- **Calendar-aware replies:** Mailboxes → Connect calendar grants free/busy access only. When an email asks to meet, reply suggestions offer two or three of your free working-hour slots, and the reply box has **Insert my free times**. Pilot never books or accepts anything.
 - **Three reply versions:** in the reply box, **Suggest 3 versions** writes brief, friendly and formal replies aware of the whole conversation. They say you'll check rather than invent an answer.
 - **PDF attachments:** bills, invoices and tickets attached as PDFs are read locally, so their due dates and amounts reach Deadlines and Ask my inbox. The card says which attachment was read.
 
@@ -140,8 +141,8 @@ People using the app just click "Sign in with Google/Microsoft". For that to wor
 
 ### Google client (Gmail and Google Workspace)
 
-1. In [Google Cloud Console](https://console.cloud.google.com/), create a project and enable the **Gmail API** (APIs & Services → Library).
-2. Configure the **OAuth consent screen** (Google Auth Platform): app name *Inbox Pilot*, user type **External**, and add the scope `https://www.googleapis.com/auth/gmail.modify`.
+1. In [Google Cloud Console](https://console.cloud.google.com/), create a project and enable the **Gmail API** (APIs & Services → Library). For calendar-aware replies, also enable the **Google Calendar API**.
+2. Configure the **OAuth consent screen** (Google Auth Platform): app name *Inbox Pilot*, user type **External**, and add the scope `https://www.googleapis.com/auth/gmail.modify` (plus `gmail.readonly` for read-only mailboxes and `calendar.freebusy` for Connect calendar).
 3. Under **Credentials → Create credentials → OAuth client ID**, choose **Desktop app**.
 4. Put the client ID and secret in `oauth-clients.json` under `google`. For desktop apps Google says the secret can't be kept confidential, so shipping it inside the app is normal.
 
@@ -189,7 +190,9 @@ This produces `release/Inbox Pilot Setup <version>.exe`, a per-user installer (n
 
 - **Data location:** always `%APPDATA%\inbox-pilot`, whether you run from source or install. Updates and reinstalls keep your mailboxes, rules, history and sign-ins.
 - **Start with Windows** (Settings → Privacy and startup, installed app only): Pilot starts hidden in the tray.
-- **Updates:** Settings → Updates checks an update feed you configure, either a simple JSON file `{ "version", "url", "notes" }` or a GitHub "latest release" API link. Pilot only tells you about a new version; you download and install it yourself.
+- **Updates:** Pilot checks this repository's latest GitHub release daily (Settings → Updates; another feed can be set there, either a JSON file `{ "version", "url", "notes" }` or a GitHub "latest release" API link). Pilot only tells you about a new version; you download and install it yourself.
+- **Releasing:** bump `version` in `package.json`, `npm run dist`, then create a GitHub release tagged `v<version>` and attach `release/Inbox Pilot Setup <version>.exe`.
+- **Website:** `docs/` is the GitHub Pages site (homepage and privacy policy, https://kaeden-martinson.github.io/Email-Agent/). After editing `docs/PRIVACY_POLICY.md`, run `npm run site` to regenerate `docs/privacy.html`.
 - **Code signing:** the installer is **unsigned**, so Windows SmartScreen will warn when you run it. To remove the warning, buy a code-signing certificate and add it to the `build.win` settings in `package.json` (see electron-builder's code-signing docs).
 
 ### Reliability and troubleshooting
