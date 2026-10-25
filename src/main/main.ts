@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, shell, Tr
 import * as path from 'node:path';
 import type {
   AccountPatch,
+  Category,
   Commitment,
   ConnectRequest,
   CorrectionKind,
@@ -184,6 +185,13 @@ function registerIpc(engine: Engine): void {
     applyLoginItem(engine.state().settings);
   });
   ipcMain.handle('getBody', (_e, key: string) => engine.getBody(String(key)));
+  const cleanupFilter = (f: { categories?: unknown; olderThanDays?: unknown }) => ({
+    categories: Array.isArray(f?.categories) ? (f.categories.filter((c) => typeof c === 'string') as Category[]) : [],
+    olderThanDays: Math.max(0, Number(f?.olderThanDays) || 0),
+  });
+  ipcMain.handle('cleanupPreview', (_e, f) => engine.cleanupPreview(cleanupFilter(f)));
+  ipcMain.handle('cleanupRun', (_e, f) => engine.cleanupRun(cleanupFilter(f)));
+  ipcMain.handle('undoMany', (_e, ids: string[]) => engine.undoMany(Array.isArray(ids) ? ids.filter((x) => typeof x === 'string') : []));
   ipcMain.handle('snooze', (_e, key: string, choice: string) => engine.snooze(String(key), String(choice ?? '')));
   ipcMain.handle('previewSnooze', (_e, choice: string) => engine.previewSnooze(String(choice ?? '')));
   ipcMain.handle('freeTimes', (_e, key: string) => engine.freeTimes(String(key)));

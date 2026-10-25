@@ -342,3 +342,4 @@ div.settings legend { font-weight: 600; padding: 0 6px; }
 .cluster > .similar[open] > summary { margin-bottom: 8px; }
 .rule-preview { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: var(--chip); }
 .tabs .keys-hint { margin-left: auto; color: var(--muted); font-size: 12px; }
+.row.wrap { flex-wrap: wrap; align-items: center; }

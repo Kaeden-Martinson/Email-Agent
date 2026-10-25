@@ -363,6 +363,13 @@ export interface Rule {
   lastHitAt?: number;
 }
 
+export interface CleanupPreview {
+  count: number;
+  /** Matching emails in mailboxes where archiving is off or read-only; left alone. */
+  skipped: number;
+  examples: { from: string; subject: string }[];
+}
+
 /** What a rule written in plain English would do, before you save it. */
 export interface RulePreview {
   match: Rule['match'];
@@ -667,6 +674,11 @@ export interface Api {
   freeTimes(key: string): Promise<string[]>;
   /** "tomorrow", "nextweek", "reply" or plain English. Resolves with a description. */
   snooze(key: string, choice: string): Promise<string>;
+  /** Which open emails a bulk cleanup would archive. Changes nothing. */
+  cleanupPreview(f: { categories: Category[]; olderThanDays: number }): Promise<CleanupPreview>;
+  /** Archives them (each logged in Activity and undoable). */
+  cleanupRun(f: { categories: Category[]; olderThanDays: number }): Promise<{ archived: number; failed: number; skipped: number; ids: string[] }>;
+  undoMany(ids: string[]): Promise<number>;
   previewSnooze(choice: string): Promise<{ label: string } | { error: string }>;
   replyOptions(key: string): Promise<{ tone: string; text: string }[]>;
   checkForUpdates(): Promise<void>;

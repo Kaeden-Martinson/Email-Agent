@@ -19,6 +19,7 @@ import {
   type PipelineStats,
   type EmailMessage,
   type Rule,
+  type CleanupPreview,
   type RulePreview,
   type SuggestedRule,
   type Settings,
@@ -61,6 +62,7 @@ import { log } from './logger';
 import { extractPdfText, isPdf, PDF_LIMITS } from './core/pdf';
 import { asksForTime, formatSlot, freeSlots, type Interval } from './core/slots';
 import { snoozeTime } from './core/when';
+import { selectForCleanup, type CleanupFilter } from './core/cleanup';
 import { Notifier } from './notifier';
 import { Tracker } from './tracker';
 import type { Formatted } from './core/notify';
@@ -565,6 +567,54 @@ export class Engine extends EventEmitter {
         u.snoozeUntilReply = undefined;
       }
     }
+  }
+
+  /** Mailboxes where Pilot may archive (permission on and not read-only). */
+  private canArchive(accountId: string): boolean {
+    const a = this.d.accounts.find((x) => x.id === accountId);
+    return !!a && a.permissions.manage && !accessBlocker(a, 'archive');
+  }
+
+  cleanupPreview(f: CleanupFilter): CleanupPreview {
+    const all = selectForCleanup(Object.values(this.d.updates), f);
+    const ok = all.filter((u) => this.canArchive(u.message.accountId));
+    return {
+      count: ok.length,
+      skipped: all.length - ok.length,
+      examples: ok.slice(0, 6).map((u) => ({ from: u.message.from.name || u.message.from.email, subject: u.message.subject })),
+    };
+  }
+
+  /** Archives one at a time through the normal path, so each is checked, logged and undoable. Max 300. */
+  async cleanupRun(f: CleanupFilter): Promise<{ archived: number; failed: number; skipped: number; ids: string[] }> {
+    const all = selectForCleanup(Object.values(this.d.updates), f);
+    const ok = all.filter((u) => this.canArchive(u.message.accountId)).slice(0, 300);
+    const reason = `Bulk cleanup: ${f.categories.join(', ')} older than ${f.olderThanDays} days`;
+    const ids: string[] = [];
+    let failed = 0;
+    for (const u of ok) {
+      const account = this.accountOf(u.message.accountId);
+      if (!account) continue;
+      const e = await this.perform(this.entry(u, account, 'archive', 'user', reason));
+      if (e.status === 'done') ids.push(e.id);
+      else failed++;
+    }
+    log.info('cleanup.done', { archived: ids.length, failed });
+    this.changed();
+    return { archived: ids.length, failed, skipped: all.length - ok.length, ids };
+  }
+
+  async undoMany(ids: string[]): Promise<number> {
+    let n = 0;
+    for (const id of ids) {
+      try {
+        await this.undo(id);
+        n++;
+      } catch (e) {
+        log.warn('undo.failed', { error: e });
+      }
+    }
+    return n;
   }
 
   previewSnooze(choice: string): { label: string } | { error: string } {
