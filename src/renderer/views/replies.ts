@@ -1,6 +1,7 @@
 import type { Category, Settings } from '../../shared/types.js';
-import { api, btn, CAT_LABEL, h, relTime, render, run, ui } from '../core.js';
-import { check, field, text } from './settings.js';
+import { api, CAT_LABEL, h, relTime, render, run, ui } from '../core.js';
+import { button, card, field, sectionTitle } from '../ui.js';
+import { check, text } from './settings.js';
 
 let styleBusy = false;
 
@@ -19,18 +20,18 @@ function styleBlock(): HTMLElement {
       }
     }, 'Writing style learned');
   };
-  return h('div', { class: 'field' },
+  return h('div', { class: 'g-field' },
     h('label', {}, 'Your writing style'),
     st
-      ? h('div', { class: 'rule-preview' },
+      ? h('div', { class: 'g-preview' },
           h('div', {}, st.description),
-          h('div', { class: 'hint' },
+          h('div', { class: 'g-hint' },
             [st.greeting && `Opens with "${st.greeting}"`, st.signoff && `closes with "${st.signoff}"`, `${st.length} emails`].filter(Boolean).join(' · ') +
               ` · learned from ${st.samples} sent emails ${relTime(st.learnedAt)}`))
-      : h('div', { class: 'hint' }, 'Pilot can read your recent sent emails once and describe how you write (greeting, sign-off, length, tone), so drafts sound like you. Only the short description is kept.'),
-    h('div', { class: 'actions' },
-      btn(styleBusy ? 'Reading your sent mail…' : st ? 'Learn again' : 'Learn my writing style', learn, st ? '' : 'primary', styleBusy),
-      st ? btn('Forget it', () => void run(() => api.forgetStyle(), 'Writing style removed'), 'ghost') : null));
+      : h('div', { class: 'g-hint' }, 'Pilot can read your recent sent emails once and describe how you write (greeting, sign-off, length, tone), so drafts sound like you. Only the short description is kept.'),
+    h('div', { class: 'g-acts' },
+      button(styleBusy ? 'Reading your sent mail…' : st ? 'Learn again' : 'Learn my writing style', { kind: st ? 'default' : 'primary', disabled: styleBusy, onClick: learn }),
+      st ? button('Forget it', { kind: 'ghost', onClick: () => void run(() => api.forgetStyle(), 'Writing style removed') }) : null));
 }
 
 export function renderRules(): HTMLElement {
@@ -43,7 +44,7 @@ export function renderRules(): HTMLElement {
   const tone = text(ar.tone);
   const [discloseEl, disclose] = check('Add "Sent automatically by my email assistant" to auto-sent replies', ar.disclose);
 
-  return h('form', { class: 'settings', onsubmit: (e: Event) => {
+  return h('form', { class: 'g-page', onsubmit: (e: Event) => {
     e.preventDefault();
     const patch: Partial<Settings> = {
       autoReply: {
@@ -55,17 +56,20 @@ export function renderRules(): HTMLElement {
     };
     void run(() => api.saveSettings(patch), 'Reply rules saved');
   } },
-    h('p', { class: 'hint' },
+    h('p', { class: 'g-hint' },
       'These rules apply to every mailbox. Whether a mailbox gets suggestions, drafts or auto-sent replies, and who counts as trusted, is set per mailbox under Mailboxes → Permissions.'),
-    h('fieldset', {}, h('legend', {}, 'Which emails get replies'),
-      h('p', { class: 'hint' },
+    sectionTitle('Which emails get replies'),
+    card([
+      h('p', { class: 'g-hint', style: 'margin-top:0' },
         'Pilot only drafts or sends replies for emails it puts in these categories. Newsletters, promotions, automated notifications, mailing lists, no-reply senders and threads already answered are always skipped.'),
-      catChecks.map((x) => x.el)),
-    h('fieldset', {}, h('legend', {}, 'Safeguards'),
+      ...catChecks.map((x) => x.el)]),
+    sectionTitle('Safeguards'),
+    card([
       field('Daily auto-send limit', cap, 'Across all mailboxes. After this many automatic sends in 24 hours, further replies become drafts.'),
-      discloseEl),
-    h('fieldset', {}, h('legend', {}, 'Voice'),
+      discloseEl]),
+    sectionTitle('Voice'),
+    card([
       field('Tone', tone, 'For example: "Warm and casual" or "Formal, short, no exclamation marks".'),
-      styleBlock()),
-    h('button', { class: 'btn primary', type: 'submit' }, 'Save'));
+      styleBlock()]),
+    h('div', { class: 'g-acts' }, h('button', { class: 'g-btn primary', type: 'submit' }, 'Save')));
 }

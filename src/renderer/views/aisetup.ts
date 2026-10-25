@@ -1,5 +1,6 @@
 import type { AiSetupStatus } from '../../shared/types.js';
-import { api, btn, h, render, run, ui } from '../core.js';
+import { api, h, render, run, ui } from '../core.js';
+import { banner, button, card, progress } from '../ui.js';
 
 // ---- AI setup ----
 
@@ -15,7 +16,7 @@ function refreshAi(): void {
 export function aiSetupPanel(onReady?: () => void): HTMLElement {
   if (!aiStatus) {
     refreshAi();
-    return h('div', { class: 'banner' }, 'Checking this PC…');
+    return banner('info', ['Checking this PC…']);
   }
   const s = aiStatus;
   const step = (fn: () => Promise<void>, done: string) => {
@@ -32,40 +33,41 @@ export function aiSetupPanel(onReady?: () => void): HTMLElement {
     }, done);
   };
   const p = ui.state.aiProgress;
-  const progress = p
-    ? h('div', { class: 'rule-preview' },
+  const progressBlock = p
+    ? h('div', { class: 'g-aiprog' },
         h('div', {}, h('strong', {}, p.step), p.percent !== undefined ? ` ${p.percent}%` : '…'),
-        p.percent !== undefined ? h('progress', { max: 100, value: p.percent }) : null)
+        progress(p.percent))
     : null;
   const pc = `This PC: ${s.ramGB} GB memory${s.vramGB ? `, ${s.vramGB} GB graphics memory` : ''}.`;
 
   if (s.ready) {
     clearInterval(aiPoll);
     aiPoll = undefined;
-    return h('div', { class: 'banner' },
-      h('strong', {}, 'The AI is ready. '), `Pilot will use ${s.usable}. ${pc}`,
-      onReady ? h('div', { class: 'actions' }, btn('Continue', onReady, 'primary')) : null);
+    return banner('ok', [h('strong', {}, 'The AI is ready. '), `Pilot will use ${s.usable}. ${pc}`],
+      onReady ? [button('Continue', { kind: 'primary', onClick: onReady })] : []);
   }
   if (s.ollama === 'missing') {
     // Someone may install Ollama by hand meanwhile: keep checking.
     aiPoll ??= window.setInterval(refreshAi, 5000);
-    return h('div', { class: 'banner' },
-      h('div', {}, h('strong', {}, 'Step 1 of 2: install Ollama. '), 'Ollama is the free program that runs the AI on this PC (about 1.7 GB download, no admin rights needed). Pilot downloads it from ollama.com and checks it is genuinely signed by Ollama before installing.'),
-      progress,
-      h('div', { class: 'actions' },
-        btn(aiBusy ? 'Installing…' : 'Install Ollama for me', () => step(() => api.aiInstallOllama(), 'Ollama installed'), 'primary', aiBusy),
-        btn('Get it myself', () => void run(() => api.openUrl('https://ollama.com/download/windows')), 'ghost')));
+    return card([
+      h('div', { class: 'g-step-k' }, 'Step 1 of 2'),
+      h('div', {}, h('strong', {}, 'Install Ollama. '), 'Ollama is the free program that runs the AI on this PC (about 1.7 GB download, no admin rights needed). Pilot downloads it from ollama.com and checks it is genuinely signed by Ollama before installing.'),
+      progressBlock,
+      h('div', { class: 'g-acts' },
+        button(aiBusy ? 'Installing…' : 'Install Ollama for me', { kind: 'primary', icon: 'download', disabled: aiBusy, onClick: () => step(() => api.aiInstallOllama(), 'Ollama installed') }),
+        button('Get it myself', { kind: 'ghost', onClick: () => void run(() => api.openUrl('https://ollama.com/download/windows')) }))]);
   }
   if (s.ollama === 'stopped') {
-    return h('div', { class: 'banner' },
+    return card([
       h('strong', {}, 'Ollama is installed but not running. '),
-      h('div', { class: 'actions' }, btn(aiBusy ? 'Starting…' : 'Start Ollama', () => step(() => api.aiStartOllama(), 'Ollama started'), 'primary', aiBusy)));
+      h('div', { class: 'g-acts' }, button(aiBusy ? 'Starting…' : 'Start Ollama', { kind: 'primary', disabled: aiBusy, onClick: () => step(() => api.aiStartOllama(), 'Ollama started') }))]);
   }
-  return h('div', { class: 'banner' },
-    h('div', {}, h('strong', {}, 'Step 2 of 2: download the AI model. '),
+  return card([
+    h('div', { class: 'g-step-k' }, 'Step 2 of 2'),
+    h('div', {}, h('strong', {}, 'Download the AI model. '),
       `Pilot picked ${s.recommended.model} (${s.recommended.sizeGB} GB) for this PC. ${pc}`),
-    s.recommended.note ? h('div', { class: 'hint' }, s.recommended.note) : null,
-    progress,
-    h('div', { class: 'actions' },
-      btn(aiBusy ? 'Downloading…' : `Download ${s.recommended.sizeGB} GB model`, () => step(() => api.aiPullModel(), 'AI model ready'), 'primary', aiBusy)));
+    s.recommended.note ? h('div', { class: 'g-hint' }, s.recommended.note) : null,
+    progressBlock,
+    h('div', { class: 'g-acts' },
+      button(aiBusy ? 'Downloading…' : `Download ${s.recommended.sizeGB} GB model`, { kind: 'primary', icon: 'download', disabled: aiBusy, onClick: () => step(() => api.aiPullModel(), 'AI model ready') }))]);
 }

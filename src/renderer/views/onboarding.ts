@@ -1,18 +1,41 @@
 import type { ServerConfig } from '../../shared/types.js';
-import { api, btn, h, openPerms, render, run, toast, ui, valueOf } from '../core.js';
+import { api, h, openPerms, render, run, toast, ui, valueOf, type Child } from '../core.js';
+import { icon, type IconName } from '../icons.js';
 import { aiSetupPanel } from './aisetup.js';
 import { banner, button, field } from '../ui.js';
 
 // ---- onboarding ----
 
+type Step = 'name' | 'ai' | 'mail';
+const STEPS: { id: Step; label: string; sub: string; icon: IconName }[] = [
+  { id: 'name', label: 'Your name', sub: 'Used when Pilot writes replies for you', icon: 'user' },
+  { id: 'ai', label: 'AI on this PC', sub: 'Runs locally, one-time setup', icon: 'cpu' },
+  { id: 'mail', label: 'Your mailbox', sub: 'Gmail, Outlook or any provider', icon: 'mail' },
+];
+
+function welcome(step: Step, content: Child[]): HTMLElement {
+  const at = STEPS.findIndex((x) => x.id === step);
+  return h('div', { class: 'g-welcome' },
+    h('div', { class: 'l' },
+      h('div', { class: 'g-brand big' }, h('span', { class: 'mark' }, icon('pilot', 14)), 'Inbox Pilot'),
+      h('h1', {}, 'Your email, read on your own PC.'),
+      h('p', {}, 'Pilot sorts what matters, tracks bills and deadlines, and drafts replies you approve. Nothing is sent to an AI company.'),
+      h('ul', {},
+        h('li', {}, icon('shield', 15), 'Encrypted on this PC'),
+        h('li', {}, icon('check', 15), 'Never sends without your OK'),
+        h('li', {}, icon('undo', 15), 'Archive can be undone'))),
+    h('div', { class: 'r' },
+      h('div', { class: 'g-step-k' }, `Step ${at + 1} of 3`),
+      ...STEPS.map((x, i) => h('div', { class: `g-check ${i < at ? 'done' : i === at ? 'on' : 'todo'}` },
+        icon(i < at ? 'check' : x.icon, 15), h('div', {}, h('b', {}, x.label), h('span', {}, x.sub)))),
+      h('div', { class: 'g-wbody' }, ...content)));
+}
+
 export function renderOnboarding(): HTMLElement {
   if (ui.onboardStep === 'name') {
     const name = h('input', { type: 'text', value: ui.state.settings.userName, placeholder: 'Your name', autofocus: true });
-    return h('div', { class: 'onboard' },
-      h('h1', {}, 'Welcome to Inbox Pilot'),
-      h('p', { class: 'lede' },
-        'Your Pilot lives on this PC and works for one person: you. It watches the mailboxes you connect, tells you what matters, and only replies the way you allow.'),
-      h('form', { class: 'settings', onsubmit: (e: Event) => {
+    return welcome('name', [
+      h('form', { onsubmit: (e: Event) => {
         e.preventDefault();
         const userName = name.value.trim();
         if (!userName) return toast('Enter your name to continue.');
@@ -25,17 +48,16 @@ export function renderOnboarding(): HTMLElement {
         });
       } },
         field('What should your Pilot call you?', name, 'It uses this when it writes replies for you.'),
-        h('button', { class: 'btn primary', type: 'submit' }, 'Continue')));
+        h('div', { class: 'g-acts' }, h('button', { class: 'g-btn primary', type: 'submit' }, 'Continue')))]);
   }
 
   if (ui.onboardStep === 'ai') {
-    return h('div', { class: 'onboard' },
-      h('h1', {}, 'Set up the AI on this PC'),
-      h('p', { class: 'lede' }, 'Pilot reads your email with an AI that runs on this computer, so your mail never goes to an AI company. This is a one-time setup.'),
+    return welcome('ai', [
+      h('p', { class: 'g-hint' }, 'Pilot reads your email with an AI that runs on this computer, so your mail never goes to an AI company. This is a one-time setup.'),
       aiSetupPanel(() => { ui.onboardStep = 'mail'; render(); }),
-      h('div', { class: 'actions' },
-        btn('Back', () => { ui.onboardStep = 'name'; render(); }, 'ghost'),
-        btn('Skip for now', () => { ui.onboardStep = 'mail'; render(); }, 'ghost')));
+      h('div', { class: 'g-acts' },
+        button('Back', { kind: 'ghost', onClick: () => { ui.onboardStep = 'name'; render(); } }),
+        button('Skip for now', { kind: 'ghost', onClick: () => { ui.onboardStep = 'mail'; render(); } }))]);
   }
 
   const finish = async (accountId?: string) => {
@@ -43,17 +65,16 @@ export function renderOnboarding(): HTMLElement {
     if (accountId) openPerms.add(accountId);
     await run(() => api.saveSettings({ onboarded: true }));
   };
-  return h('div', { class: 'onboard' },
-    h('h1', {}, `Hi ${ui.state.settings.userName}, let's add your first mailbox`),
-    h('p', { class: 'lede' },
-      "Type an email address. Pilot works out whether it's Gmail, Outlook or another provider and sets it up for you. You can add more mailboxes later."),
+  return welcome('mail', [
+    h('p', { class: 'g-hint' },
+      `Hi ${ui.state.settings.userName}. Type an email address. Pilot works out whether it's Gmail, Outlook or another provider and sets it up for you. You can add more mailboxes later.`),
     renderAddMailbox((id) => {
       void finish(id);
       toast('Mailbox added. Choose what Pilot may do there, then press Start watching.');
     }),
-    h('div', { class: 'actions' },
-      btn('Back', () => { ui.onboardStep = 'ai'; render(); }, 'ghost'),
-      btn('Skip for now', () => void finish(), 'ghost')));
+    h('div', { class: 'g-acts' },
+      button('Back', { kind: 'ghost', onClick: () => { ui.onboardStep = 'ai'; render(); } }),
+      button('Skip for now', { kind: 'ghost', onClick: () => void finish() }))]);
 }
 
 // ---- add mailbox ----

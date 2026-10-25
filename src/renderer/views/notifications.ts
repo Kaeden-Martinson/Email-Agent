@@ -1,6 +1,6 @@
 import type { NotificationSettings, NotifyChannel, NotifyEvent, PrivacyLevel } from '../../shared/types.js';
 import { api, btn, h, relTime, run, toast, ui, valueOf } from '../core.js';
-import { field } from './settings.js';
+import { banner, card, field, sectionTitle, segmented, toggle } from '../ui.js';
 
 // ---- notifications ----
 
@@ -38,10 +38,16 @@ function saveChannel<C extends NotifyChannel>(c: C, patch: Partial<NotificationS
 }
 
 function toggleRow(label: string, checked: boolean, onchange: (v: boolean) => void, hint?: string): HTMLElement {
-  return h('label', { class: 'check' },
-    h('input', { type: 'checkbox', checked, onchange: (e: Event) => onchange((e.target as HTMLInputElement).checked) }),
-    h('span', {}, label, hint ? h('div', { class: 'hint' }, hint) : null));
+  return h('div', { class: 'g-setrow' },
+    h('div', {}, h('b', {}, label), hint ? h('span', {}, hint) : null),
+    toggle(checked, onchange, label));
 }
+
+function sec(title: string, ...children: (HTMLElement | null)[]): HTMLElement {
+  return h('div', { class: 'g-nsec' }, sectionTitle(title), card(children));
+}
+
+const LEVEL_SHORT: Record<PrivacyLevel, string> = { minimal: 'Minimal', sender: 'Sender and subject', full: 'Full' };
 
 function channelStatusLine(c: NotifyChannel): HTMLElement | null {
   const st = ui.state.notifier.channels[c];
@@ -52,23 +58,23 @@ function channelStatusLine(c: NotifyChannel): HTMLElement | null {
 
 function channelCard(c: NotifyChannel, title: string, intro: HTMLElement | null, setup: (HTMLElement | null)[]): HTMLElement {
   const ch = ns()[c];
-  const level = h('select', { onchange: (e: Event) => saveChannel(c, { level: (e.target as HTMLSelectElement).value as PrivacyLevel }) },
-    (Object.keys(LEVEL_LABEL) as PrivacyLevel[]).map((l) => h('option', { value: l, selected: ch.level === l }, LEVEL_LABEL[l])));
-  return h('fieldset', { class: 'notify-card' }, h('legend', {}, title),
+  const level = segmented((Object.keys(LEVEL_LABEL) as PrivacyLevel[]).map((l) => ({ value: l, label: LEVEL_SHORT[l] })), ch.level,
+    (l) => saveChannel(c, { level: l }));
+  return sec(title,
     toggleRow(`Send notifications ${c === 'desktop' ? 'on this PC' : `with ${title}`}`, ch.enabled, (v) => saveChannel(c, { enabled: v })),
     intro,
     ch.enabled ? h('div', {},
       ...setup,
-      field('How much to show', level),
+      field('How much to show', level, LEVEL_LABEL[ch.level]),
       h('div', { class: 'preview' }, h('span', { class: 'hint' }, 'Example: '), LEVEL_PREVIEW[ch.level]),
       c !== 'desktop' && ch.level !== 'minimal'
-        ? h('div', { class: 'err' },
-            `At this level, email senders and subjects${ch.level === 'full' ? ' and summaries' : ''} pass through ${c === 'ntfy' ? (ns().ntfy.server.includes('ntfy.sh') ? 'the public ntfy.sh servers' : 'your ntfy server') : "Telegram's servers"}. Everything else in Pilot stays on this PC. Keep "Minimal" unless you're comfortable with that.`)
+        ? banner('warn', [
+            `At this level, email senders and subjects${ch.level === 'full' ? ' and summaries' : ''} pass through ${c === 'ntfy' ? (ns().ntfy.server.includes('ntfy.sh') ? 'the public ntfy.sh servers' : 'your ntfy server') : "Telegram's servers"}. Everything else in Pilot stays on this PC. Keep "Minimal" unless you're comfortable with that.`])
         : null,
-      h('div', { class: 'field' }, h('label', {}, 'Notify me about'),
+      h('div', { class: 'g-field' }, h('label', {}, 'Notify me about'),
         h('div', { class: 'events' }, (Object.keys(EVENT_LABEL) as NotifyEvent[]).map((ev) =>
           toggleRow(EVENT_LABEL[ev], ch.events[ev], (v) => saveChannel(c, { events: { ...ch.events, [ev]: v } }))))),
-      h('div', { class: 'row' }, btn('Send a test', () => void run(() => api.testNotification(c), 'Test sent. Check your device.'))),
+      h('div', { class: 'g-acts' }, btn('Send a test', () => void run(() => api.testNotification(c), 'Test sent. Check your device.'))),
       channelStatusLine(c)) : null);
 }
 
@@ -88,14 +94,14 @@ function randomTopic(): string {
 export function renderNotifications(): HTMLElement {
   const n = ns();
   const b = ui.state.settings.briefing;
-  const wrap = h('div', { class: 'settings' });
+  const wrap = h('div', { class: 'g-page g-notif' });
 
   wrap.append(
-    h('fieldset', {}, h('legend', {}, 'All notifications'),
+    sec('All notifications',
       toggleRow('Notifications on', n.enabled, (v) => saveNotifications({ enabled: v }), 'Turn everything off here; your settings below are kept.'),
       ui.state.notifier.held ? h('div', { class: 'hint' }, `${ui.state.notifier.held} notification${ui.state.notifier.held === 1 ? ' is' : 's are'} held and will arrive as one summary after quiet hours.`) : null),
 
-    h('fieldset', {}, h('legend', {}, 'Quiet hours'),
+    sec('Quiet hours',
       toggleRow('Hold notifications during quiet hours', n.quiet.enabled, (v) => saveNotifications({ quiet: { ...n.quiet, enabled: v } }),
         'Anything that comes in is sent as one short summary when quiet hours end.'),
       h('div', { class: 'row' },
@@ -103,14 +109,14 @@ export function renderNotifications(): HTMLElement {
         field('Until', h('input', { type: 'time', value: n.quiet.end, onchange: (e: Event) => saveNotifications({ quiet: { ...n.quiet, end: valueOf(e) || '07:00' } }) }))),
       toggleRow('Let important emails through anyway', n.quiet.allowUrgent, (v) => saveNotifications({ quiet: { ...n.quiet, allowUrgent: v } }))),
 
-    h('fieldset', {}, h('legend', {}, 'Morning briefing'),
+    sec('Morning briefing',
       toggleRow('Send a daily briefing', b.enabled, (v) => void run(() => api.saveSettings({ briefing: { ...b, enabled: v } }))),
       h('div', { class: 'row' },
         field('Time', h('input', { type: 'time', value: b.time, onchange: (e: Event) => void run(() => api.saveSettings({ briefing: { ...b, time: valueOf(e) || '08:00' } })) })),
         field('Days', h('select', { onchange: (e: Event) => void run(() => api.saveSettings({ briefing: { ...b, days: (e.target as HTMLSelectElement).value as 'everyday' | 'weekdays' } })) },
           h('option', { value: 'everyday', selected: b.days === 'everyday' }, 'Every day'),
           h('option', { value: 'weekdays', selected: b.days === 'weekdays' }, 'Weekdays only')))),
-      h('div', { class: 'field' }, h('label', {}, 'Include'),
+      h('div', { class: 'g-field' }, h('label', {}, 'Include'),
         (Object.entries({ urgent: 'What needs you', deadlines: 'Bills and deadlines', followups: 'Follow-ups', approvals: 'Approvals waiting' }) as [keyof typeof b.sections, string][]).map(([k, label]) =>
           toggleRow(label, b.sections[k], (v) => void run(() => api.saveSettings({ briefing: { ...b, sections: { ...b.sections, [k]: v } } }))))),
       h('div', { class: 'hint' }, 'Which devices get the briefing is set per channel below ("Morning briefing"). On phones at Minimal or Sender level, the briefing shows counts only.')),

@@ -1,19 +1,22 @@
 import type { Category, CleanupPreview, Subscription } from '../../shared/types.js';
-import { api, btn, h, relTime, render, run, toast, ui } from '../core.js';
+import { api, h, relTime, render, run, toast, ui, type Child } from '../core.js';
+import { button, card, chip, emptyState, table } from '../ui.js';
 
 // ---- subscriptions ----
 
 export function renderSubscriptions(): HTMLElement {
-  const wrap = h('div');
+  const wrap = h('div', { class: 'g-page' });
   const subs = ui.state.subscriptions;
-  wrap.append(h('p', { class: 'hint' },
+  wrap.append(h('p', { class: 'g-hint' },
     'Newsletters and promotions your Pilot has seen in the last 30 days, busiest first. Turn automatic unsubscribing on per mailbox under Mailboxes → Permissions.'));
   wrap.append(cleanupBox());
   if (!subs.length) {
-    wrap.append(h('div', { class: 'empty' }, 'No newsletters or promotions yet.'));
+    wrap.append(emptyState('No newsletters or promotions yet.'));
     return wrap;
   }
-  for (const s of subs) wrap.append(subscriptionRow(s));
+  wrap.append(table(
+    [{ label: 'Sender' }, { label: 'Emails', align: 'right' }, { label: 'Last' }, { label: '' }],
+    subs.map((s) => subscriptionRow(s))));
   return wrap;
 }
 
@@ -24,29 +27,29 @@ function cleanupBox(): HTMLElement {
   const reset = () => { cleanup.preview = null; };
   const cats: [Category, string][] = [['promo', 'Promotions'], ['newsletter', 'Newsletters'], ['notification', 'Notifications'], ['spam', 'Spam']];
   const p = cleanup.preview;
-  return h('div', { class: 'banner add-rule' },
-    h('h3', {}, 'Bulk cleanup'),
+  return card([
+    h('div', { class: 'g-cardt' }, 'Bulk cleanup'),
     h('div', { class: 'row wrap' },
       ...cats.map(([c, label]) => h('label', { class: 'check inline' },
         h('input', { type: 'checkbox', checked: cleanup.categories.includes(c), onchange: (e: Event) => {
           cleanup.categories = (e.target as HTMLInputElement).checked ? [...cleanup.categories, c] : cleanup.categories.filter((x) => x !== c);
           reset(); render();
         } }), label)),
-      h('select', { onchange: (e: Event) => { cleanup.days = Number((e.target as HTMLSelectElement).value); reset(); render(); } },
+      h('select', { class: 'g-sel', onchange: (e: Event) => { cleanup.days = Number((e.target as HTMLSelectElement).value); reset(); render(); } },
         ...[7, 14, 30, 60].map((d) => h('option', { value: String(d), selected: cleanup.days === d }, `older than ${d} days`))),
-      btn('Preview', () => void run(async () => {
+      button('Preview', { disabled: !cleanup.categories.length, onClick: () => void run(async () => {
         cleanup.preview = await api.cleanupPreview({ categories: cleanup.categories, olderThanDays: cleanup.days });
         render();
-      }), cleanup.categories.length ? '' : '', !cleanup.categories.length)),
-    h('div', { class: 'hint' }, 'Archives only; never deletes. Important emails and emails waiting on your reply are never included. Each archive can be undone.'),
+      }) })),
+    h('div', { class: 'g-hint' }, 'Archives only; never deletes. Important emails and emails waiting on your reply are never included. Each archive can be undone.'),
     p
-      ? h('div', { class: 'rule-preview' },
+      ? h('div', { class: 'g-preview' },
           h('strong', {}, p.count ? `${p.count} email${p.count === 1 ? '' : 's'} would be archived` : 'Nothing matches right now.'),
-          p.skipped ? h('div', { class: 'hint' }, `${p.skipped} more match in mailboxes where archiving is off; they are left alone.`) : null,
-          p.examples.length ? h('ul', { class: 'todos' }, p.examples.map((x) => h('li', {}, `${x.from}: ${x.subject || '(no subject)'}`))) : null,
+          p.skipped ? h('div', { class: 'g-hint' }, `${p.skipped} more match in mailboxes where archiving is off; they are left alone.`) : null,
+          p.examples.length ? h('ul', {}, p.examples.map((x) => h('li', {}, `${x.from}: ${x.subject || '(no subject)'}`))) : null,
           p.count
-            ? h('div', { class: 'actions' },
-                btn(cleanup.busy ? 'Archiving…' : `Archive ${p.count}`, () => {
+            ? h('div', { class: 'g-acts' },
+                button(cleanup.busy ? 'Archiving…' : `Archive ${p.count}`, { kind: 'primary', disabled: cleanup.busy, onClick: () => {
                   cleanup.busy = true;
                   render();
                   void run(async () => {
@@ -61,32 +64,33 @@ function cleanupBox(): HTMLElement {
                       render();
                     }
                   });
-                }, 'primary', cleanup.busy),
-                btn('Cancel', () => { reset(); render(); }, 'ghost'))
+                } }),
+                button('Cancel', { kind: 'ghost', onClick: () => { reset(); render(); } }))
             : null)
-      : null);
+      : null]);
 }
 
-function subscriptionRow(s: Subscription): HTMLElement {
+function subscriptionRow(s: Subscription): { cells: Child[] } {
   const account = ui.state.accounts.find((a) => a.id === s.accountId);
   const how = s.unsubscribe
     ? s.unsubscribe.oneClick ? 'One-click unsubscribe' : s.unsubscribe.mailto ? 'Unsubscribes by email' : 'Unsubscribes on their website'
     : 'No unsubscribe link';
   const action = s.unsubscribedAt
-    ? h('span', { class: 'pill off' }, `Unsubscribed ${relTime(s.unsubscribedAt)}`)
+    ? chip(`Unsubscribed ${relTime(s.unsubscribedAt)}`)
     : s.unsubscribe
-      ? btn('Unsubscribe', () => void run(async () => {
+      ? button('Unsubscribe', { kind: 'primary', tiny: true, onClick: () => void run(async () => {
           const r = await api.unsubscribe(s.accountId, s.sender);
           toast(r.message);
           if (r.openUrl) await api.openUrl(r.openUrl);
-        }), 'primary')
+        }) })
       : null;
-  return h('div', { class: 'banner sub-row' },
-    h('div', { class: 'grow' },
+  return { cells: [
+    h('div', {},
       h('div', {}, h('strong', {}, s.name || s.sender), s.name ? ` · ${s.sender}` : ''),
-      h('div', { class: 'hint' },
-        `${s.count} email${s.count === 1 ? '' : 's'} in 30 days · last ${relTime(s.lastAt)} · ${how}` +
-          (ui.state.accounts.length > 1 && account ? ` · ${account.email}` : '') +
-          (s.method ? ` · via ${s.method}` : ''))),
-    action);
+      h('div', { class: 'g-hint' },
+        how + (ui.state.accounts.length > 1 && account ? ` · ${account.email}` : '') + (s.method ? ` · via ${s.method}` : ''))),
+    String(s.count),
+    relTime(s.lastAt),
+    action,
+  ] };
 }
