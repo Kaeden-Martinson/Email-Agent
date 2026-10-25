@@ -28,6 +28,10 @@ Your email is processed on your PC; Lodestar has no server. Its data and sign-in
    - **Trusted senders** and a **signature** for this mailbox
 4. **Start watching**: Lodestar checks every few minutes (5 by default) and fills the Updates list.
 
+### Look and feel
+
+Lodestar uses a calm, compact design called Graphite: a sidebar with simple line icons, lists and tables instead of stacks of cards, and the Inter font bundled with the app. It comes in **Light** and **Dark**, or **Match Windows** to follow your Windows setting. The moon/sun button at the bottom of the sidebar switches between light and dark; all three choices are in **Settings → General → Appearance**, and the change applies straight away, including the window frame. The app is named Lodestar and its logo is a four-point star.
+
 ### How mail is read (the pipeline)
 
 1. **Your rules** run first. A rule for a sender or domain always wins over the AI.
