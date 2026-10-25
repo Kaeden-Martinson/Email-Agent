@@ -1549,6 +1549,25 @@ function tile(value: number, label: string, target: View, warn = false): HTMLEle
     h('div', { class: 'tile-label' }, label));
 }
 
+/** "Your week": counts from the last 7 days and the next 14. */
+function weekCard(): HTMLElement {
+  const w = state.weekly;
+  const money = w.billTotal !== undefined && w.currency
+    ? ` (${new Intl.NumberFormat(undefined, { style: 'currency', currency: w.currency }).format(w.billTotal)} total)`
+    : '';
+  return h('section', { class: 'group' },
+    h('h2', {}, 'Your week'),
+    h('div', { class: 'banner' },
+      h('ul', { class: 'todos' },
+        h('li', {}, `${w.received} emails in the last 7 days, ${w.important} important`),
+        h('li', {}, `Pilot did ${w.autoActions} thing${w.autoActions === 1 ? '' : 's'} on its own; you sent ${w.repliesSent} repl${w.repliesSent === 1 ? 'y' : 'ies'} and archived ${w.archived}`),
+        h('li', {}, `Next 2 weeks: ${w.bills} bill${w.bills === 1 ? '' : 's'}${money} and ${w.deadlines} other deadline${w.deadlines === 1 ? '' : 's'}`),
+        h('li', {}, `Waiting on ${w.waitingOn} repl${w.waitingOn === 1 ? 'y' : 'ies'}; you owe ${w.owed}`),
+        w.noisiest.length
+          ? h('li', {}, `Noisiest senders: ${w.noisiest.map((n) => `${n.name} (${n.count})`).join(', ')} `, btn('Clean up', () => go('subscriptions'), 'tiny'))
+          : null)));
+}
+
 function renderToday(): HTMLElement {
   const wrap = h('div', { class: 'today' });
   const open = state.updates.filter((u) => u.status === 'new');
@@ -1618,6 +1637,7 @@ function renderToday(): HTMLElement {
         h('span', { class: 'grow' }, h('strong', {}, f.to.email), ` · ${f.subject}`)));
     }
   }
+  wrap.append(weekCard());
   return wrap;
 }
 

@@ -363,6 +363,26 @@ export interface Rule {
   lastHitAt?: number;
 }
 
+export interface WeeklyDigest {
+  at: number;
+  /** Emails received in the last 7 days, and how many were important. */
+  received: number;
+  important: number;
+  /** Actions Pilot did on its own, replies you sent, and emails archived, last 7 days. */
+  autoActions: number;
+  repliesSent: number;
+  archived: number;
+  /** Open bills and other dated items in the next 14 days. */
+  bills: number;
+  billTotal?: number;
+  currency?: string;
+  deadlines: number;
+  waitingOn: number;
+  owed: number;
+  /** Senders of bulk mail with 3+ emails this week (cleanup candidates). */
+  noisiest: { name: string; count: number }[];
+}
+
 export interface CleanupPreview {
   count: number;
   /** Matching emails in mailboxes where archiving is off or read-only; left alone. */
@@ -620,6 +640,7 @@ export interface AppState {
   app: AppInfo;
   /** Whether Google / Microsoft sign-in is configured in this build. */
   signIn: { gmail: boolean; outlook: boolean };
+  weekly: WeeklyDigest;
 }
 
 export type UpdateAction = 'done' | 'reopen' | 'archive' | 'snooze';

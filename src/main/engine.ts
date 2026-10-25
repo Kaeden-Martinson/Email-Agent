@@ -20,6 +20,7 @@ import {
   type EmailMessage,
   type Rule,
   type CleanupPreview,
+  type WeeklyDigest,
   type RulePreview,
   type SuggestedRule,
   type Settings,
@@ -64,6 +65,16 @@ import { extractPdfText, isPdf, PDF_LIMITS } from './core/pdf';
 import { asksForTime, formatSlot, freeSlots, type Interval } from './core/slots';
 import { snoozeTime } from './core/when';
 import { selectForCleanup, type CleanupFilter } from './core/cleanup';
+import { digestSummary, weeklyDigest } from './core/digest';
+
+/** "2026-W43" (ISO 8601 week). */
+function isoWeek(d: Date): string {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - day);
+  const start = Date.UTC(t.getUTCFullYear(), 0, 1);
+  return `${t.getUTCFullYear()}-W${String(Math.ceil(((t.getTime() - start) / 86_400_000 + 1) / 7)).padStart(2, '0')}`;
+}
 import { Notifier } from './notifier';
 import { Tracker } from './tracker';
 import type { Formatted } from './core/notify';
@@ -134,9 +145,10 @@ export class Engine extends EventEmitter {
   start(): void {
     this.schedule();
     // Reminders that came due while the app was closed fire on launch.
-    setTimeout(() => void this.sync().then(() => Promise.all([this.maybeBrief(), this.tracker.tick()])), 3000);
+    setTimeout(() => void this.sync().then(() => Promise.all([this.maybeBrief(), this.maybeDigest(), this.tracker.tick()])), 3000);
     this.briefingTimer = setInterval(() => {
       void this.maybeBrief();
+      void this.maybeDigest();
       void this.tracker.tick();
       void this.notifyDue();
       void this.notifier.tick();
@@ -185,6 +197,7 @@ export class Engine extends EventEmitter {
       notifier: this.notifier.status(),
       app: this.appInfo,
       signIn: { gmail: !!clients.google.clientId, outlook: !!clients.microsoft.clientId },
+      weekly: this.weekly(),
     };
   }
 
@@ -1181,6 +1194,28 @@ export class Engine extends EventEmitter {
   }
 
   /** Once a day, at or after the chosen time (or at first launch after it). */
+  private weekly(): WeeklyDigest {
+    return weeklyDigest({
+      updates: Object.values(this.d.updates),
+      activity: this.d.activity,
+      items: this.d.items,
+      followUps: this.d.followUps,
+      owed: this.tracker.owed().length,
+    });
+  }
+
+  /** Mondays, once: a count-only notification of last week and the two weeks ahead (shown on Today too). */
+  private async maybeDigest(): Promise<void> {
+    const now = new Date();
+    if (now.getDay() !== 1 || !this.s.briefing.enabled || !this.watched().length) return;
+    const week = isoWeek(now);
+    if (this.d.lastDigestWeek === week) return;
+    this.d.lastDigestWeek = week;
+    const w = this.weekly();
+    await this.notifier.notify({ event: 'briefing', key: `digest:${week}`, safe: `Your week: ${digestSummary(w)}`, detail: `Your week: ${digestSummary(w)}` });
+    this.changed();
+  }
+
   private async maybeBrief(): Promise<void> {
     const b = this.s.briefing;
     if (!b.enabled || this.status.syncing || this.d.lastBriefingDay === this.todayKey() || !this.watched().length) return;
