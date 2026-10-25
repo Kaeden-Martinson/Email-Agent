@@ -203,3 +203,13 @@
 - **Update checks** default to this repo's latest GitHub release (older installs with no feed get it on load). Until the first release exists the check reports 404, which was seen in the installed app's log.
 - **Calendar awareness:** Connect calendar per mailbox requests `calendar.freebusy` (Google) or `Calendars.ReadBasic` (Microsoft), never full calendar access. Free working-hour slots (one per day, after a 2-hour lead time) are offered in reply suggestions when an email asks to find a time, and through an Insert my free times button. Real-model test: the first prompt let the model copy the example times; after the fix, two runs used the exact real slots and never claimed a booking. Reconnect buttons keep calendar access.
 - **Verified:** 205 tests pass; 0.11.0 built and installed silently over 0.10.0; the installed app started as 0.11.0 and synced with no errors. **Not verified:** a real Google free/busy call (needs the Calendar API enabled in the Cloud project, the scope added under Data Access, and Connect calendar).
+
+**2026-10-25: finishing pass (version 0.12.0)**
+
+- **Model check:** `gemma4:e4b` turned out to be flaky rather than broken: one request hung for over 5 minutes, another answered in 58 s, an empty load succeeded. Pilot now sends one tiny real request per session (same settings as real work, 2-minute limit) and switches models if it fails or hangs, and installs still on the old default move to `qwen2.5:7b` once. Seen on the installed copy: `model.switched gemma4:e4b → qwen2.5:7b (old default)`.
+- **Google Cloud:** enabled the Google Calendar API and added `calendar.freebusy` (non-sensitive) plus the Gmail scopes under Data Access, in the user's console.
+- **Smarter snooze:** Tomorrow, Next week, Until they reply (a new message from the other person in the conversation wakes it; 14-day fallback), or plain English, with a live preview and Undo.
+- **Bulk cleanup:** only bulk categories, never priority 1 or mail waiting on a reply, only mailboxes with archiving allowed; preview first; each archive goes through the normal checked, logged, undoable path (max 300 per run); Undo all.
+- **Writing style:** up to 40 sent emails from the last 90 days, quotes and signatures stripped, are described in one line (greeting, sign-off, length, tone); only the description is saved. Real-model test: correct description, and a planted instruction in a sample was ignored.
+- **Weekly digest:** a Your week card on Today and a Monday count-only notification (safe at Minimal); bill totals only when all amounts share a currency.
+- **Verified:** 217 tests pass; demo screenshots of each new screen; 0.12.0 installed and running on real data with no errors.

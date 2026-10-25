@@ -1,6 +1,6 @@
 # Pilot: data flows and security
 
-This page says exactly what data Pilot touches, where it goes, and how it is protected. It describes the code in this repository as of version 0.11.0.
+This page says exactly what data Pilot touches, where it goes, and how it is protected. It describes the code in this repository as of version 0.12.0.
 
 ## Where data goes
 
@@ -42,6 +42,8 @@ DPAPI ties encryption to your Windows account. Another Windows user on the same 
 - **Read-only connections** are checked before every mailbox write (`core/access.ts`).
 - **Scopes:** full access never requests Gmail's `https://mail.google.com/` (permanent delete) scope.
 - **Every action is logged in Activity.** It's marked done only after the provider confirms, and archive and label can be undone.
+- **Bulk cleanup only archives,** never deletes; it skips important mail and mail waiting on a reply, goes through the same permission and read-only checks as one archive, and logs every email so each (or all) can be undone.
+- **Writing style** is a one-line description learned from your sent mail on request; the sent emails themselves are not stored.
 - **Rules only sort.** Rules written in plain English are parsed by the local model, then checked in code: every address, domain and subject phrase must appear in what you typed, and the only possible effects are important, low priority or hidden. You see a preview before anything is saved.
 - **Reply versions never commit you.** The three suggested replies are drafts for you to edit and send; the prompt forbids agreeing to meetings, payments or deadlines and inventing facts.
 - **Financial data:** Pilot extracts bill amounts but never initiates payments or opens payment links on its own.

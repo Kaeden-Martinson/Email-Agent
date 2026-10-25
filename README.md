@@ -97,6 +97,10 @@ Each email has **More important**, **Less important** and **Junk**. These change
 
 - **Keyboard:** `j`/`k` move between emails, `e` archive, `d` done, `s` snooze, `r` reply, `o` open in your mail, `g` then `u`/`t`/`d` to jump to Updates/Today/Deadlines, `Ctrl+K` to Ask, `?` for the list.
 - **Undo:** Done, Snooze and Archive show an **Undo** button in the message at the bottom for 8 seconds.
+- **Snooze…** offers Tomorrow, Next week, Until they reply (it comes back when the sender writes again, or after 2 weeks), or any time in plain English.
+- **Bulk cleanup** (Subscriptions page): archive promotions, newsletters, notifications or spam older than 7–60 days. You see how many and which first; important emails and emails waiting on your reply are never included; Undo all puts them back.
+- **Your writing style** (Replies page): Pilot reads up to 40 recent sent emails once and keeps a one-line description (greeting, sign-off, length, tone) that drafts follow. Forget it removes it.
+- **Your week** on Today: emails received, what Pilot and you did, bills and deadlines in the next 2 weeks, and the noisiest senders. On Mondays a count-only notification sums it up.
 - **Similar emails are grouped:** repeats of the same alert or notification within a week show as one card with "+N similar" and a **Mark all done** button.
 - **Calendar-aware replies:** Mailboxes → Connect calendar grants free/busy access only. When an email asks to meet, reply suggestions offer two or three of your free working-hour slots, and the reply box has **Insert my free times**. Pilot never books or accepts anything.
 - **Three reply versions:** in the reply box, **Suggest 3 versions** writes brief, friendly and formal replies aware of the whole conversation. They say you'll check rather than invent an answer.
@@ -253,6 +257,5 @@ src/
 ## Ideas for next steps
 
 - Calendar awareness, so drafts can propose real free times
-- Learning your tone from your sent mail
 - Reading other attachment types (Word documents, images with OCR)
 - Publishing the Google app (needs the homepage and privacy policy hosted, for example on GitHub Pages)
