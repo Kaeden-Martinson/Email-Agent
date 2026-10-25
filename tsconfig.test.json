@@ -21,6 +21,7 @@
     "src/main/ai/ollama.ts",
     "src/main/providers/mime.ts",
     "src/shared/**/*",
+    "src/renderer/iconPaths.ts",
     "src/main/notifier.ts",
     "src/main/tracker.ts",
     "src/main/store.ts",
