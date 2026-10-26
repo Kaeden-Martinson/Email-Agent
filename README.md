@@ -145,7 +145,7 @@ These checks live in code, so nothing written in an email can talk the model pas
 
 ## Sharing with family and friends
 
-1. Send them the install guide: https://kaeden-martinson.github.io/Email-Agent/install.html (download link, SmartScreen, setup).
+1. Send them the install guide: https://kaeden-martinson.github.io/Lodestar/install.html (download link, SmartScreen, setup).
 2. **Add each Gmail address as a test user** before they sign in: [Google Auth Platform → Audience](https://console.cloud.google.com/auth/audience?project=inbox-pilot-512603) → Test users → Add users (up to 100). Without this Google shows "Access blocked".
 3. On first run, Lodestar installs Ollama for them (official installer, signature checked) and downloads a model sized to their PC: `qwen2.5:7b` with 16 GB RAM or a 6 GB+ graphics card, `qwen2.5:3b` with 8–16 GB, `qwen2.5:1.5b` below that.
 4. They'll see "Google hasn't verified this app" and must re-sign-in about weekly (Reconnect button) until the app is verified by Google.
@@ -210,7 +210,7 @@ This produces `release/Lodestar Setup <version>.exe`, a per-user installer (no a
 - **Start with Windows** is on by default for the installed app: Lodestar starts hidden in the tray when you sign in (turn it off in Settings → General). The installer creates a desktop shortcut and opens Lodestar when it finishes.
 - **Updates:** Lodestar checks this repository's latest GitHub release daily (Settings → Updates; another feed can be set there, either a JSON file `{ "version", "url", "notes" }` or a GitHub "latest release" API link). Lodestar only tells you about a new version; you download and install it yourself.
 - **Releasing:** bump `version` in `package.json`, `npm run dist`, then create a GitHub release tagged `v<version>` and attach `release/Lodestar Setup <version>.exe`.
-- **Website:** `docs/` is the GitHub Pages site (homepage and privacy policy, https://kaeden-martinson.github.io/Email-Agent/). After editing `docs/PRIVACY_POLICY.md`, run `npm run site` to regenerate `docs/privacy.html`.
+- **Website:** `docs/` is the GitHub Pages site (homepage and privacy policy, https://kaeden-martinson.github.io/Lodestar/). After editing `docs/PRIVACY_POLICY.md`, run `npm run site` to regenerate `docs/privacy.html`.
 - **Code signing:** the installer is **unsigned**, so Windows SmartScreen will warn when you run it. To remove the warning, buy a code-signing certificate and add it to the `build.win` settings in `package.json` (see electron-builder's code-signing docs).
 
 ### Reliability and troubleshooting

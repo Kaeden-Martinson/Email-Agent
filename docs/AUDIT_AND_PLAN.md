@@ -198,8 +198,8 @@
 
 **2026-10-24/25: GitHub, website, calendar awareness (version 0.11.0)**
 
-- **GitHub:** the code is public at https://github.com/Kaeden-Martinson/Email-Agent. History was checked first: no secrets (`oauth-clients.json`, tokens and mail data are gitignored and were never committed).
-- **Website:** GitHub Pages serves `docs/` at https://kaeden-martinson.github.io/Email-Agent/ (homepage and `privacy.html`, generated from `PRIVACY_POLICY.md` by `npm run site`). Both returned 200 after publishing.
+- **GitHub:** the code is public at https://github.com/Kaeden-Martinson/Lodestar. History was checked first: no secrets (`oauth-clients.json`, tokens and mail data are gitignored and were never committed).
+- **Website:** GitHub Pages serves `docs/` at https://kaeden-martinson.github.io/Lodestar/ (homepage and `privacy.html`, generated from `PRIVACY_POLICY.md` by `npm run site`). Both returned 200 after publishing.
 - **Update checks** default to this repo's latest GitHub release (older installs with no feed get it on load). Until the first release exists the check reports 404, which was seen in the installed app's log.
 - **Calendar awareness:** Connect calendar per mailbox requests `calendar.freebusy` (Google) or `Calendars.ReadBasic` (Microsoft), never full calendar access. Free working-hour slots (one per day, after a 2-hour lead time) are offered in reply suggestions when an email asks to find a time, and through an Insert my free times button. Real-model test: the first prompt let the model copy the example times; after the fix, two runs used the exact real slots and never claimed a booking. Reconnect buttons keep calendar access.
 - **Verified:** 205 tests pass; 0.11.0 built and installed silently over 0.10.0; the installed app started as 0.11.0 and synced with no errors. **Not verified:** a real Google free/busy call (needs the Calendar API enabled in the Cloud project, the scope added under Data Access, and Connect calendar).

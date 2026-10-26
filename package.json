@@ -1,7 +1,7 @@
 {
   "name": "inbox-pilot",
   "version": "0.14.0",
-  "repository": "github:Kaeden-Martinson/Email-Agent",
+  "repository": "github:Kaeden-Martinson/Lodestar",
   "description": "Desktop assistant that reads your Gmail and Outlook mail, triages it with a local AI model, and drafts or sends replies under rules you set.",
   "main": "dist/main/main.js",
   "private": true,

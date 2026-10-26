@@ -14,7 +14,7 @@
 | 8 | Notifications | Done. Desktop, ntfy (set up, Minimal), Telegram; privacy levels, quiet hours, rate limits. |
 | 9 | Installable Windows app | Done. Installed, starts with Windows (hidden). |
 | 10 | Outlook and provider hardening | Done in code. **Live Outlook untested** (needs Azure). |
-| 11 | Production readiness | Homepage and privacy policy live at https://kaeden-martinson.github.io/Email-Agent/. Google publishing still needs the steps below. |
+| 11 | Production readiness | Homepage and privacy policy live at https://kaeden-martinson.github.io/Lodestar/. Google publishing still needs the steps below. |
 | 12 | Engineering quality | Done. Encrypted data, backups, migrations, recovery, redacting logs. |
 
 New in 0.14.0: the Graphite redesign. Every screen was rebuilt (Today, Updates with a reading pane, Ask as a conversation, Deadlines as a weekly list, Follow-ups in two columns, Mailboxes, Rules as a table, Activity as a timeline, Settings with a sub-menu, a new first-run screen), with Light, Dark and Match Windows themes, SVG icons instead of emoji, and the new name Lodestar with a star logo. The old stylesheet is gone. Checked in the demo app in light and dark and on a fresh profile; not yet installed over your running copy.
@@ -40,7 +40,7 @@ New in 0.10.0: three reply versions (brief, friendly, formal), grouped similar e
 
 ## Sharing with family and friends
 
-- Install guide for them: https://kaeden-martinson.github.io/Email-Agent/install.html
+- Install guide for them: https://kaeden-martinson.github.io/Lodestar/install.html
 - For each Gmail user: add their address under Google Auth Platform → Audience → Test users (max 100).
 - First run installs Ollama and a right-sized model for them.
 

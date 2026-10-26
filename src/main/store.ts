@@ -27,7 +27,7 @@ function allEvents(on: boolean): Record<NotifyEvent, boolean> {
 }
 
 /** Official releases (GitHub). Lodestar only reports updates; installing stays your choice. */
-export const UPDATE_FEED = 'https://api.github.com/repos/Kaeden-Martinson/Email-Agent/releases/latest';
+export const UPDATE_FEED = 'https://api.github.com/repos/Kaeden-Martinson/Lodestar/releases/latest';
 
 export const DEFAULT_SETTINGS: Settings = {
   userName: '',

@@ -71,4 +71,4 @@ We will update this policy when Lodestar's data handling changes and note the da
 
 ## Contact
 
-Questions or requests: open an issue at https://github.com/Kaeden-Martinson/Email-Agent/issues
+Questions or requests: open an issue at https://github.com/Kaeden-Martinson/Lodestar/issues
